@@ -127,9 +127,13 @@
       "schema": { "$ref": "#/entities/UserCentralProfile" },
       "description": "Student central profile document keyed by Firebase Auth UID or canonical SSO subject ID."
     },
+    "/users/{userId}/subscriptions/{examId}": {
+      "schema": { "$ref": "#/entities/ExamSubscription" },
+      "description": "Canonical per-exam subscription entitlements synchronized across Web and Android (schemaVersion 2)."
+    },
     "/users/{userId}/entitlements/{examId}": {
       "schema": { "$ref": "#/entities/ExamSubscription" },
-      "description": "Per-exam subscription entitlements synchronized across Web and Android."
+      "description": "Legacy v1 per-exam subscription entitlements path retained for non-destructive backward compatibility."
     },
     "/users/{userId}/attempts/{sessionId}": {
       "schema": { "$ref": "#/entities/SimulationAttempt" },

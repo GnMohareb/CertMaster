@@ -69,10 +69,14 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
      */
     fun toWebProfileJson(profile: UserCentralProfile): String {
         val root = JSONObject()
+        root.put("schemaVersion", profile.schemaVersion)
         root.put("userId", profile.userId)
         root.put("email", profile.email)
         root.put("displayName", profile.displayName)
         root.put("avatarUrl", profile.avatarUrl)
+        root.put("preferredTheme", profile.preferredTheme)
+        root.put("targetExamId", ExamCatalog.normalizeExamId(profile.targetExamId))
+        root.put("lastActivePlatform", profile.lastActivePlatform)
         root.put("subscriptionTier", profile.subscriptionTier)
         root.put("assessmentCompleted", profile.assessmentCompleted)
         root.put("assessmentScorePercent", profile.assessmentScorePercent)
@@ -132,10 +136,14 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
         }
 
         return UserCentralProfile(
+            schemaVersion = obj.optInt("schemaVersion", 2),
             userId = obj.optString("userId", "usr_gnmohareb_cissp_001"),
             email = obj.optString("email", "gnmohareb@gmail.com"),
             displayName = obj.optString("displayName", "GN Mohareb"),
             avatarUrl = obj.optString("avatarUrl", ""),
+            preferredTheme = obj.optString("preferredTheme", "dark"),
+            targetExamId = ExamCatalog.normalizeExamId(obj.optString("targetExamId", "cissp")),
+            lastActivePlatform = obj.optString("lastActivePlatform", "WEB"),
             subscriptionTier = obj.optString("subscriptionTier", "Universal Multi-Pass"),
             assessmentCompleted = obj.optBoolean("assessmentCompleted", true),
             assessmentScorePercent = obj.optInt("assessmentScorePercent", 74),
@@ -198,11 +206,13 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
     }
 
     /**
-     * Converts a Web Platform `SimulationResult` JSON (`src/types/index.ts`) into an Android [SimulationScoreEntity].
+     * Converts a Web Platform `SimulationResult` / `SimulationAttempt` JSON (`src/types/certmaster.ts`) into an Android [SimulationScoreEntity].
      */
     fun fromWebSimulationResultJson(jsonString: String, attemptNumber: Int = 1): SimulationScoreEntity {
         val obj = JSONObject(jsonString)
-        val sessionId = obj.optString("sessionId", "sess_${System.currentTimeMillis()}")
+        val sessionId = obj.optString("attemptId").ifEmpty {
+            obj.optString("sessionId", "sess_${System.currentTimeMillis()}")
+        }
         val examId = ExamCatalog.normalizeExamId(obj.optString("examId", "cissp"))
         val timestamp = obj.optLong("timestamp", System.currentTimeMillis())
         val totalQuestions = obj.optInt("totalQuestions", 50)
@@ -212,6 +222,7 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
 
         val domainRecords = mutableListOf<DomainScoreRecord>()
         val domainScoresObj = obj.optJSONObject("domainScores")
+        val domainBreakdownArr = obj.optJSONArray("domainBreakdown")
         if (domainScoresObj != null) {
             val keys = domainScoresObj.keys()
             while (keys.hasNext()) {
@@ -221,6 +232,19 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
                     DomainScoreRecord(
                         domainId = domainId,
                         domainName = dObj.optString("domainName", domainId.uppercase()),
+                        scorePercent = dObj.optInt("percent", 0),
+                        correctCount = dObj.optInt("correct", 0),
+                        totalCount = dObj.optInt("total", 0)
+                    )
+                )
+            }
+        } else if (domainBreakdownArr != null) {
+            for (i in 0 until domainBreakdownArr.length()) {
+                val dObj = domainBreakdownArr.getJSONObject(i)
+                domainRecords.add(
+                    DomainScoreRecord(
+                        domainId = dObj.optString("domainId", "d${i + 1}"),
+                        domainName = dObj.optString("domainName", "Domain ${i + 1}"),
                         scorePercent = dObj.optInt("percent", 0),
                         correctCount = dObj.optInt("correct", 0),
                         totalCount = dObj.optInt("total", 0)
@@ -237,13 +261,13 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
             isPassed = passed,
             timeSpentSeconds = timeSpentSeconds,
             totalQuestions = totalQuestions,
-            attemptNumber = attemptNumber,
+            attemptNumber = obj.optInt("attemptNumber", attemptNumber),
             domainScores = domainRecords
         )
     }
 
     /**
-     * Converts an Android [SimulationScoreEntity] to the Web Platform `SimulationResult` JSON schema.
+     * Converts an Android [SimulationScoreEntity] to the Web Platform `SimulationResult` / `SimulationAttempt` JSON schema.
      */
     fun toWebSimulationResultJson(entity: SimulationScoreEntity, examTitle: String): String {
         val obj = JSONObject()
@@ -251,10 +275,14 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
         val totalCorrect = domainList.sumOf { it.correctCount }.takeIf { it > 0 }
             ?: ((entity.overallScorePercent * entity.totalQuestions) / 100)
 
+        obj.put("schemaVersion", 2)
+        obj.put("attemptId", entity.id)
         obj.put("sessionId", entity.id)
         obj.put("examId", ExamCatalog.normalizeExamId(entity.examId))
         obj.put("examTitle", examTitle)
+        obj.put("mode", "FULL_SIMULATION")
         obj.put("timestamp", entity.timestampMillis)
+        obj.put("attemptNumber", entity.attemptNumber)
         obj.put("totalQuestions", entity.totalQuestions)
         obj.put("correctCount", totalCorrect)
         obj.put("scorePercent", entity.overallScorePercent)
@@ -262,15 +290,19 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
         obj.put("timeSpentSeconds", entity.timeSpentSeconds)
 
         val domainScoresMap = JSONObject()
+        val domainBreakdownArr = JSONArray()
         domainList.forEach { ds ->
             val dObj = JSONObject()
+            dObj.put("domainId", ds.domainId)
+            dObj.put("domainName", ds.domainName)
             dObj.put("total", ds.totalCount)
             dObj.put("correct", ds.correctCount)
             dObj.put("percent", ds.scorePercent)
-            dObj.put("domainName", ds.domainName)
             domainScoresMap.put(ds.domainId, dObj)
+            domainBreakdownArr.put(dObj)
         }
         obj.put("domainScores", domainScoresMap)
+        obj.put("domainBreakdown", domainBreakdownArr)
         obj.put(
             "behavioralStressScore",
             AuthoritativeMetricsEngine.calculateSimulationBehavioralStress(
@@ -278,8 +310,10 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
                 passed = entity.isPassed
             )
         )
+        obj.put("optionSwitchesCount", 2)
         obj.put("eliminatedDistractorsCount", 4)
         obj.put("averageLatencySeconds", if (entity.totalQuestions > 0) entity.timeSpentSeconds / entity.totalQuestions else 45)
+        obj.put("originPlatform", "ANDROID")
         return obj.toString()
     }
 

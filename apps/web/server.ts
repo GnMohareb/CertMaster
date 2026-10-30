@@ -5,6 +5,11 @@ import { createServer as createViteServer } from 'vite';
 import { ALL_112_EXAM_BANKS, VENDORS, CISSP_DOMAINS } from './src/data/examBanks';
 import { CISSP_EXAM_QUESTIONS } from './src/data/cisspQuestions';
 import { ONBOARDING_ASSESSMENT_QUESTIONS } from './src/data/assessmentQuestions';
+import {
+  CANONICAL_SCHEMA_VERSION,
+  normalizeExamId,
+  classifyBehavioralArchetype,
+} from './src/lib/canonicalContract';
 
 const firebaseConfigPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
 const firebaseConfig = fs.existsSync(firebaseConfigPath)
@@ -80,9 +85,9 @@ async function startServer() {
         assessmentScorePercent,
         cognitiveStressBaseline,
         preferredTheme: body.preferredTheme || 'dark',
-        targetExamId: body.targetExamId || 'cissp',
+        targetExamId: normalizeExamId(body.targetExamId || 'cissp'),
         androidDeviceId: body.androidDeviceId || 'Pixel-8-Pro-G9H3K',
-        schemaVersion: 2,
+        schemaVersion: CANONICAL_SCHEMA_VERSION,
       },
       timestamp: new Date().toISOString(),
     });
@@ -117,42 +122,38 @@ async function startServer() {
       typeof body.distractorEliminationRate === 'number' ? body.distractorEliminationRate : 64;
     const scorePercent = typeof body.scorePercent === 'number' ? body.scorePercent : 78;
 
-    let archetypeName = 'Confident Master';
-    let recommendedStrategy =
-      'Balanced dwell time and decisive answer selection. Proceed with full timed simulations.';
+    const totalQuestions = typeof body.totalQuestions === 'number' ? body.totalQuestions : 10;
+    const totalSwitches =
+      typeof body.totalSwitches === 'number'
+        ? body.totalSwitches
+        : Math.max(1, Math.round((switchRatePercent / 100) * totalQuestions * 1.5));
+    const totalEliminations =
+      typeof body.totalEliminations === 'number'
+        ? body.totalEliminations
+        : Math.round((distractorEliminationRate / 100) * totalQuestions * 3);
 
-    if (avgDwellSeconds > 40 && switchRatePercent >= 25) {
-      archetypeName = 'Analytical Hesitator';
-      recommendedStrategy =
-        'Lock in your first instinct; empirical data shows your initial choice is 78% more likely to be correct.';
-    } else if (avgDwellSeconds < 22 && scorePercent >= 70) {
-      archetypeName = 'Fast Guesser & Intuitive';
-      recommendedStrategy =
-        'Slow down on multi-sentence scenario questions to avoid missing negative qualifiers.';
-    } else if (distractorEliminationRate >= 50) {
-      archetypeName = 'Methodical Eliminator';
-      recommendedStrategy =
-        'Maintain your disciplined elimination strategy. Optimal for expert-level exams like CISSP.';
-    }
-
-    const computedStressScore = Math.max(
-      25,
-      Math.min(95, Math.round(45 + avgDwellSeconds * 0.35 + switchRatePercent * 0.4))
-    );
+    const classified = classifyBehavioralArchetype({
+      scorePct: scorePercent,
+      avgLatencySec: avgDwellSeconds,
+      totalSwitches,
+      totalEliminations,
+      totalQuestions,
+    });
 
     res.json({
       status: '200 OK',
       packet: 'TELEMETRY_CALIBRATED',
+      schemaVersion: CANONICAL_SCHEMA_VERSION,
       firebaseProjectId: firebaseConfig.projectId,
       firestoreDatabaseId: firebaseConfig.firestoreDatabaseId,
       calibratedTelemetry: {
-        archetypeName,
+        archetypeName: classified.archetype,
         avgDwellSeconds,
         switchRatePercent,
         distractorEliminationRate,
         scorePercent,
-        computedStressScore,
-        recommendedStrategy,
+        computedStressScore: classified.cognitiveStressBaseline,
+        recommendedStrategy: classified.recommendedStrategy,
       },
       timestamp: new Date().toISOString(),
     });

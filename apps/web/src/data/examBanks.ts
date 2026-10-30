@@ -439,8 +439,8 @@ export const ALL_112_EXAM_BANKS: ExamBank[] = [
 
   // --- CompTIA (14) ---
   {
-    id: 'sy0-701',
-    code: 'CompTIA Security+',
+    id: 'sec-plus',
+    code: 'SY0-701',
     title: 'CompTIA Security+ (SY0-701)',
     vendor: 'CompTIA',
     questionsCount: 2100,

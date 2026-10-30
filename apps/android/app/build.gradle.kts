@@ -63,7 +63,16 @@ android {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      all {
+        if (System.getProperty("os.name").lowercase().contains("win")) {
+          it.systemProperty("javax.net.ssl.trustStoreType", "WINDOWS-ROOT")
+        }
+      }
+    }
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true

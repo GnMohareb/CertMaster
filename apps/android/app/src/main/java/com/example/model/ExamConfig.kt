@@ -12,7 +12,8 @@ data class ExamConfig(
     val durationMinutes: Int = 120,
     val domains: List<ExamDomain>,
     val primaryColorHex: Long = 0xFF2563EB,
-    val iconName: String = "Security"
+    val iconName: String = "Security",
+    val contentStatus: String = if (id == "cissp") "FULL_PREP" else "CATALOG_PREVIEW"
 )
 
 data class ExamDomain(

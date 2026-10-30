@@ -33,7 +33,7 @@ import org.robolectric.annotation.Config
  * calculations, offline caching with retry queueing, and deterministic conflict resolution.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class CrossPlatformSyncIntegrationTest {
 
     private lateinit var context: Context
@@ -237,7 +237,8 @@ class CrossPlatformSyncIntegrationTest {
         assertEquals(88, repository.userProfile.value.highestSimulationScore)
 
         val readiness = repository.readinessReport.value
-        assertTrue(readiness.readinessPercent >= 70)
+        // Authoritative 60/25/15 formula: round(70 * 0.60 + 74 * 0.25 + 14 * 0.15) = 63
+        assertEquals(63, readiness.readinessPercent)
         assertEquals(5, repository.studyPlanMilestones.value.size)
     }
 
@@ -327,9 +328,23 @@ class CrossPlatformSyncIntegrationTest {
         assertEquals("aws-saa", ExamCatalog.normalizeExamId("aws-saa"))
         assertEquals("sec-plus", ExamCatalog.normalizeExamId("sec_plus"))
         assertEquals("sec-plus", ExamCatalog.normalizeExamId("sec-plus"))
+        assertEquals("sec-plus", ExamCatalog.normalizeExamId("sy0-701"))
+        assertEquals("net-plus", ExamCatalog.normalizeExamId("n10-008"))
+        assertEquals("cysa-plus", ExamCatalog.normalizeExamId("cysa-003"))
+        assertEquals("pentest-plus", ExamCatalog.normalizeExamId("pt0-002"))
+        assertEquals("casp-plus", ExamCatalog.normalizeExamId("cas-004"))
+        assertEquals("rhcsa", ExamCatalog.normalizeExamId("rhcsa-ex200"))
+        assertEquals("rhce", ExamCatalog.normalizeExamId("rhce-ex294"))
         assertTrue(ExamCatalog.matchesExamId("aws_csa", "aws-saa"))
         assertTrue(ExamCatalog.matchesExamId("sec_plus", "sec-plus"))
+        assertTrue(ExamCatalog.matchesExamId("sec_plus", "sy0-701"))
         assertEquals("AWS SAA-C03", ExamCatalog.getExamById("aws_csa").shortCode)
         assertEquals("SY0-701", ExamCatalog.getExamById("sec_plus").shortCode)
+        assertEquals("SY0-701", ExamCatalog.getExamById("sy0-701").shortCode)
+        assertEquals("FULL_PREP", ExamCatalog.getExamContentStatus("cissp"))
+        assertEquals("CATALOG_PREVIEW", ExamCatalog.getExamContentStatus("gcp-pca"))
+        assertEquals(2, repository.userProfile.value.schemaVersion)
+        assertEquals(SubStatus.TRIAL_ACTIVE, SubStatus.fromWebStatusString("TRIAL"))
+        assertEquals("TRIAL", SubStatus.TRIAL_ACTIVE.toWebStatusString())
     }
 }

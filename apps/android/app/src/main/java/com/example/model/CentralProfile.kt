@@ -121,10 +121,14 @@ data class SyncLogEntry(
 )
 
 data class UserCentralProfile(
+    val schemaVersion: Int = 2,
     val userId: String = "usr_gnmohareb_cissp_001",
     val email: String = "gnmohareb@gmail.com",
     val displayName: String = "GN Mohareb",
     val avatarUrl: String = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80",
+    val preferredTheme: String = "dark",
+    val targetExamId: String = "cissp",
+    val lastActivePlatform: String = "ANDROID",
     val subscriptionTier: String = "Universal Multi-Pass",
     val centralPortalUrl: String = "https://ais-dev-c43kxdgpgcs6kaaoha4sx7-109050751533.us-west2.run.app",
     val assessmentCompleted: Boolean = true,

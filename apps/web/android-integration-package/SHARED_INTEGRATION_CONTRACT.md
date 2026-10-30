@@ -87,7 +87,7 @@ Strictly isolated PII collection (use `docId = "pii"`).
 Synchronizes single-exam unlocks and Universal Multi-Pass entitlements across Web and Android.
 - **Required Fields**:
   - `userId` (`string`, matches `request.auth.uid`)
-  - `examId` (`string`, `1..64` chars, matches `{examId}` path parameter, e.g. `"cissp"`, `"aws-saa"`, `"sy0-701"`)
+  - `examId` (`string`, `1..64` chars, matches `{examId}` path parameter, normalized via `normalizeExamId`, e.g. `"cissp"`, `"aws-saa"`, `"sec-plus"`)
   - `status` (`string`, enum: `"ACTIVE" | "EXPIRED" | "TRIAL" | "LOCKED"`)
   - `platform` (`string`, enum: `"WEB" | "ANDROID"`)
   - `expiresAt` (`string`, ISO-8601 timestamp, `<= 64` chars)

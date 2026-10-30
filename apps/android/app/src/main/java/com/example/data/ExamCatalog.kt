@@ -156,10 +156,18 @@ object ExamCatalog {
      * so entitlements, scores, study plans, and question banks resolve to the exact same canonical key.
      */
     fun normalizeExamId(rawId: String): String {
-        return when (rawId.trim().lowercase()) {
-            "aws_csa", "aws-saa", "awssaa" -> "aws-saa"
-            "sec_plus", "sec-plus", "security_plus", "sy0-701" -> "sec-plus"
-            else -> rawId.trim().lowercase()
+        val cleaned = rawId.trim().lowercase()
+        if (cleaned.isEmpty()) return "cissp"
+        return when (cleaned) {
+            "aws_csa", "aws-saa", "awssaa", "aws-saa-c03", "saa-c03" -> "aws-saa"
+            "sec_plus", "sec-plus", "security_plus", "security-plus", "sy0-701", "sy0_701" -> "sec-plus"
+            "n10-008", "n10_008", "net_plus", "net-plus" -> "net-plus"
+            "cysa-003", "cy0-003", "cysa_plus", "cysa-plus" -> "cysa-plus"
+            "pt0-002", "pentest_plus", "pentest-plus" -> "pentest-plus"
+            "cas-004", "casp_plus", "casp-plus" -> "casp-plus"
+            "rhcsa-ex200", "ex200", "rhcsa" -> "rhcsa"
+            "rhce-ex294", "ex294", "rhce" -> "rhce"
+            else -> cleaned.replace('_', '-')
         }
     }
 
@@ -168,6 +176,16 @@ object ExamCatalog {
      */
     fun matchesExamId(idA: String, idB: String): Boolean {
         return normalizeExamId(idA) == normalizeExamId(idB)
+    }
+
+    /**
+     * Returns canonical content availability status ("FULL_PREP" vs "CATALOG_PREVIEW").
+     */
+    fun getExamContentStatus(examId: String): String {
+        return when (normalizeExamId(examId)) {
+            "cissp", "aws-saa", "sec-plus", "pmp", "cism", "ceh" -> "FULL_PREP"
+            else -> "CATALOG_PREVIEW"
+        }
     }
 
     fun getExamById(id: String): ExamConfig {

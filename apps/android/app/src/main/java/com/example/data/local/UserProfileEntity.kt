@@ -110,11 +110,7 @@ data class UserProfileEntity(
                 val list = mutableListOf<ExamSubscription>()
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
-                    val status = try {
-                        SubStatus.valueOf(obj.optString("status", "LOCKED"))
-                    } catch (_: Exception) {
-                        SubStatus.LOCKED
-                    }
+                    val status = SubStatus.fromWebStatusString(obj.optString("status", "LOCKED"))
                     val origin = try {
                         PlatformOrigin.valueOf(obj.optString("platformOrigin", "UNIVERSAL_SYNC"))
                     } catch (_: Exception) {

@@ -42,9 +42,20 @@ import {
   TelemetryRecord,
   StudyPlanDoc,
   ExamReadinessDoc,
+  StudySource,
   IntegrationTestResult,
   CERTMASTER_SCHEMA_VERSION,
 } from '../types/certmaster';
+import {
+  normalizeExamId,
+  matchesExamId,
+  classifyBehavioralArchetype,
+  calculateSimulationBehavioralStress,
+  calculateReadinessAndStudyPlan,
+  flashcardBoxToState,
+  flashcardStateToBox,
+  migrateLegacyProfile,
+} from '../lib/canonicalContract';
 import { ALL_112_EXAM_BANKS } from '../data/examBanks';
 import { FLASHCARDS } from '../data/studyMaterials';
 import { DIRTY_DOZEN_SECURITY_TESTS } from '../../firestore.rules.test';
@@ -105,6 +116,8 @@ interface CertMasterContextType {
   studyPlan: StudyPlanDoc;
   updateStudyPlan: (updates: Partial<Pick<StudyPlanDoc, 'targetDate' | 'weeklyHours' | 'focusDomains' | 'status'>>) => Promise<void>;
   readinessMap: Record<string, ExamReadinessDoc>;
+  customSources: StudySource[];
+  addCustomSource: (source: Omit<StudySource, 'id' | 'schemaVersion' | 'cachedAtMillis'>) => Promise<void>;
   purchaseExam: (examId: string, tier?: 'single' | 'universal') => void;
   activeTab: 'dashboard' | 'catalog' | 'assessment' | 'simulator' | 'study' | 'sync';
   setActiveTab: (tab: 'dashboard' | 'catalog' | 'assessment' | 'simulator' | 'study' | 'sync') => void;
@@ -164,8 +177,8 @@ const INITIAL_PROFILE: UserCentralProfile = {
       expiresAt: '2027-12-31T23:59:59Z',
       lastSyncedAt: new Date().toISOString(),
     },
-    'sy0-701': {
-      examId: 'sy0-701',
+    'sec-plus': {
+      examId: 'sec-plus',
       status: 'ACTIVE',
       platform: 'ANDROID',
       expiresAt: '2027-12-31T23:59:59Z',
@@ -388,7 +401,20 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const saved = localStorage.getItem('certmaster_user_profile');
     if (saved) {
       try {
-        return { ...INITIAL_PROFILE, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        const migrated = migrateLegacyProfile({ ...INITIAL_PROFILE, ...parsed });
+        // Ensure behavioralArchetype stays an object for Web UI components
+        return {
+          ...INITIAL_PROFILE,
+          ...migrated,
+          behavioralArchetype:
+            typeof parsed.behavioralArchetype === 'object' && parsed.behavioralArchetype !== null
+              ? parsed.behavioralArchetype
+              : INITIAL_PROFILE.behavioralArchetype,
+          lastSyncTimestamp:
+            parsed.lastSyncTimestamp ||
+            new Date(migrated.lastSyncTimestampMillis ?? Date.now()).toISOString(),
+        };
       } catch {
         return INITIAL_PROFILE;
       }
@@ -412,6 +438,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [flashcards, setFlashcards] = useState<Flashcard[]>(FLASHCARDS);
   const [studyPlan, setStudyPlan] = useState<StudyPlanDoc>(INITIAL_STUDY_PLAN);
   const [readinessMap, setReadinessMap] = useState<Record<string, ExamReadinessDoc>>(INITIAL_READINESS);
+  const [customSources, setCustomSources] = useState<StudySource[]>([]);
 
   const [activeExam, setActiveExam] = useState<ActiveExamSession | null>(null);
   const [activeTab, setActiveTab] = useState<
@@ -726,10 +753,11 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const subsMap: Record<string, SubscriptionEntitlement> = {};
         snap.docs.forEach((d) => {
           const data = d.data();
-          subsMap[data.examId] = {
-            examId: data.examId,
-            status: data.status,
-            platform: data.platform,
+          const canonicalId = normalizeExamId(String(data.examId || d.id));
+          subsMap[canonicalId] = {
+            examId: canonicalId,
+            status: data.status === 'TRIAL_ACTIVE' ? 'TRIAL' : data.status,
+            platform: data.platform || data.subscribedPlatform || 'WEB',
             expiresAt: data.expiresAt || null,
             lastSyncedAt: formatFirestoreTimestamp(data.updatedAt),
           };
@@ -754,9 +782,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const attemptsList: HistoricalExamAttempt[] = snap.docs.map((d) => {
           const data = d.data();
           return {
-            id: data.attemptId || d.id,
+            id: data.attemptId || data.sessionId || d.id,
             date: data.dateString || '2026-10-30',
-            examId: data.examId || 'cissp',
+            examId: normalizeExamId(String(data.examId || 'cissp')),
             scorePercent: data.scorePercent ?? 75,
             timeSpentMinutes: data.timeSpentMinutes ?? 120,
             averageDwellSec: data.averageDwellSec ?? 42,
@@ -783,12 +811,30 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       flashcardsQuery,
       (snap) => {
         if (snap.empty) return;
-        const progressById: Record<string, { state: 'unstudied' | 'known' | 'needs_review'; reviewCount: number; platform: 'WEB' | 'ANDROID' }> = {};
+        const progressById: Record<
+          string,
+          {
+            state: 'unstudied' | 'known' | 'needs_review';
+            boxLevel: number;
+            reviewCount: number;
+            platform: 'WEB' | 'ANDROID';
+          }
+        > = {};
         snap.docs.forEach((d) => {
           const data = d.data();
-          progressById[data.cardId] = {
-            state: data.state,
-            reviewCount: data.reviewCount ?? 0,
+          const cId = String(data.cardId || data.id || d.id);
+          const boxLevel =
+            typeof data.boxLevel === 'number'
+              ? data.boxLevel
+              : flashcardStateToBox(data.state || 'unstudied');
+          const state =
+            data.state === 'known' || data.state === 'needs_review' || data.state === 'unstudied'
+              ? data.state
+              : flashcardBoxToState(boxLevel);
+          progressById[cId] = {
+            state,
+            boxLevel,
+            reviewCount: data.reviewCount ?? (boxLevel > 1 ? 1 : 0),
             platform: data.platform || 'WEB',
           };
         });
@@ -798,6 +844,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               ? {
                   ...fc,
                   state: progressById[fc.id].state,
+                  boxLevel: progressById[fc.id].boxLevel,
                   reviewCount: progressById[fc.id].reviewCount,
                   platform: progressById[fc.id].platform,
                 }
@@ -819,13 +866,13 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (snap.empty) return;
         const firstDoc = snap.docs[0].data();
         setStudyPlan({
-          planId: firstDoc.planId,
+          planId: firstDoc.planId || snap.docs[0].id,
           userId: firstDoc.userId,
-          examId: firstDoc.examId,
+          examId: normalizeExamId(String(firstDoc.examId || 'cissp')),
           targetDate: firstDoc.targetDate,
-          weeklyHours: firstDoc.weeklyHours,
+          weeklyHours: firstDoc.weeklyHours ?? 12,
           focusDomains: Array.isArray(firstDoc.focusDomains) ? firstDoc.focusDomains : [],
-          status: firstDoc.status,
+          status: firstDoc.status || 'ACTIVE',
         });
       },
       (error) => handleFirestoreError(error, OperationType.LIST, `users/${uid}/studyPlans`)
@@ -843,13 +890,14 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const map: Record<string, ExamReadinessDoc> = {};
         snap.docs.forEach((d) => {
           const data = d.data();
-          map[data.examId] = {
+          const eId = normalizeExamId(String(data.examId || d.id));
+          map[eId] = {
             userId: data.userId,
-            examId: data.examId,
-            readinessScore: data.readinessScore,
-            passProbability: data.passProbability,
-            simulationsCompleted: data.simulationsCompleted,
-            weakestDomain: data.weakestDomain,
+            examId: eId,
+            readinessScore: data.readinessScore ?? data.readinessPercent ?? 78,
+            passProbability: data.passProbability ?? data.passProbabilityPercent ?? 84,
+            simulationsCompleted: data.simulationsCompleted ?? data.completedSimulationsCount ?? 4,
+            weakestDomain: data.weakestDomain ?? data.weakestDomainName ?? 'Software Development Security',
           };
         });
         setReadinessMap(map);
@@ -1389,65 +1437,31 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
 
     if (activeExam.examId === 'assessment') {
-      let calculatedArchetype: BehavioralArchetype = DEFAULT_ARCHETYPE;
-      if (avgDwellSec > 40 && totalSwitches >= 3) {
-        calculatedArchetype = {
-          name: 'Analytical Hesitator',
-          description:
-            'Performs deep, rigorous reading but experiences cognitive latency and switches answers under pressure.',
-          avgDwellSeconds: avgDwellSec,
-          switchRatePercent: switchRatePct,
-          distractorEliminationRate: elimRatePct,
-          accuracyRate: scorePct,
-          confidenceIndex: 68,
-          recommendedStrategy:
-            'Lock in your first instinct; empirical data shows your initial choice is 78% more likely to be correct.',
-        };
-      } else if (avgDwellSec < 22 && scorePct >= 70) {
-        calculatedArchetype = {
-          name: 'Fast Guesser & Intuitive',
-          description:
-            'Rapid instinctual solver with very low dwell time. Highly efficient on conceptual recall.',
-          avgDwellSeconds: avgDwellSec,
-          switchRatePercent: switchRatePct,
-          distractorEliminationRate: elimRatePct,
-          accuracyRate: scorePct,
-          confidenceIndex: 85,
-          recommendedStrategy:
-            'Slow down on multi-sentence scenario questions to avoid missing critical negative qualifiers.',
-        };
-      } else if (totalEliminations >= 6) {
-        calculatedArchetype = {
-          name: 'Methodical Eliminator',
-          description:
-            'Systematically applies distractor strikethroughs to isolate correct options with high mathematical rigor.',
-          avgDwellSeconds: avgDwellSec,
-          switchRatePercent: switchRatePct,
-          distractorEliminationRate: elimRatePct,
-          accuracyRate: scorePct,
-          confidenceIndex: 82,
-          recommendedStrategy:
-            'Maintain your disciplined elimination strategy. This is optimal for expert-level exams like CISSP.',
-        };
-      } else {
-        calculatedArchetype = {
-          name: 'Confident Master',
-          description:
-            'Balanced dwell time, high accuracy, and decisive one-shot answer commitments.',
-          avgDwellSeconds: avgDwellSec,
-          switchRatePercent: switchRatePct,
-          distractorEliminationRate: elimRatePct,
-          accuracyRate: scorePct,
-          confidenceIndex: 91,
-          recommendedStrategy:
-            'You are performing in the top 5th percentile. Proceed directly to full timed mock exams.',
-        };
-      }
+      const classified = classifyBehavioralArchetype({
+        scorePct,
+        avgLatencySec: avgDwellSec,
+        totalSwitches,
+        totalEliminations,
+        totalQuestions: totalQ,
+      });
+
+      const calculatedArchetype: BehavioralArchetype = {
+        name: classified.archetype,
+        description: classified.hesitationNotes,
+        avgDwellSeconds: avgDwellSec,
+        switchRatePercent: switchRatePct,
+        distractorEliminationRate: Math.round(classified.distractorEliminationRate * 100),
+        accuracyRate: scorePct,
+        confidenceIndex: classified.confidenceIndex,
+        recommendedStrategy: classified.recommendedStrategy,
+      };
+      const calibratedStress = classified.cognitiveStressBaseline;
 
       setProfile((prev) => ({
         ...prev,
+        assessmentCompleted: true,
         assessmentScorePercent: scorePct,
-        cognitiveStressBaseline: newStress,
+        cognitiveStressBaseline: calibratedStress,
         behavioralArchetype: calculatedArchetype,
       }));
 
@@ -1455,8 +1469,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const uid = sanitizeId(firebaseUser.uid);
         try {
           await updateDoc(doc(db, 'users', uid), {
+            assessmentCompleted: true,
             assessmentScorePercent: scorePct,
-            cognitiveStressBaseline: newStress,
+            cognitiveStressBaseline: calibratedStress,
             archetypeName: sanitizeString(calculatedArchetype.name, 100),
             archetypeDescription: sanitizeString(calculatedArchetype.description, 600),
             avgDwellSeconds: calculatedArchetype.avgDwellSeconds,
@@ -1465,6 +1480,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             confidenceIndex: calculatedArchetype.confidenceIndex,
             recommendedStrategy: sanitizeString(calculatedArchetype.recommendedStrategy, 600),
             lastActivePlatform: 'WEB',
+            schemaVersion: CERTMASTER_SCHEMA_VERSION,
             updatedAt: serverTimestamp(),
           });
 
@@ -1489,11 +1505,13 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } else {
       const attemptId = `att_web_${Date.now()}`;
       const todayStr = new Date().toISOString().split('T')[0];
+      const canonicalExamId = normalizeExamId(activeExam.examId);
       const timeSpent = clampNumber(
         Math.max(1, Math.round((activeExam.durationMinutes * 60 - activeExam.timeRemainingSeconds) / 60)),
         0,
         600
       );
+      const simStress = calculateSimulationBehavioralStress(totalSwitches, scorePct >= 70);
       const domainScores: Record<string, number> = {
         'Security & Risk Management': Math.min(100, scorePct + 4),
         'Asset Security': Math.min(100, scorePct + 2),
@@ -1508,11 +1526,11 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newAttempt: HistoricalExamAttempt = {
         id: attemptId,
         date: todayStr,
-        examId: activeExam.examId,
+        examId: canonicalExamId,
         scorePercent: scorePct,
         timeSpentMinutes: timeSpent,
         averageDwellSec: avgDwellSec,
-        stressScore: Math.round(profile.cognitiveStressBaseline * 0.95),
+        stressScore: simStress,
         platform: 'WEB',
         attemptType: 'SIMULATION',
         totalQuestions: totalQ,
@@ -1520,14 +1538,53 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         domainScores,
       };
 
-      setHistoricalAttempts((prev) => [...prev, newAttempt]);
+      const updatedAttempts = [...historicalAttempts, newAttempt];
+      setHistoricalAttempts(updatedAttempts);
+
+      // Recompute canonical readiness and study plan
+      const knownCardsCount = flashcards.filter((f) => f.state === 'known').length;
+      const { readiness: computedReadiness, studyPlan: computedPlan } =
+        calculateReadinessAndStudyPlan({
+          userId: firebaseUser?.uid || profile.userId,
+          examId: canonicalExamId,
+          passingScorePercent: 70,
+          assessmentCompleted: true,
+          assessmentScorePercent: profile.assessmentScorePercent,
+          cognitiveStressBaseline: simStress,
+          behavioralArchetype: profile.behavioralArchetype.name,
+          averageDwellTimeSec: avgDwellSec,
+          simulationScoresPercent: updatedAttempts
+            .filter((a) => matchesExamId(a.examId, canonicalExamId))
+            .map((a) => a.scorePercent),
+          knownFlashcardsCount: knownCardsCount,
+          totalFlashcardsCount: flashcards.length,
+          weakestDomainId: 'd3',
+          weakestDomainName: 'Security Architecture & Engineering',
+          weakestDomainScore: Math.max(50, scorePct - 5),
+          targetDate: studyPlan.targetDate,
+          weeklyHours: studyPlan.weeklyHours,
+        });
+
+      setReadinessMap((prev) => ({
+        ...prev,
+        [canonicalExamId]: computedReadiness,
+      }));
+      setStudyPlan((prev) => ({
+        ...prev,
+        currentStage: computedPlan.currentStage,
+        readinessPercent: computedPlan.readinessPercent,
+        passProbabilityPercent: computedPlan.passProbabilityPercent,
+        passGuaranteeQualified: computedPlan.passGuaranteeQualified,
+        milestones: computedPlan.milestones,
+      }));
 
       if (firebaseUser) {
         const uid = sanitizeId(firebaseUser.uid);
-        const eId = sanitizeId(activeExam.examId);
+        const eId = sanitizeId(canonicalExamId);
         try {
           const batch = writeBatch(db);
           batch.set(doc(db, 'users', uid, 'attempts', attemptId), {
+            schemaVersion: CERTMASTER_SCHEMA_VERSION,
             attemptId,
             userId: uid,
             examId: eId,
@@ -1538,19 +1595,20 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             correctAnswers: correctCount,
             timeSpentMinutes: timeSpent,
             averageDwellSec: avgDwellSec,
-            stressScore: clampNumber(Math.round(profile.cognitiveStressBaseline * 0.95), 0, 100),
+            stressScore: clampNumber(simStress, 0, 100),
             dateString: todayStr,
             domainScores,
             createdAt: serverTimestamp(),
           });
 
           batch.set(doc(db, 'users', uid, 'readiness', eId), {
+            schemaVersion: CERTMASTER_SCHEMA_VERSION,
             userId: uid,
             examId: eId,
-            readinessScore: scorePct,
-            passProbability: clampNumber(scorePct + 6, 0, 100),
-            simulationsCompleted: historicalAttempts.length + 1,
-            weakestDomain: 'Security Architecture & Engineering',
+            readinessScore: computedReadiness.readinessScore,
+            passProbability: computedReadiness.passProbability,
+            simulationsCompleted: computedReadiness.simulationsCompleted,
+            weakestDomain: computedReadiness.weakestDomain,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
@@ -1713,10 +1771,21 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ) => {
     const targetCard = flashcards.find((f) => f.id === id);
     const nextReviewCount = (targetCard?.reviewCount || 0) + 1;
+    const boxLevel = flashcardStateToBox(state);
+    const nowEpoch = Date.now();
 
     setFlashcards((prev) =>
       prev.map((f) =>
-        f.id === id ? { ...f, state, reviewCount: nextReviewCount, platform: 'WEB' } : f
+        f.id === id
+          ? {
+              ...f,
+              state,
+              boxLevel,
+              lastReviewedEpoch: nowEpoch,
+              reviewCount: nextReviewCount,
+              platform: 'WEB',
+            }
+          : f
       )
     );
 
@@ -1725,11 +1794,14 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const cardId = sanitizeId(id);
       try {
         await setDoc(doc(db, 'users', uid, 'flashcards', cardId), {
+          schemaVersion: CERTMASTER_SCHEMA_VERSION,
           userId: uid,
           cardId,
-          examId: 'cissp',
+          examId: normalizeExamId(targetCard.examId || 'cissp'),
           domain: sanitizeString(targetCard.domain, 120),
           state,
+          boxLevel,
+          lastReviewedEpoch: nowEpoch,
           reviewCount: clampNumber(nextReviewCount, 0, 10000),
           platform: 'WEB',
           createdAt: serverTimestamp(),
@@ -1737,6 +1809,34 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `users/${uid}/flashcards/${cardId}`);
+      }
+    }
+  };
+
+  const addCustomSource = async (
+    source: Omit<StudySource, 'id' | 'schemaVersion' | 'cachedAtMillis'>
+  ) => {
+    const newSource: StudySource = {
+      ...source,
+      schemaVersion: CERTMASTER_SCHEMA_VERSION,
+      id: `src_${Date.now()}`,
+      examId: normalizeExamId(source.examId || 'cissp'),
+      cachedAtMillis: Date.now(),
+    };
+    setCustomSources((prev) => [newSource, ...prev]);
+
+    if (firebaseUser) {
+      const uid = sanitizeId(firebaseUser.uid);
+      const sId = sanitizeId(newSource.id);
+      try {
+        await setDoc(doc(db, 'users', uid, 'sources', sId), {
+          ...newSource,
+          userId: uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `users/${uid}/sources/${sId}`);
       }
     }
   };
@@ -1966,6 +2066,8 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         studyPlan,
         updateStudyPlan,
         readinessMap,
+        customSources,
+        addCustomSource,
         purchaseExam,
         activeTab,
         setActiveTab,
