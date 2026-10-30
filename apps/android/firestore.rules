@@ -2,70 +2,51 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // =========================================================================
+    // 1. GLOBAL SAFETY NET (Default-Deny Catch-All)
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // 2. PRIMITIVE HELPERS & IDENTITY VERIFICATION
+    // =========================================================================
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isValidProfile(data) {
-      return data.keys().hasAll(['userId', 'email', 'displayName', 'subscriptionTier', 'lastSyncTimestampMillis'])
-        && data.userId is string
-        && data.email is string
-        && data.displayName is string
-        && data.displayName.size() <= 120
-        && data.subscriptionTier in ['Universal Multi-Pass', 'Single-Exam Pass', 'Free Trial']
-        && data.lastSyncTimestampMillis is int;
+    function isVerifiedOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
     }
 
-    function isValidEntitlement(data) {
-      return data.keys().hasAll(['examId', 'status', 'subscribedPlatform', 'universalAccess'])
-        && data.examId is string
-        && data.status in ['ACTIVE', 'TRIAL', 'TRIAL_ACTIVE', 'LOCKED', 'EXPIRED']
-        && data.subscribedPlatform in ['WEB', 'ANDROID', 'UNIVERSAL_SYNC']
-        && data.universalAccess is bool;
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function isValidAttempt(data) {
-      return data.keys().hasAll(['sessionId', 'userId', 'examId', 'timestamp', 'scorePercent', 'passed'])
-        && data.sessionId is string
-        && data.userId is string
-        && data.examId is string
-        && data.timestamp is int
-        && data.scorePercent is int
-        && data.scorePercent >= 0
-        && data.scorePercent <= 100
-        && data.passed is bool;
+    function incoming() {
+      return request.resource.data;
     }
 
-    function isValidStudyPlan(data) {
-      return data.keys().hasAll(['examId', 'userId', 'currentStage', 'readinessPercent', 'updatedAtMillis'])
-        && data.examId is string
-        && data.userId is string
-        && data.currentStage is int
-        && data.currentStage >= 1
-        && data.currentStage <= 5
-        && data.readinessPercent is int
-        && data.readinessPercent >= 0
-        && data.readinessPercent <= 100
-        && data.updatedAtMillis is int;
+    function existing() {
+      return resource.data;
     }
 
-    function isValidFlashcard(data) {
-      return data.keys().hasAll(['id', 'userId', 'examId', 'boxLevel', 'status', 'lastReviewedEpoch'])
-        && data.id is string
-        && data.userId is string
-        && data.examId is string
-        && data.boxLevel is int
-        && data.boxLevel >= 1
-        && data.boxLevel <= 5
-        && data.status in ['UNREVIEWED', 'KNOWN', 'NEEDS_REVIEW']
-        && data.lastReviewedEpoch is int;
+    function parentUserExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
     }
 
-    // Shared Read-Only Certification Catalog & Question Banks
+    // =========================================================================
+    // 3. SHARED READ-ONLY CATALOG & QUESTION BANKS
+    // =========================================================================
     match /catalog/{examId} {
       allow read: if isSignedIn();
       allow write: if false;
@@ -81,58 +62,497 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Student Profile & Subcollections (Strict Owner Isolation)
+    // =========================================================================
+    // 4. ENTITY VALIDATION BLUEPRINTS (Canonical Schema v2)
+    // =========================================================================
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+        'userId',
+        'displayName',
+        'subscriptionTier',
+        'assessmentScorePercent',
+        'cognitiveStressBaseline',
+        'preferredTheme',
+        'targetExamId',
+        'lastActivePlatform',
+        'schemaVersion'
+      ]) &&
+      data.keys().hasOnly([
+        'userId',
+        'email',
+        'displayName',
+        'avatarUrl',
+        'photoURL',
+        'subscriptionTier',
+        'assessmentCompleted',
+        'assessmentScorePercent',
+        'cognitiveStressBaseline',
+        'archetypeName',
+        'behavioralArchetype',
+        'archetypeDescription',
+        'hesitationNotes',
+        'avgDwellSeconds',
+        'averageDwellTimeSec',
+        'switchRatePercent',
+        'optionSwitchCountAvg',
+        'distractorEliminationRate',
+        'confidenceIndex',
+        'recommendedStrategy',
+        'preferredTheme',
+        'targetExamId',
+        'dailyStudyGoalMinutes',
+        'androidDeviceId',
+        'deviceSyncedCount',
+        'currentJourneyStage',
+        'completedSimulationsCount',
+        'highestSimulationScore',
+        'examTargetDate',
+        'lastActivePlatform',
+        'lastSyncTimestampMillis',
+        'schemaVersion',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+      (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 500)) &&
+      data.subscriptionTier is string && data.subscriptionTier.size() <= 64 &&
+      data.subscriptionTier in ['Universal Multi-Pass', 'Single-Exam Pass', 'Free Trial'] &&
+      data.assessmentScorePercent is number && data.assessmentScorePercent >= 0 && data.assessmentScorePercent <= 100 &&
+      data.cognitiveStressBaseline is number && data.cognitiveStressBaseline >= 0 && data.cognitiveStressBaseline <= 100 &&
+      data.preferredTheme is string && data.preferredTheme.size() <= 16 && data.preferredTheme in ['dark', 'light'] &&
+      data.targetExamId is string && data.targetExamId.size() >= 1 && data.targetExamId.size() <= 64 && data.targetExamId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.lastActivePlatform is string && data.lastActivePlatform.size() <= 16 && data.lastActivePlatform in ['WEB', 'ANDROID'] &&
+      data.schemaVersion is number && data.schemaVersion >= 1 && data.schemaVersion <= 10;
+    }
+
+    function isValidUserPrivatePII(data) {
+      return data.keys().hasAll(['userId', 'email', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['userId', 'email', 'createdAt', 'updatedAt']) &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.userId == request.auth.uid &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 254;
+    }
+
+    // CRITICAL SECURITY CONTROL:
+    // Client writes can NEVER create or transition a subscription to 'ACTIVE'.
+    // Only authenticated server-side payment verification (Admin SDK) can grant 'ACTIVE'.
+    function isValidSubscriptionEntitlementDoc(data) {
+      return data.keys().hasAll(['examId', 'status']) &&
+        data.keys().hasOnly([
+          'schemaVersion',
+          'userId',
+          'examId',
+          'examTitle',
+          'shortCode',
+          'vendor',
+          'status',
+          'platform',
+          'subscribedPlatform',
+          'expiresAt',
+          'validUntilDate',
+          'priceFormatted',
+          'universalAccess',
+          'activeSessionsCount',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        (!('userId' in data) || (data.userId is string && data.userId == request.auth.uid)) &&
+        data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.status is string && data.status.size() <= 16 &&
+        data.status in ['EXPIRED', 'TRIAL', 'TRIAL_ACTIVE', 'LOCKED'];
+    }
+
+    function isValidExamAttemptRecord(data) {
+      return data.keys().hasAll([
+        'userId',
+        'examId',
+        'scorePercent',
+        'totalQuestions'
+      ]) &&
+      data.keys().hasOnly([
+        'schemaVersion',
+        'attemptId',
+        'sessionId',
+        'userId',
+        'examId',
+        'examTitle',
+        'attemptType',
+        'mode',
+        'platform',
+        'originPlatform',
+        'timestamp',
+        'attemptNumber',
+        'scorePercent',
+        'passed',
+        'totalQuestions',
+        'correctAnswers',
+        'correctCount',
+        'timeSpentMinutes',
+        'timeSpentSeconds',
+        'averageDwellSec',
+        'averageLatencySeconds',
+        'stressScore',
+        'behavioralStressScore',
+        'optionSwitchesCount',
+        'eliminatedDistractorsCount',
+        'dateString',
+        'domainScores',
+        'domainScoresJson',
+        'domainBreakdown',
+        'createdAt'
+      ]) &&
+      data.userId is string && data.userId == request.auth.uid &&
+      data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.scorePercent is number && data.scorePercent >= 0 && data.scorePercent <= 100 &&
+      data.totalQuestions is number && data.totalQuestions >= 1 && data.totalQuestions <= 500;
+    }
+
+    function isValidFlashcardProgress(data) {
+      return data.keys().hasAll([
+        'userId',
+        'examId'
+      ]) &&
+      data.keys().hasOnly([
+        'schemaVersion',
+        'userId',
+        'cardId',
+        'id',
+        'examId',
+        'domain',
+        'domainId',
+        'state',
+        'status',
+        'boxLevel',
+        'lastReviewedEpoch',
+        'reviewCount',
+        'platform',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.userId is string && data.userId == request.auth.uid &&
+      data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      (!('boxLevel' in data) || (data.boxLevel is number && data.boxLevel >= 1 && data.boxLevel <= 5)) &&
+      (!('reviewCount' in data) || (data.reviewCount is number && data.reviewCount >= 0 && data.reviewCount <= 10000));
+    }
+
+    function isValidStudyPlan(data) {
+      return data.keys().hasAll([
+        'userId',
+        'examId',
+        'targetDate'
+      ]) &&
+      data.keys().hasOnly([
+        'schemaVersion',
+        'planId',
+        'userId',
+        'examId',
+        'targetDate',
+        'weeklyHours',
+        'focusDomains',
+        'status',
+        'currentStage',
+        'readinessPercent',
+        'passProbabilityPercent',
+        'passGuaranteeQualified',
+        'milestones',
+        'milestonesJson',
+        'checklistJson',
+        'updatedAtMillis',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.userId is string && data.userId == request.auth.uid &&
+      data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.targetDate is string && data.targetDate.size() >= 6 && data.targetDate.size() <= 32 &&
+      (!('weeklyHours' in data) || (data.weeklyHours is number && data.weeklyHours >= 1 && data.weeklyHours <= 168)) &&
+      (!('focusDomains' in data) || (data.focusDomains is list && data.focusDomains.size() <= 10));
+    }
+
+    function isValidExamReadiness(data) {
+      return data.keys().hasAll([
+        'userId',
+        'examId',
+        'readinessScore',
+        'passProbability',
+        'simulationsCompleted',
+        'weakestDomain'
+      ]) &&
+      data.keys().hasOnly([
+        'schemaVersion',
+        'userId',
+        'examId',
+        'readinessScore',
+        'readinessPercent',
+        'passProbability',
+        'passProbabilityPercent',
+        'passGuaranteeQualified',
+        'currentJourneyStage',
+        'simulationsCompleted',
+        'weakestDomainId',
+        'weakestDomain',
+        'weakestDomainScore',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.userId is string && data.userId == request.auth.uid &&
+      data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.readinessScore is number && data.readinessScore >= 0 && data.readinessScore <= 100 &&
+      data.passProbability is number && data.passProbability >= 0 && data.passProbability <= 100 &&
+      data.simulationsCompleted is number && data.simulationsCompleted >= 0 && data.simulationsCompleted <= 10000 &&
+      data.weakestDomain is string && data.weakestDomain.size() >= 1 && data.weakestDomain.size() <= 120;
+    }
+
+    function isValidStudySource(data) {
+      return data.keys().hasAll(['id', 'examId', 'domainId', 'title', 'summary']) &&
+        data.keys().hasOnly([
+          'schemaVersion',
+          'id',
+          'sourceId',
+          'userId',
+          'examId',
+          'domainId',
+          'domainName',
+          'title',
+          'authorOrStandard',
+          'type',
+          'summary',
+          'keyTakeaways',
+          'fullContent',
+          'platform',
+          'cachedAtMillis',
+          'updatedAtMillis',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        (!('userId' in data) || data.userId == request.auth.uid) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.summary is string && data.summary.size() <= 5000;
+    }
+
+    function isValidSyncEventDoc(data) {
+      return data.keys().hasAll([
+        'eventId',
+        'userId',
+        'direction',
+        'action',
+        'status',
+        'payloadSummary',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'eventId',
+        'userId',
+        'direction',
+        'action',
+        'status',
+        'payloadSummary',
+        'createdAt'
+      ]) &&
+      data.eventId is string && data.eventId.size() >= 1 && data.eventId.size() <= 128 && data.eventId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId is string && data.userId == request.auth.uid &&
+      data.direction is string && data.direction in ['WEB_TO_ANDROID', 'ANDROID_TO_WEB'] &&
+      data.action is string && data.action.size() >= 1 && data.action.size() <= 120 &&
+      data.status is string && data.status in ['SUCCESS', 'SYNCING', 'PENDING'] &&
+      data.payloadSummary is string && data.payloadSummary.size() >= 1 && data.payloadSummary.size() <= 500;
+    }
+
+    // =========================================================================
+    // 5. COLLECTION MATCH BLOCKS
+    // =========================================================================
+
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
-        && isValidProfile(request.resource.data)
-        && request.resource.data.userId == userId;
-      allow update: if isOwner(userId)
-        && isValidProfile(request.resource.data)
-        && request.resource.data.userId == resource.data.userId;
-      allow delete: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId) && existing().userId == request.auth.uid;
 
+      // Client profile creation cannot self-grant paid subscription tiers: must start at 'Free Trial'
+      allow create: if isVerifiedOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) &&
+        incoming().userId == userId &&
+        incoming().subscriptionTier == 'Free Trial' &&
+        (!('createdAt' in incoming()) || incoming().createdAt == request.time) &&
+        (!('updatedAt' in incoming()) || incoming().updatedAt == request.time);
+
+      // Client profile updates cannot escalate subscriptionTier to a paid tier
+      allow update: if isVerifiedOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) &&
+        incoming().userId == existing().userId &&
+        (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+        (!('updatedAt' in incoming()) || incoming().updatedAt == request.time) &&
+        (incoming().subscriptionTier == existing().subscriptionTier || incoming().subscriptionTier == 'Free Trial');
+
+      allow delete: if false;
+
+      // --- /users/{userId}/private/{docId} (PII Isolation) ---
+      match /private/{docId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(docId);
+        allow list: if false;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(docId) &&
+          isValidUserPrivatePII(incoming()) &&
+          incoming().userId == userId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(docId) &&
+          isValidUserPrivatePII(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']) &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/subscriptions/{examId} (Canonical v2 Entitlements) ---
+      // Client writes cannot set status == 'ACTIVE' (enforced by isValidSubscriptionEntitlementDoc)
+      match /subscriptions/{examId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(examId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidSubscriptionEntitlementDoc(incoming()) &&
+          incoming().examId == examId &&
+          parentUserExists(userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidSubscriptionEntitlementDoc(incoming()) &&
+          incoming().examId == existing().examId &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/entitlements/{examId} (Legacy v1 Compatibility Path) ---
       match /entitlements/{examId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) && isValidEntitlement(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(examId);
+        allow list: if isOwner(userId);
+
+        allow create, update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidSubscriptionEntitlementDoc(incoming()) &&
+          incoming().examId == examId &&
+          parentUserExists(userId);
+
+        allow delete: if false;
       }
 
+      // --- /users/{userId}/attempts/{sessionId} (Immutable Telemetry Record) ---
       match /attempts/{sessionId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && isValidAttempt(request.resource.data)
-          && request.resource.data.userId == userId;
-        allow delete: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(sessionId) &&
+          isValidExamAttemptRecord(incoming()) &&
+          incoming().userId == userId &&
+          (!('createdAt' in incoming()) || incoming().createdAt == request.time) &&
+          parentUserExists(userId);
+
+        allow update, delete: if false;
       }
 
-      match /studyPlans/{examId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && isValidStudyPlan(request.resource.data)
-          && request.resource.data.userId == userId;
-        allow delete: if isOwner(userId);
-      }
-
+      // --- /users/{userId}/flashcards/{cardId} ---
       match /flashcards/{cardId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && isValidFlashcard(request.resource.data)
-          && request.resource.data.userId == userId;
-        allow delete: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(cardId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create, update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(cardId) &&
+          isValidFlashcardProgress(incoming()) &&
+          incoming().userId == userId &&
+          parentUserExists(userId);
+
+        allow delete: if false;
       }
 
+      // --- /users/{userId}/studyPlans/{examId} ---
+      match /studyPlans/{examId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(examId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidStudyPlan(incoming()) &&
+          incoming().userId == userId &&
+          parentUserExists(userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidStudyPlan(incoming()) &&
+          (!('status' in existing()) || existing().status != 'COMPLETED') &&
+          incoming().userId == existing().userId &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/readiness/{examId} ---
+      match /readiness/{examId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(examId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create, update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidExamReadiness(incoming()) &&
+          incoming().userId == userId &&
+          incoming().examId == examId &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/sources/{sourceId} ---
       match /sources/{sourceId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && request.resource.data.keys().hasAll(['id', 'examId', 'domainId', 'title', 'summary']);
-        allow delete: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(sourceId);
+        allow list: if isOwner(userId);
+
+        allow create, update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(sourceId) &&
+          isValidStudySource(incoming()) &&
+          parentUserExists(userId);
+
+        allow delete: if false;
       }
 
-      match /analytics/{pointId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId);
-        allow delete: if isOwner(userId);
+      // --- /users/{userId}/syncEvents/{eventId} (Immutable Audit Log) ---
+      match /syncEvents/{eventId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(eventId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(eventId) &&
+          isValidSyncEventDoc(incoming()) &&
+          incoming().userId == userId &&
+          incoming().eventId == eventId &&
+          incoming().createdAt == request.time &&
+          parentUserExists(userId);
+
+        allow update, delete: if false;
       }
     }
   }

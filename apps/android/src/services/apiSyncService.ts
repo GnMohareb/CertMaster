@@ -102,7 +102,7 @@ export interface SyncLogEntry {
   timestamp: number;
   source: 'WEB' | 'ANDROID';
   direction: 'UPSTREAM_PUSH' | 'DOWNSTREAM_PULL';
-  status: 'SUCCESS' | 'CONFLICT_RESOLVED' | 'PENDING';
+  status: 'SUCCESS' | 'CONFLICT_RESOLVED' | 'PENDING' | 'LOCAL_ONLY' | 'FAILED';
   message: string;
   payloadSummary: string;
 }
@@ -186,8 +186,6 @@ export class ApiSyncService {
 
   // Cloud Endpoint: POST /api/profile/sync
   static async syncWithAndroidApp(currentProfile: UserCentralProfile): Promise<SyncApiResponse> {
-    await new Promise(res => setTimeout(res, 850)); // Network delay simulation
-
     const now = Date.now();
     const updatedProfile: UserCentralProfile = {
       ...currentProfile,
@@ -197,37 +195,83 @@ export class ApiSyncService {
 
     this.saveProfile(updatedProfile);
 
-    this.addSyncLog({
-      timestamp: now,
-      source: 'ANDROID',
-      direction: 'DOWNSTREAM_PULL',
-      status: 'SUCCESS',
-      message: 'Bidirectional sync verified with CertMaster Android Client',
-      payloadSummary: `Synced ${Object.keys(updatedProfile.subscriptions).length} entitlements, profile ID: ${updatedProfile.userId}`
-    });
+    try {
+      const response = await fetch('/api/profile/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProfile),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
 
-    return {
-      success: true,
-      status: 'SYNCED',
-      syncedTimestamp: now,
-      changesApplied: 4,
-      entitlements: Object.fromEntries(
-        Object.entries(updatedProfile.subscriptions).map(([k, v]) => [k, v.status])
-      ),
-      message: 'Successfully synchronized with CertMaster Android client via cloud hub.'
-    };
+      this.addSyncLog({
+        timestamp: now,
+        source: 'ANDROID',
+        direction: 'DOWNSTREAM_PULL',
+        status: 'SUCCESS',
+        message: 'Bidirectional sync verified with CertMaster Cloud API',
+        payloadSummary: `Synced ${Object.keys(updatedProfile.subscriptions).length} entitlements, profile ID: ${updatedProfile.userId} (${data.syncStatus || 'SYNCHRONIZED'})`
+      });
+
+      return {
+        success: true,
+        status: 'SYNCED',
+        syncedTimestamp: now,
+        changesApplied: Object.keys(updatedProfile.subscriptions).length,
+        entitlements: Object.fromEntries(
+          Object.entries(updatedProfile.subscriptions).map(([k, v]) => [k, v.status])
+        ),
+        message: 'Successfully synchronized with CertMaster Cloud Hub.'
+      };
+    } catch (err) {
+      this.addSyncLog({
+        timestamp: now,
+        source: 'ANDROID',
+        direction: 'UPSTREAM_PUSH',
+        status: 'LOCAL_ONLY',
+        message: 'Saved locally (Cloud API unreachable)',
+        payloadSummary: `Profile ${updatedProfile.userId} cached in localStorage (${err instanceof Error ? err.message : 'offline'})`
+      });
+
+      return {
+        success: false,
+        status: 'CONFLICT_RESOLVED',
+        syncedTimestamp: now,
+        changesApplied: 0,
+        entitlements: Object.fromEntries(
+          Object.entries(updatedProfile.subscriptions).map(([k, v]) => [k, v.status])
+        ),
+        message: 'Cached locally (local-only mode; Cloud API offline).'
+      };
+    }
   }
 
   // Cloud Endpoint: POST /api/subscriptions/verify
   static async verifyOrSubscribeExam(examId: string, isAllAccess: boolean = false): Promise<UserCentralProfile> {
-    await new Promise(res => setTimeout(res, 600));
-
     const profile = this.getProfile();
     const now = Date.now();
     const exam = CATALOG_112_EXAMS.find(e => e.id === examId);
 
+    let serverVerified = false;
+    try {
+      const res = await fetch('/api/subscriptions/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: profile.userId,
+          examId: isAllAccess ? 'all-access' : examId,
+          tier: isAllAccess ? 'universal' : 'single',
+          receiptToken: `rcpt_${profile.userId}_${examId}_${now}`
+        })
+      });
+      serverVerified = res.ok;
+    } catch {
+      serverVerified = false;
+    }
+
     if (isAllAccess) {
-      // Unlock all 112 exams
       const newSubs: Record<string, ExamSubscription> = { ...profile.subscriptions };
       CATALOG_112_EXAMS.forEach(e => {
         newSubs[e.id] = {
@@ -235,7 +279,7 @@ export class ApiSyncService {
           examTitle: e.title,
           shortCode: e.shortCode,
           vendor: e.vendor,
-          status: 'ACTIVE',
+          status: serverVerified ? 'ACTIVE' : 'TRIAL',
           subscribedPlatform: 'WEB',
           validUntilDate: 'Dec 31, 2028',
           priceFormatted: '$99.00 (All-Access Pass)',
@@ -244,7 +288,7 @@ export class ApiSyncService {
         };
       });
 
-      profile.subscriptionTier = 'Universal Multi-Pass';
+      profile.subscriptionTier = serverVerified ? 'Universal Multi-Pass' : profile.subscriptionTier;
       profile.subscriptions = newSubs;
       profile.lastSyncTimestampMillis = now;
       this.saveProfile(profile);
@@ -253,9 +297,11 @@ export class ApiSyncService {
         timestamp: now,
         source: 'WEB',
         direction: 'UPSTREAM_PUSH',
-        status: 'SUCCESS',
-        message: 'Purchased Universal All-Access Pass ($99.00)',
-        payloadSummary: 'All 112 Exam Banks unlocked with instant Android parity.'
+        status: serverVerified ? 'SUCCESS' : 'LOCAL_ONLY',
+        message: serverVerified
+          ? 'Verified Universal All-Access Pass ($99.00) via Server Receipt'
+          : 'Local preview entitlement stored (Server receipt verification offline)',
+        payloadSummary: '112 Exam Banks updated.'
       });
 
       return profile;
@@ -268,7 +314,7 @@ export class ApiSyncService {
         examTitle: exam.title,
         shortCode: exam.shortCode,
         vendor: exam.vendor,
-        status: 'ACTIVE',
+        status: serverVerified ? 'ACTIVE' : 'TRIAL',
         subscribedPlatform: 'WEB',
         validUntilDate: 'Dec 31, 2027',
         priceFormatted: '$29.00',
@@ -282,9 +328,11 @@ export class ApiSyncService {
         timestamp: now,
         source: 'WEB',
         direction: 'UPSTREAM_PUSH',
-        status: 'SUCCESS',
-        message: `Purchased Single-Exam Pass: ${exam.shortCode} ($29.00)`,
-        payloadSummary: 'Cross-platform entitlement pushed to Android sync bus.'
+        status: serverVerified ? 'SUCCESS' : 'LOCAL_ONLY',
+        message: serverVerified
+          ? `Server-verified Single-Exam Pass: ${exam.shortCode} ($29.00)`
+          : `Saved local trial preview for ${exam.shortCode} (Server offline)`,
+        payloadSummary: 'Cross-platform entitlement updated.'
       });
     }
 

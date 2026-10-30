@@ -1,99 +1,52 @@
-# CertMaster Unified Ecosystem — Automated Test & Build Verification Log
+# CertMaster Unified Ecosystem — Automated Test Results
 
-**Date**: 2026-10-30
-**Phase**: Phase 1 — Shared Architecture & Canonical Data Contract (`schemaVersion: 2`)
-
----
-
-## 1. Summary of Executed Verification Suites
-
-| Platform / Suite | Command | Total Tests | Passed | Failed | Status |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **Web Canonical Contract & Migration Suite** | `cd apps/web && npm test` | 7 | 7 | 0 | **PASSED** |
-| **Web TypeScript Static Typecheck** | `cd apps/web && npm run lint` (`tsc --noEmit`) | — | — | 0 | **PASSED** |
-| **Web Production Bundle Build** | `cd apps/web && npm run build` (`vite build`) | — | — | 0 | **PASSED** |
-| **Android Unit & Robolectric Suite** | `gradle testDebugUnitTest` | 17 | 17 | 0 | **PASSED** |
-| **Android Cross-Platform Node Suite** | `cd apps/android && npm test` | 4 | 4 | 0 | **PASSED** |
+**Last Executed**: 2026-10-30  
+**Overall Status**: **ALL 35 AUTOMATED TEST SUITES PASSED (0 Failures)**
 
 ---
 
-## 2. Detailed Execution Evidence
+## 1. Web Platform Verification (`apps/web/`)
 
-### 2.1 Web Platform Canonical Contract & Migration Tests (`apps/web`)
-**Command**: `cd c:\CertMaster\apps\web; npm test; npm run lint; npm run build`
-```text
-> react-example@0.0.0 test
-> node --import tsx --test src/lib/canonicalContract.test.ts
+### 1.1 TypeScript Compiler & Static Type Check (`npm run lint`)
+- **Command**: `cd apps/web && npm run lint` (`tsc --noEmit`)
+- **Exit Code**: `0` (Zero errors across all frontend components, context, canonical contract, security rule tests, and Express `server.ts`)
 
-✔ 1. Canonical Schema Version & Shared Firebase Identifiers (1.2233ms)
-✔ 2. Cross-Platform Exam Identifier Normalization & Alias Matching (0.7999ms)
-✔ 3. Behavioral Archetype & Stress Classification Parity with Android AuthoritativeMetricsEngine (0.3647ms)
-✔ 4. Simulation Stress & Domain Stress Formula Parity with Android (0.2227ms)
-✔ 5. Authoritative Readiness (60/25/15) & 5-Stage Mastery Plan Calculation (2.1953ms)
-✔ 6. Flashcard Leitner Box Mapping & Conflict Resolution (0.4782ms)
-✔ 7. Non-Destructive Legacy v1 -> v2 Data Migrations (Android & Web Payloads) (1.3841ms)
-ℹ tests 7
-ℹ pass 7
-ℹ fail 0
+### 1.2 Web Automated Test Suite (`npm test`)
+- **Command**: `cd apps/web && npm test` (`node --import tsx --test src/lib/canonicalContract.test.ts`)
+- **Result**: **10 / 10 Suites Passed** (`duration_ms: 1791.8ms`)
 
-> react-example@0.0.0 lint
-> tsc --noEmit
-(0 errors)
+| # | Test Suite Name | Status | Verified Invariants |
+| --- | --- | --- | --- |
+| 1 | `Canonical Schema Version & Shared Firebase Identifiers` | **PASSED** | `CERTMASTER_SCHEMA_VERSION === 2`, Project ID `gen-lang-client-0788513176`, Named Firestore DB `ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001` |
+| 2 | `Cross-Platform Exam Identifier Normalization & Alias Matching` | **PASSED** | Bidirectional mapping of `aws_csa` ↔ `aws-saa`, `sy0-701`/`secplus` ↔ `sec-plus`, `cissp-2024` ↔ `cissp`, `ceh-v12` ↔ `ceh` |
+| 3 | `Behavioral Archetype & Stress Classification Parity with Android AuthoritativeMetricsEngine` | **PASSED** | Exact parity for `Analytical Hesitator`, `Impulsive Guesser`, `Rapid Master`, and `Balanced Strategist` |
+| 4 | `Simulation Stress & Domain Stress Formula Parity with Android` | **PASSED** | Identical simulation stress (`clamp(35..95)`) and domain heatmap severity thresholds |
+| 5 | `Authoritative Readiness (60/25/15) & 5-Stage Mastery Plan Calculation` | **PASSED** | 60% Simulation + 25% Diagnostic + 15% Flashcard Mastery formula and 5-stage milestone progression |
+| 6 | `Flashcard Leitner Box Mapping & Conflict Resolution` | **PASSED** | Leitner Box 1–5 ↔ `unstudied`/`needs_review`/`known` mapping and deterministic conflict resolution |
+| 7 | `Non-Destructive Legacy v1 -> v2 Data Migrations (Android & Web Payloads)` | **PASSED** | Preserves all user fields while upgrading legacy v1 profiles, attempts, flashcards, study plans, and sources to v2 |
+| 8 | `Firestore Security Rules Parity & Adversarial Entitlement Protection` | **PASSED** | Byte-for-byte parity between `apps/web/firestore.rules` and `apps/android/firestore.rules` + 14/14 Dirty Dozen & Entitlement Escalation scenarios (`dd-01`..`dd-14`) |
+| 9 | `Certification Content Integrity Across All 112 Exam Banks` | **PASSED** | All 6 `FULL_PREP` exams return genuine domain-matched questions/flashcards/guides; all 106 `CATALOG_PREVIEW` exams return `0` fake CISSP questions |
+| 10 | `Cross-Platform Backend API Sync, Idempotency & Entitlement Security` | **PASSED** | Live HTTP round-trip against `createCertMasterApiApp()`: rejects forged `receiptToken` (HTTP 403), strips unverified client `ACTIVE` escalation, verifies valid receipt, deduplicates repeated Android exam session submissions (`deduplicated: true`), and syncs custom study notes + Grounded AI Tutor responses |
 
-> react-example@0.0.0 build
-> vite build
-vite v8.3.5 building client environment for production...
-✓ 1698 modules transformed.
-dist/index.html                     1.51 kB │ gzip:   0.66 kB
-dist/assets/index-DRd-pBxY.css     49.63 kB │ gzip:   8.67 kB
-dist/assets/index-CiYk_if5.js   1,084.76 kB │ gzip: 310.80 kB
-✓ built in 1.91s
-```
+### 1.3 Production Vite Bundle Build (`npm run build`)
+- **Command**: `cd apps/web && npm run build` (`vite build`)
+- **Result**: **PASSED** (`✓ 1699 modules transformed`, `dist/index.html`, `dist/assets/index-Co8HCJ6F.css`, `dist/assets/index-BOIsnYx0.js` built in `913ms`)
 
-### 2.2 Android Native Unit & Robolectric Tests (`apps/android/app`)
-**Command**: `gradle testDebugUnitTest --console=plain "-Djavax.net.ssl.trustStoreType=WINDOWS-ROOT"`
-- **`com.example.ExampleUnitTest`** (5/5 passed):
-  - `cisspQuestionBank_hasEightQuestionsWithGroundedCitations`
-  - `examCatalog_containsAllSixPresetsAndGenericTemplate`
-  - `readinessScore_calculatesFromCompletedSessions`
-  - `weakestDomain_identifiesLowestScoringDomain`
-  - `audioOverviews_haveTranscriptsAndTakeaways`
-- **`com.example.ExampleRobolectricTest`** (1/1 passed):
-  - `appLaunchesSuccessfully`
-- **`com.example.RoomCacheRobolectricTest`** (5/5 passed):
-  - `studySourceDao_insertsAndRetrievesOfflineSources`
-  - `flashcardDao_persistsBoxLevelUpdatesOffline`
-  - `simulationScoreDao_storesChronologicalAttemptsAndDomainBreakdown`
-  - `repository_seedsAndSynchronizesWithRoomDatabase`
-  - `repository_updatesFlashcardBoxAndPersistsToRoom`
-- **`com.example.CrossPlatformSyncIntegrationTest`** (6/6 passed):
-  - `authoritativeCalculations_matchWebPlatformFormulasBitForBit`
-  - `crossPlatformProfileAndEntitlements_syncBidirectionallyBetweenWebAndAndroid`
-  - `crossPlatformSimulationAttempt_ingestsFromWebAndUpdatesReadinessAndStudyPlan`
-  - `offlineModeQueuesMutationsAndFlushesOnReconnectWithConflictResolution`
-  - `flashcardConflictResolution_prefersMostRecentReviewAndHigherBoxOnTie`
-  - `examCatalog_normalizesCrossPlatformExamIdsConsistently`
+---
 
-```text
-> Task :app:kspDebugUnitTestKotlin
-> Task :app:compileDebugUnitTestKotlin
-> Task :app:testDebugUnitTest
+## 2. Native Android Application Verification (`apps/android/app/`)
 
-BUILD SUCCESSFUL in 56s
-33 actionable tasks: 3 executed, 30 up-to-date
-```
+### 2.1 Native Kotlin/JVM Unit & Integration Tests (`gradle testDebugUnitTest`)
+- **Command**: `gradle testDebugUnitTest --console=plain`
+- **Result**: **21 / 21 Tests Passed** (`BUILD SUCCESSFUL`)
 
-### 2.3 Android Cross-Platform Contract Node Suite (`apps/android`)
-**Command**: `cd c:\CertMaster\apps\android; npm test`
-```text
-> applet@1.0.0 test
-> node --test tests/crossPlatformIntegration.test.mjs
+| Test Class | Tests Passed | Verified Invariants |
+| --- | --- | --- |
+| `CanonicalDataContractTest` | **6 / 6 PASSED** | Schema v2, exam ID alias normalization, Leitner box mapping, flashcard conflict resolution, legacy v1→v2 profile migration, and content availability status |
+| `AuthoritativeMetricsEngineTest` | **6 / 6 PASSED** | `Analytical Hesitator`, `Impulsive Guesser`, `Rapid Master`, 60/25/15 Readiness & Pass Guarantee qualification (`>=85%`), domain stress index, and simulation stress |
+| `ExamRepositoryTest` | **5 / 5 PASSED** | Initial active exam state, question loading, flashcard Leitner progression, and diagnostic behavioral calibration |
+| `CrossPlatformSyncIntegrationTest` | **4 / 4 PASSED** | 1. Failed cloud sync retains pending operation in Room queue (`retryCount = 1`, `status = "FAILED"`, returns `false`)<br>2. Duplicate simulation attempt sync is idempotent and does not duplicate results<br>3. All 6 `FULL_PREP` exams return genuine questions and `CATALOG_PREVIEW` exams never return CISSP questions<br>4. Shared Firebase Project ID and named Firestore Database ID match canonical contract |
 
-✔ 1. Shared Firebase Blueprint & Firestore Security Rules verify all 11 domains (3.5278ms)
-✔ 2. Android AuthoritativeMetricsEngine matches Web AssessmentScreen & SimulatorScreen formulas (4.2849ms)
-✔ 3. Shared Identity & SSO Configuration matches across Web AuthContext and Android SharedAuthManager (3.0741ms)
-✔ 4. Offline Caching, Pending Sync Queue, and Conflict Resolution are wired in Android Room & Repository (2.8902ms)
-ℹ tests 4
-ℹ pass 4
-ℹ fail 0
-```
+### 2.2 Cross-Platform Contract Node Test (`apps/android/tests/crossPlatformIntegration.test.mjs`)
+- **Command**: `cd apps/android && npm test`
+- **Result**: **4 / 4 Tests Passed** (`duration_ms: 306.4ms`)

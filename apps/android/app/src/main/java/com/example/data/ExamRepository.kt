@@ -646,6 +646,7 @@ class ExamRepository(
     /**
      * Synchronizes all 11 domains with the centralized CertMaster backend (Firestore + REST API),
      * flushes any queued offline operations with exponential backoff retry, and resolves conflicts.
+     * Never deletes a pending operation until its delivery succeeds, and never reports a failed sync as SUCCESS.
      */
     suspend fun syncCentralProfileWithCloud(): Boolean {
         val db = database
@@ -661,22 +662,40 @@ class ExamRepository(
             return false
         }
 
-        // 1. Flush any queued offline operations with retry handling
+        val activeUserId = authManager.getActiveUserId()
+        var hadDeliveryFailure = false
+        var lastFailureMessage: String? = null
+
+        // 1. Flush any queued offline operations with retry handling; ONLY remove after confirmed delivery
         if (db != null) {
             val pendingOps = db.userProfileDao().getPendingSyncOperations()
             for (op in pendingOps) {
-                val retryRes = firebaseSyncClient.executeWithRetry(maxAttempts = 3, initialDelayMs = 50L) {
+                val deliveryResult = firebaseSyncClient.deliverQueuedOperation(activeUserId, op)
+                if (deliveryResult.isSuccess && deliveryResult.getOrDefault(false)) {
                     db.userProfileDao().removeSyncOperation(op.operationId)
-                }
-                if (retryRes.isFailure) {
+                } else {
+                    hadDeliveryFailure = true
+                    lastFailureMessage = deliveryResult.exceptionOrNull()?.message
+                        ?: "Delivery failed for ${op.operationId}"
                     db.userProfileDao().updateSyncOperationRetry(
                         operationId = op.operationId,
                         retryCount = op.retryCount + 1,
-                        lastError = retryRes.exceptionOrNull()?.message
+                        lastError = lastFailureMessage
                     )
                 }
             }
             _pendingSyncCount.value = db.userProfileDao().getPendingSyncCount()
+        }
+
+        if (hadDeliveryFailure) {
+            appendSyncLog(
+                source = "ANDROID",
+                direction = "UPSTREAM_PUSH",
+                status = "FAILED",
+                message = "Sync failed while flushing offline queue: ${lastFailureMessage ?: "Transport error"}",
+                payloadSummary = "${_pendingSyncCount.value} operations retained in Room SQLite pending_sync_queue for retry"
+            )
+            return false
         }
 
         // 2. Sync with shared Firestore database (when FirebaseApp is initialized)
@@ -684,7 +703,7 @@ class ExamRepository(
         val cachedSources = _sources.value.map { StudySourceEntity.fromSourceDoc(it) }
 
         val firestoreResult = firebaseSyncClient.syncAllWithFirestore(
-            userId = authManager.getActiveUserId(),
+            userId = activeUserId,
             profile = _userProfile.value,
             readiness = _readinessReport.value,
             milestones = _studyPlanMilestones.value,
@@ -693,20 +712,38 @@ class ExamRepository(
             sources = cachedSources
         )
 
-        val syncedProfile = firestoreResult.getOrElse {
-            _userProfile.value.copy(lastSyncTimestampMillis = System.currentTimeMillis())
-        }.copy(lastSyncTimestampMillis = System.currentTimeMillis())
+        if (firestoreResult.isFailure) {
+            val err = firestoreResult.exceptionOrNull()?.message ?: "Firestore synchronization failed"
+            appendSyncLog(
+                source = "ANDROID",
+                direction = "DOWNSTREAM_PULL",
+                status = "FAILED",
+                message = "Cloud synchronization failed: $err",
+                payloadSummary = "Local Room SQLite state preserved without data loss"
+            )
+            return false
+        }
+
+        val syncedProfile = firestoreResult.getOrThrow().copy(
+            lastSyncTimestampMillis = System.currentTimeMillis()
+        )
 
         _userProfile.value = syncedProfile
         persistProfileLocally(syncedProfile)
         authManager.refreshSsoSession(syncedProfile.email, syncedProfile.displayName)
         recomputeReadinessAndStudyPlan()
 
+        val syncModeLabel = if (firebaseSyncClient.isFirestoreAvailable()) {
+            "Bidirectional sync verified with CertMaster Cloud (${CertMasterFirebaseSyncClient.FIRESTORE_DATABASE_ID.take(24)}...)"
+        } else {
+            "Local Room SQLite & Canonical v2 state verified (Cloud in local-cached mode)"
+        }
+
         appendSyncLog(
             source = "ANDROID",
             direction = "DOWNSTREAM_PULL",
             status = "SUCCESS",
-            message = "Bidirectional sync verified with CertMaster Cloud & Web Platform",
+            message = syncModeLabel,
             payloadSummary = "Synced ${syncedProfile.subscriptions.size} entitlements, ${_simulationScores.value.size} attempts, ${_flashcards.value.size} flashcards"
         )
         return true
@@ -981,31 +1018,44 @@ class ExamRepository(
     }
 
     suspend fun syncWithBackend(): Boolean {
+        val config = _backendConfig.value
+        if (!config.isOnline) {
+            _backendConfig.value = config.copy(isConnected = false)
+            return false
+        }
         return try {
-            val config = _backendConfig.value
             val service = ApiClient.createService(config.baseUrl)
             val authHeader = if (config.apiKey.isNotEmpty()) "Bearer ${config.apiKey}" else null
+            var restReachable = false
 
             try {
-                service.checkHealth(authHeader)
-                service.syncProfile(authHeader, _userProfile.value)
+                val healthResp = service.checkHealth(authHeader)
+                val syncResp = service.syncProfile(authHeader, _userProfile.value)
+                restReachable = healthResp.isSuccessful && syncResp.isSuccessful
             } catch (_: Exception) {
-                // Gracefully fallback to local + Firestore sync when custom REST host is unreachable
+                restReachable = false
             }
 
-            syncCentralProfileWithCloud()
+            val cloudSynced = syncCentralProfileWithCloud()
+            val overallSuccess = restReachable || cloudSynced
 
             _backendConfig.value = _backendConfig.value.copy(
-                lastSyncMillis = System.currentTimeMillis(),
-                isConnected = true
+                lastSyncMillis = if (overallSuccess) System.currentTimeMillis() else config.lastSyncMillis,
+                isConnected = overallSuccess
             )
-            true
-        } catch (_: Exception) {
+            overallSuccess
+        } catch (e: Exception) {
+            appendSyncLog(
+                source = "ANDROID",
+                direction = "UPSTREAM_PUSH",
+                status = "FAILED",
+                message = "Backend sync error: ${e.message ?: "Unknown error"}",
+                payloadSummary = "Connection marked disconnected; local cache active"
+            )
             _backendConfig.value = _backendConfig.value.copy(
-                lastSyncMillis = System.currentTimeMillis(),
-                isConnected = true
+                isConnected = false
             )
-            true
+            false
         }
     }
 

@@ -1,4 +1,5 @@
 import { ExamBank, VendorType } from '../types/certmaster';
+import { getExamContentStatus } from '../lib/canonicalContract';
 
 export const CISSP_DOMAINS = [
   { id: 'd1', name: 'Security & Risk Management', weight: 15 },
@@ -26,7 +27,7 @@ export const VENDORS: { id: VendorType; label: string; count: number }[] = [
   { id: 'Linux & Cloud Native', label: 'Linux & Cloud Native', count: 6 },
 ];
 
-export const ALL_112_EXAM_BANKS: ExamBank[] = [
+const RAW_112_EXAM_BANKS: ExamBank[] = [
   // --- ISC2 (10) ---
   {
     id: 'cissp',
@@ -2153,3 +2154,8 @@ export const ALL_112_EXAM_BANKS: ExamBank[] = [
     description: 'Continuous reconciliation with ArgoCD and Flux, progressive delivery, and immutable infrastructure.',
   },
 ];
+
+export const ALL_112_EXAM_BANKS: ExamBank[] = RAW_112_EXAM_BANKS.map((bank) => ({
+  ...bank,
+  contentStatus: getExamContentStatus(bank.id),
+}));

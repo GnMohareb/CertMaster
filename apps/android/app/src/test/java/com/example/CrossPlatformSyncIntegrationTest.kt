@@ -3,6 +3,7 @@ package com.example
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.DefaultQuestions
 import com.example.data.ExamCatalog
 import com.example.data.ExamRepository
 import com.example.data.local.CertDatabase
@@ -13,6 +14,7 @@ import com.example.model.ExamMode
 import com.example.model.ExamSession
 import com.example.model.FlashcardStatus
 import com.example.model.SubStatus
+import com.example.network.CertMasterFirebaseSyncClient
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -346,5 +348,92 @@ class CrossPlatformSyncIntegrationTest {
         assertEquals(2, repository.userProfile.value.schemaVersion)
         assertEquals(SubStatus.TRIAL_ACTIVE, SubStatus.fromWebStatusString("TRIAL"))
         assertEquals("TRIAL", SubStatus.TRIAL_ACTIVE.toWebStatusString())
+    }
+
+    @Test
+    fun offlineQueue_retainsPendingOperationsWhenDeliveryFailsAndNeverReportsFalseSuccess() = runBlocking {
+        delay(100)
+        repository.setOnlineMode(false)
+        repository.updateFlashcardBox(repository.flashcards.value.first().id, 3)
+        delay(100)
+
+        val initialQueued = database.userProfileDao().getPendingSyncCount()
+        assertTrue(initialQueued >= 1)
+
+        // Simulate transport failure during sync
+        repository.firebaseSyncClient.customDeliveryHandler = { false }
+        repository.setOnlineMode(true)
+        val syncOutcome = repository.syncCentralProfileWithCloud()
+
+        assertFalse("Sync must return false when queue delivery fails", syncOutcome)
+        val remainingQueued = database.userProfileDao().getPendingSyncCount()
+        assertEquals("Pending operations must not be deleted on failed delivery", initialQueued, remainingQueued)
+        val failedOp = database.userProfileDao().getPendingSyncOperations().first()
+        assertTrue("Retry count must increment on failure", failedOp.retryCount >= 1)
+        assertEquals("FAILED", repository.syncLogs.value.first().status)
+
+        // Restore transport and verify recovery
+        repository.firebaseSyncClient.customDeliveryHandler = null
+        val recoveredOutcome = repository.syncCentralProfileWithCloud()
+        assertTrue(recoveredOutcome)
+        assertEquals(0, database.userProfileDao().getPendingSyncCount())
+    }
+
+    @Test
+    fun duplicateSimulationAttemptSync_isIdempotentAndDoesNotDuplicateResults() = runBlocking {
+        delay(100)
+        val payload = """
+            {
+              "attemptId": "att_idempotent_77",
+              "sessionId": "att_idempotent_77",
+              "examId": "cissp",
+              "timestamp": 1730000000000,
+              "totalQuestions": 20,
+              "correctCount": 17,
+              "scorePercent": 85,
+              "passed": true,
+              "timeSpentSeconds": 1800
+            }
+        """.trimIndent()
+
+        repository.ingestWebSimulationResultJson(payload)
+        delay(50)
+        val countAfterFirst = repository.simulationScores.value.count { it.id == "att_idempotent_77" }
+        assertEquals(1, countAfterFirst)
+
+        // Ingest identical attempt a second time
+        repository.ingestWebSimulationResultJson(payload)
+        delay(50)
+        val countAfterSecond = repository.simulationScores.value.count { it.id == "att_idempotent_77" }
+        assertEquals("Duplicate synchronization must not create duplicate exam attempts", 1, countAfterSecond)
+    }
+
+    @Test
+    fun certificationContentIntegrity_neverSubstitutesCisspQuestionsForOtherExams() {
+        val cisspQs = DefaultQuestions.getQuestionsForExam("cissp")
+        val awsQs = DefaultQuestions.getQuestionsForExam("aws_csa")
+        val secPlusQs = DefaultQuestions.getQuestionsForExam("sy0-701")
+        val pmpQs = DefaultQuestions.getQuestionsForExam("pmp")
+        val cismQs = DefaultQuestions.getQuestionsForExam("cism")
+        val cehQs = DefaultQuestions.getQuestionsForExam("ceh")
+        val previewQs = DefaultQuestions.getQuestionsForExam("gcp-pca")
+
+        assertTrue(cisspQs.isNotEmpty() && cisspQs.all { it.examId == "cissp" })
+        assertTrue(awsQs.isNotEmpty() && awsQs.all { it.examId == "aws-saa" })
+        assertTrue(secPlusQs.isNotEmpty() && secPlusQs.all { it.examId == "sec-plus" })
+        assertTrue(pmpQs.isNotEmpty() && pmpQs.all { it.examId == "pmp" })
+        assertTrue(cismQs.isNotEmpty() && cismQs.all { it.examId == "cism" })
+        assertTrue(cehQs.isNotEmpty() && cehQs.all { it.examId == "ceh" })
+        assertTrue("Catalog preview exams must not return CISSP questions", previewQs.isEmpty())
+    }
+
+    @Test
+    fun sharedFirebaseConfiguration_matchesWebPlatformNamedDatabase() {
+        assertEquals("gen-lang-client-0788513176", CertMasterFirebaseSyncClient.FIREBASE_PROJECT_ID)
+        assertEquals(
+            "ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001",
+            CertMasterFirebaseSyncClient.FIRESTORE_DATABASE_ID
+        )
+        assertEquals(2, CertMasterFirebaseSyncClient.CANONICAL_SCHEMA_VERSION)
     }
 }

@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   CANONICAL_SCHEMA_VERSION,
   FIREBASE_PROJECT_ID,
@@ -22,6 +24,17 @@ import {
   migrateLegacyStudySource,
 } from './canonicalContract';
 import { ALL_112_EXAM_BANKS } from '../data/examBanks';
+import {
+  DIRTY_DOZEN_SECURITY_TESTS,
+  evaluateSecurityRuleScenario,
+} from '../../firestore.rules.test';
+import {
+  getQuestionsForExamId,
+  getFlashcardsForExamId,
+  getStudyGuidesForExamId,
+  MULTI_EXAM_FLASHCARDS,
+} from '../data/multiExamQuestions';
+import { createCertMasterApiApp } from '../../server';
 
 test('1. Canonical Schema Version & Shared Firebase Identifiers', () => {
   assert.equal(CANONICAL_SCHEMA_VERSION, 2);
@@ -233,4 +246,203 @@ test('7. Non-Destructive Legacy v1 -> v2 Data Migrations (Android & Web Payloads
   });
   assert.equal(source.schemaVersion, 2);
   assert.equal(source.examId, 'aws-saa');
+});
+
+test('8. Firestore Security Rules Parity & Adversarial Entitlement Protection', () => {
+  const webRulesPath = path.resolve(process.cwd(), 'firestore.rules');
+  const androidRulesPath = path.resolve(process.cwd(), '../android/firestore.rules');
+  const webRules = fs.readFileSync(webRulesPath, 'utf-8');
+  const androidRules = fs.readFileSync(androidRulesPath, 'utf-8');
+
+  // Verify Web and Android rules are identical
+  assert.equal(webRules, androidRules, 'apps/web/firestore.rules and apps/android/firestore.rules must be identical');
+
+  // Verify client cannot self-activate paid subscriptions or escalate subscriptionTier
+  assert.ok(
+    webRules.includes("incoming().subscriptionTier == 'Free Trial'"),
+    'Profile creation must enforce Free Trial tier'
+  );
+  assert.ok(
+    webRules.includes("data.status in ['EXPIRED', 'TRIAL', 'TRIAL_ACTIVE', 'LOCKED']"),
+    'Client subscription/entitlement writes must disallow paid ACTIVE status'
+  );
+
+  // Execute all 14 Dirty Dozen + Entitlement Protection security scenarios
+  assert.equal(DIRTY_DOZEN_SECURITY_TESTS.length, 14);
+  for (const scenario of DIRTY_DOZEN_SECURITY_TESTS) {
+    const outcome = evaluateSecurityRuleScenario(scenario);
+    assert.equal(
+      outcome,
+      scenario.expectedOutcome,
+      `Security rule scenario ${scenario.id} (${scenario.name}) failed`
+    );
+  }
+});
+
+test('9. Certification Content Integrity Across All 112 Exam Banks', () => {
+  assert.equal(ALL_112_EXAM_BANKS.length, 112);
+
+  const fullPrepBanks = ALL_112_EXAM_BANKS.filter((b) => b.contentStatus === 'FULL_PREP');
+  const previewBanks = ALL_112_EXAM_BANKS.filter((b) => b.contentStatus === 'CATALOG_PREVIEW');
+  assert.equal(fullPrepBanks.length, 6);
+  assert.equal(previewBanks.length, 106);
+
+  // Verify each FULL_PREP certification returns its own genuine questions, flashcards, and study guides
+  for (const bank of fullPrepBanks) {
+    const questions = getQuestionsForExamId(bank.id);
+    assert.ok(questions.length > 0, `Expected non-empty question bank for ${bank.id}`);
+    for (const q of questions) {
+      assert.equal(
+        normalizeExamId(q.examId),
+        bank.id,
+        `Question ${q.id} in bank ${bank.id} has mismatched examId ${q.examId}`
+      );
+    }
+    const cards = getFlashcardsForExamId(MULTI_EXAM_FLASHCARDS, bank.id);
+    assert.ok(cards.length > 0, `Expected flashcards for ${bank.id}`);
+    const guides = getStudyGuidesForExamId(bank.id);
+    assert.ok(guides.length > 0, `Expected study guides for ${bank.id}`);
+  }
+
+  // Verify CATALOG_PREVIEW exams never return CISSP questions
+  for (const bank of previewBanks) {
+    const questions = getQuestionsForExamId(bank.id);
+    assert.equal(
+      questions.length,
+      0,
+      `Catalog preview exam ${bank.id} must not return fake CISSP questions`
+    );
+  }
+});
+
+test('10. Cross-Platform Backend API Sync, Idempotency & Entitlement Security', async () => {
+  const app = createCertMasterApiApp();
+  const server = app.listen(0);
+  const address = server.address();
+  const port = typeof address === 'object' && address ? address.port : 3099;
+  const baseUrl = `http://127.0.0.1:${port}/api`;
+
+  try {
+    // 1. Health & Catalog Manifest
+    const healthRes = await fetch(`${baseUrl}/health`).then((r) => r.json());
+    assert.equal(healthRes.schemaVersion, 2);
+    assert.equal(healthRes.firebaseProjectId, FIREBASE_PROJECT_ID);
+    assert.equal(healthRes.firestoreDatabaseId, FIRESTORE_DATABASE_ID);
+
+    // 2. Reject unverified client attempt to self-grant ACTIVE subscription via /subscriptions/verify
+    const forgedSubRes = await fetch(`${baseUrl}/subscriptions/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'usr_cross_test_01',
+        examId: 'aws-saa',
+        receiptToken: 'forged_client_token',
+      }),
+    });
+    assert.equal(forgedSubRes.status, 403);
+
+    // 3. Reject unverified client attempt to self-escalate subscriptionTier via /profile/sync
+    const unverifiedProfileSync = await fetch(`${baseUrl}/profile/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'usr_cross_test_01',
+        displayName: 'Cross Platform Student',
+        subscriptionTier: 'Universal Multi-Pass',
+        subscriptions: {
+          'aws-saa': { examId: 'aws-saa', status: 'ACTIVE', platform: 'ANDROID' },
+        },
+        platform: 'ANDROID',
+      }),
+    }).then((r) => r.json());
+
+    assert.equal(unverifiedProfileSync.validatedProfile.subscriptionTier, 'Free Trial');
+    assert.equal(unverifiedProfileSync.validatedProfile.subscriptions['aws-saa'].status, 'TRIAL');
+
+    // 4. Server-verified receipt grants ACTIVE entitlement and persists across Android & Web
+    const validSubRes = await fetch(`${baseUrl}/subscriptions/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'usr_cross_test_01',
+        examId: 'aws_csa',
+        tier: 'single',
+        receiptToken: 'rcpt_verified_stripe_001',
+        platform: 'WEB',
+      }),
+    });
+    assert.equal(validSubRes.status, 200);
+    const validSubJson = await validSubRes.json();
+    assert.equal(validSubJson.verifiedEntitlements['aws-saa'].status, 'ACTIVE');
+    assert.equal(validSubJson.subscriptionTier, 'Single-Exam Pass');
+
+    // 5. Android submits an exam session & duplicate submission is idempotent
+    const sessionPayload = {
+      userId: 'usr_cross_test_01',
+      attemptId: 'att_android_sync_01',
+      examId: 'aws_csa',
+      scorePercent: 86,
+      totalQuestions: 20,
+      correctAnswers: 17,
+      timeSpentSeconds: 1500,
+      platform: 'ANDROID',
+    };
+
+    const s1 = await fetch(`${baseUrl}/exams/aws_csa/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionPayload),
+    }).then((r) => r.json());
+    assert.equal(s1.deduplicated, false);
+    assert.equal(s1.totalAttemptsForUser, 1);
+
+    const s2 = await fetch(`${baseUrl}/exams/aws-saa/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionPayload),
+    }).then((r) => r.json());
+    assert.equal(s2.deduplicated, true);
+    assert.equal(s2.totalAttemptsForUser, 1);
+
+    // 6. Web retrieves profile and sees Android's exam attempt + verified AWS SAA entitlement
+    const webPull = await fetch(`${baseUrl}/profile/usr_cross_test_01`).then((r) => r.json());
+    assert.equal(webPull.attempts.length, 1);
+    assert.equal(webPull.attempts[0].examId, 'aws-saa');
+    assert.equal(webPull.attempts[0].scorePercent, 86);
+    assert.equal(webPull.profile.subscriptions['aws-saa'].status, 'ACTIVE');
+
+    // 7. Custom Study Note & Grounded AI Tutor Cross-Platform Parity
+    const noteSync = await fetch(`${baseUrl}/sources/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: 'usr_cross_test_01',
+        examId: 'aws_csa',
+        domainId: 'd1',
+        domainName: 'Design Secure Architectures',
+        title: 'S3 Gateway VPC Endpoint Notes',
+        authorOrStandard: 'Learner Note',
+        type: 'CHEAT_SHEET',
+        summary: 'Use Gateway VPC Endpoints for S3 and DynamoDB',
+        fullContent: 'Gateway VPC endpoints add a prefix list route in VPC route tables with zero hourly charge.',
+      }),
+    }).then((r) => r.json());
+    assert.equal(noteSync.syncStatus, 'SYNCHRONIZED');
+    assert.equal(noteSync.sources.length, 1);
+    assert.equal(noteSync.sources[0].examId, 'aws-saa');
+
+    const tutorRes = await fetch(`${baseUrl}/ai/tutor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        examId: 'aws_csa',
+        query: 'How does a Gateway VPC Endpoint work for Amazon S3?',
+      }),
+    }).then((r) => r.json());
+    assert.equal(tutorRes.examId, 'aws-saa');
+    assert.ok(tutorRes.answer.includes('Gateway VPC Endpoint'));
+    assert.ok(Array.isArray(tutorRes.citations) && tutorRes.citations.length > 0);
+  } finally {
+    server.close();
+  }
 });

@@ -225,33 +225,304 @@ object DefaultQuestions {
         )
     )
 
+    val AWS_SAA_QUESTIONS = listOf(
+        Question(
+            id = "aws-saa-q01",
+            examId = "aws-saa",
+            domainId = "aws-d1",
+            domainName = "Design Secure Architectures",
+            questionText = "A financial services enterprise runs workloads on Amazon EC2 instances in private subnets across multiple Availability Zones without NAT Gateways. The instances must securely access an Amazon S3 bucket containing encrypted regulatory archives without traffic ever traversing the public internet. Which AWS configuration meets this requirement with zero hourly data processing charges?",
+            options = listOf(
+                "Create a Gateway VPC Endpoint for Amazon S3, update the private subnet route tables, and apply a VPC Endpoint Policy",
+                "Deploy an AWS Transit Gateway attached to an AWS Direct Connect connection",
+                "Provision a NAT Instance in a public subnet and allow outbound HTTPS port 443",
+                "Configure Amazon CloudFront with an Origin Access Control (OAC)"
+            ),
+            correctIndex = 0,
+            explanation = "A Gateway VPC Endpoint for Amazon S3 adds a prefix list route directly into your VPC route tables, routing traffic privately over the AWS backbone network with zero hourly endpoint fees or per-GB data processing charges.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Gateway VPC Endpoints for S3 and DynamoDB are free and route traffic privately via VPC route tables.",
+                1 to "Transit Gateway and Direct Connect add unnecessary cost and complexity for intra-region S3 access.",
+                2 to "NAT Instances route traffic over the public Internet Gateway and incur EC2 instance costs.",
+                3 to "CloudFront is a public edge CDN and requires internet egress."
+            ),
+            citation = SourceCitation(
+                title = "AWS Well-Architected Framework – Security Pillar",
+                sectionOrPage = "SEC05-BP02: Gateway VPC Endpoints",
+                standardOrFramework = "Amazon VPC User Guide"
+            ),
+            difficulty = QuestionDifficulty.HARD
+        ),
+        Question(
+            id = "aws-saa-q02",
+            examId = "aws-saa",
+            domainId = "aws-d2",
+            domainName = "Design Resilient Architectures",
+            questionText = "An e-commerce platform uses an Amazon RDS for PostgreSQL database in a single Availability Zone. Management mandates automatic failover to a standby replica in another AZ with zero data loss (RPO = 0) and recovery under 2 minutes. Which architectural change satisfies these resilience requirements?",
+            options = listOf(
+                "Create an asynchronous Cross-Region Read Replica",
+                "Modify the RDS instance to enable Multi-AZ deployment with synchronous physical replication",
+                "Schedule automated EBS snapshots every 5 minutes",
+                "Place an Application Load Balancer in front of the single-AZ RDS endpoint"
+            ),
+            correctIndex = 1,
+            explanation = "Amazon RDS Multi-AZ deployments provision and maintain a synchronous standby replica in a different Availability Zone (RPO = 0) and automatically fail over DNS within 60-120 seconds.",
+            optionAnalysis = mapOf(
+                0 to "Read Replicas use asynchronous replication (non-zero RPO) and require manual promotion.",
+                1 to "CORRECT. RDS Multi-AZ provides synchronous replication and automated failover across Availability Zones.",
+                2 to "Snapshots have a minimum 5-minute RPO and require full instance restoration (high RTO).",
+                3 to "Application Load Balancers operate at Layer 7 HTTP/HTTPS and cannot load-balance PostgreSQL single-AZ storage."
+            ),
+            citation = SourceCitation(
+                title = "AWS Well-Architected Framework – Reliability Pillar",
+                sectionOrPage = "REL09-BP01: Amazon RDS Multi-AZ High Availability",
+                standardOrFramework = "Amazon RDS User Guide"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        ),
+        Question(
+            id = "aws-saa-q03",
+            examId = "aws-saa",
+            domainId = "aws-d3",
+            domainName = "Design High-Performing Architectures",
+            questionText = "A real-time global leaderboard backed by Amazon DynamoDB experiences hot-partition read throttling and 25ms read latencies during tournament finals. Which solution reduces read latency to microseconds without application refactoring?",
+            options = listOf(
+                "Deploy Amazon DynamoDB Accelerator (DAX) as a managed in-memory write-through cache",
+                "Migrate the leaderboard table to Amazon Redshift Serverless",
+                "Export DynamoDB data nightly to Amazon S3 and query with Amazon Athena",
+                "Enable DynamoDB Streams and invoke AWS Step Functions on every read"
+            ),
+            correctIndex = 0,
+            explanation = "Amazon DynamoDB Accelerator (DAX) is a fully managed, API-compatible in-memory cache for DynamoDB that delivers microsecond read latency and absorbs extreme read spikes.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. DAX is API-compatible with DynamoDB and reduces read latency from milliseconds to microseconds.",
+                1 to "Redshift is an analytical data warehouse, not a microsecond key-value store.",
+                2 to "Athena is for ad-hoc S3 SQL analytics with multi-second query latency.",
+                3 to "DynamoDB Streams capture write modifications, not cached read queries."
+            ),
+            citation = SourceCitation(
+                title = "AWS Well-Architected Framework – Performance Efficiency Pillar",
+                sectionOrPage = "PERF04-BP03: In-Memory Acceleration with DAX",
+                standardOrFramework = "Amazon DynamoDB Developer Guide"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        ),
+        Question(
+            id = "aws-saa-q04",
+            examId = "aws-saa",
+            domainId = "aws-d4",
+            domainName = "Design Cost-Optimized Architectures",
+            questionText = "A biotech enterprise stores 850 TB of genomic files in Amazon S3 with unpredictable access patterns. When researchers request any file, retrieval must be immediate (milliseconds) with zero retrieval fees. Which S3 storage class optimizes costs automatically?",
+            options = listOf(
+                "Amazon S3 Intelligent-Tiering",
+                "Amazon S3 Glacier Deep Archive",
+                "Amazon S3 One Zone-Infrequent Access (S3 One Zone-IA)",
+                "Amazon FSx for Lustre persistent SSD"
+            ),
+            correctIndex = 0,
+            explanation = "Amazon S3 Intelligent-Tiering automatically moves objects between Frequent, Infrequent, and Archive Instant Access tiers based on access patterns with millisecond latency and zero retrieval fees.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. S3 Intelligent-Tiering automatically transitions objects across access tiers with no retrieval charges.",
+                1 to "Glacier Deep Archive requires 12-48 hours for restoration and charges retrieval fees.",
+                2 to "One Zone-IA charges per-GB retrieval fees and lacks Multi-AZ resilience.",
+                3 to "FSx for Lustre is high-cost HPC scratch storage."
+            ),
+            citation = SourceCitation(
+                title = "AWS Well-Architected Framework – Cost Optimization Pillar",
+                sectionOrPage = "COST06-BP02: Amazon S3 Intelligent-Tiering",
+                standardOrFramework = "Amazon S3 User Guide"
+            ),
+            difficulty = QuestionDifficulty.EASY
+        )
+    )
+
+    val SEC_PLUS_QUESTIONS = listOf(
+        Question(
+            id = "sec-plus-q01",
+            examId = "sec-plus",
+            domainId = "sec-d1",
+            domainName = "General Security Concepts",
+            questionText = "In a Zero Trust Architecture (SY0-701 Domain 1.2), when a clinician requests access to an EMR API, which Control Plane component evaluates contextual trust signals (identity, device posture, geolocation) and makes the access decision?",
+            options = listOf(
+                "Policy Decision Point (PDP) — comprising the Policy Engine (PE) and Policy Administrator (PA)",
+                "Policy Enforcement Point (PEP)",
+                "PKI Registration Authority (RA)",
+                "Physical Intrusion Detection Sensor"
+            ),
+            correctIndex = 0,
+            explanation = "In Zero Trust Architecture (NIST SP 800-207), the Control Plane houses the Policy Decision Point (PDP), consisting of the Policy Engine (PE) and Policy Administrator (PA), while the Policy Enforcement Point (PEP) sits in the Data Plane.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. The PDP (PE + PA) evaluates trust rules and issues session tokens in the Control Plane.",
+                1 to "The PEP sits in the Data Plane and enforces the decision made by the PDP.",
+                2 to "An RA verifies identity for digital certificates, not per-session Zero Trust telemetry.",
+                3 to "Physical sensors detect facility intrusion."
+            ),
+            citation = SourceCitation(
+                title = "CompTIA Security+ SY0-701 Exam Objectives",
+                sectionOrPage = "Objective 1.2: Zero Trust Control Plane vs Data Plane",
+                standardOrFramework = "NIST SP 800-207 Zero Trust Architecture"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        ),
+        Question(
+            id = "sec-plus-q02",
+            examId = "sec-plus",
+            domainId = "sec-d2",
+            domainName = "Threats, Vulnerabilities, and Mitigations",
+            questionText = "A company's CFO receives a synthetic AI video call and voice message impersonating the CEO, instructing an urgent wire transfer. Which threat vector and social engineering technique does this represent?",
+            options = listOf(
+                "Whaling combined with AI-generated Deepfake / Vishing impersonation",
+                "Watering Hole attack utilizing DNS cache poisoning",
+                "Bluejacking over Bluetooth PAN",
+                "Typosquatting via Punycode domains"
+            ),
+            correctIndex = 0,
+            explanation = "Targeting a C-level executive (CFO) is Whaling, and using synthetic audio/video to impersonate authority over voice/video channels combines deepfake impersonation with vishing.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Executive targeting is Whaling, executed via AI deepfake vishing.",
+                1 to "Watering hole attacks compromise third-party websites frequented by a target group.",
+                2 to "Bluejacking sends unsolicited messages over Bluetooth.",
+                3 to "Typosquatting registers look-alike domain names."
+            ),
+            citation = SourceCitation(
+                title = "CompTIA Security+ SY0-701 Exam Objectives",
+                sectionOrPage = "Objective 2.2: Social Engineering & Impersonation",
+                standardOrFramework = "CompTIA SY0-701 Curriculum"
+            ),
+            difficulty = QuestionDifficulty.EASY
+        ),
+        Question(
+            id = "sec-plus-q03",
+            examId = "sec-plus",
+            domainId = "sec-d4",
+            domainName = "Security Operations",
+            questionText = "A SOC analyst wants a platform that automatically parses reported phishing emails, queries threat intel feeds, quarantines matching messages across all mailboxes, and opens a ticket via automated playbooks. Which platform provides this?",
+            options = listOf(
+                "SOAR (Security Orchestration, Automation, and Response)",
+                "FIM (File Integrity Monitoring)",
+                "DLP USB Blocker",
+                "NetFlow Collector"
+            ),
+            correctIndex = 0,
+            explanation = "SOAR executes automated playbooks and orchestrates response actions across third-party tools to reduce Mean Time to Respond (MTTR).",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. SOAR automates incident response runbooks across email, EDR, and ticketing tools.",
+                1 to "FIM monitors critical OS files for unauthorized hash changes.",
+                2 to "DLP blocks unauthorized data exfiltration.",
+                3 to "NetFlow captures network flow metadata."
+            ),
+            citation = SourceCitation(
+                title = "CompTIA Security+ SY0-701 Exam Objectives",
+                sectionOrPage = "Objective 4.4 / 4.8: SOAR Playbook Automation",
+                standardOrFramework = "CompTIA SY0-701 Official Study Guide"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        )
+    )
+
+    val PMP_QUESTIONS = listOf(
+        Question(
+            id = "pmp-q01",
+            examId = "pmp",
+            domainId = "pmp-d2",
+            domainName = "Process",
+            questionText = "An infrastructure project has a Budget at Completion (BAC) of $500,000. At month 6, Planned Value (PV) is $250,000, Earned Value (EV) is $200,000, and Actual Cost (AC) is $250,000. What are the CPI and SPI, and what is the project status?",
+            options = listOf(
+                "CPI = 0.80 and SPI = 0.80; the project is both over budget and behind schedule",
+                "CPI = 1.25 and SPI = 1.00; the project is under budget and on schedule",
+                "CPI = 1.00 and SPI = 0.80; the project is on budget but behind schedule",
+                "CPI = 0.80 and SPI = 1.25; the project is over budget but ahead of schedule"
+            ),
+            correctIndex = 0,
+            explanation = "CPI = EV / AC = 200,000 / 250,000 = 0.80 (< 1.0 is over budget). SPI = EV / PV = 200,000 / 250,000 = 0.80 (< 1.0 is behind schedule).",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Both CPI and SPI are 0.80, indicating the project is over budget and behind schedule.",
+                1 to "Inverts EV and AC.",
+                2 to "Incorrectly calculates CPI as 1.00.",
+                3 to "Inverts EV and PV."
+            ),
+            citation = SourceCitation(
+                title = "PMI PMBOK Guide 7th Edition",
+                sectionOrPage = "Domain II: Process – Earned Value Management (EVM)",
+                standardOrFramework = "PMI Standard for Earned Value Management"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        )
+    )
+
+    val CISM_QUESTIONS = listOf(
+        Question(
+            id = "cism-q01",
+            examId = "cism",
+            domainId = "cism-d2",
+            domainName = "Information Risk Management",
+            questionText = "After implementing MFA and EDR on a financial ERP system, a residual risk of $85,000/year remains. Who holds the authority to formally accept this residual risk?",
+            options = listOf(
+                "Senior Management / the Business Process Owner (Risk Owner)",
+                "The Information Security Manager (CISM)",
+                "The External Financial Auditor",
+                "The SOC Tier-2 Analyst"
+            ),
+            correctIndex = 0,
+            explanation = "In ISACA risk governance, the Information Security Manager quantifies risk and recommends controls, but only Senior Management / the Business Process Owner holds fiduciary authority to accept residual business risk.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Business owners/senior management own the business asset and accept residual risk.",
+                1 to "The CISM advises and implements controls but does not own business risk.",
+                2 to "Auditors provide independent assurance and cannot make management decisions.",
+                3 to "SOC analysts monitor operational alerts."
+            ),
+            citation = SourceCitation(
+                title = "ISACA CISM Review Manual (16th Edition)",
+                sectionOrPage = "Domain 2: Information Risk Management – Residual Risk Acceptance",
+                standardOrFramework = "ISACA Risk IT Framework"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        )
+    )
+
+    val CEH_QUESTIONS = listOf(
+        Question(
+            id = "ceh-q01",
+            examId = "ceh",
+            domainId = "ceh-d1",
+            domainName = "Reconnaissance & Scanning",
+            questionText = "During an authorized penetration test, an ethical hacker wants to identify open TCP ports without completing the full 3-way TCP handshake. Which Nmap scan flag performs a half-open TCP SYN stealth scan?",
+            options = listOf(
+                "nmap -sS <target> (Sends SYN; replies with RST upon receiving SYN/ACK)",
+                "nmap -sT <target> (Completes full 3-way TCP connect handshake)",
+                "nmap -sU <target> (UDP scan)",
+                "nmap -sn <target> (Ping sweep only)"
+            ),
+            correctIndex = 0,
+            explanation = "An Nmap TCP SYN scan (-sS) sends a SYN packet and immediately tears down the connection with a RST packet after receiving SYN/ACK, avoiding full 3-way handshake completion.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. -sS is the half-open TCP SYN stealth scan.",
+                1 to "-sT completes the full OS connect() 3-way handshake.",
+                2 to "-sU scans UDP ports.",
+                3 to "-sn performs host discovery without port scanning."
+            ),
+            citation = SourceCitation(
+                title = "EC-Council CEH v12 Official Curriculum",
+                sectionOrPage = "Module 03: Scanning Networks – TCP SYN Stealth Scan (-sS)",
+                standardOrFramework = "EC-Council 312-50 Blueprint"
+            ),
+            difficulty = QuestionDifficulty.EASY
+        )
+    )
+
+    /**
+     * Authoritative question lookup enforcing Certification Content Integrity.
+     * Never substitutes CISSP questions when another certification is selected.
+     */
     fun getQuestionsForExam(examId: String): List<Question> {
-        return when (examId) {
+        return when (ExamCatalog.normalizeExamId(examId)) {
             "cissp" -> CISSP_QUESTIONS
-            "aws-saa" -> CISSP_QUESTIONS.mapIndexed { index, q ->
-                q.copy(
-                    id = "aws_$index",
-                    examId = "aws-saa",
-                    domainId = "aws-d${(index % 4) + 1}",
-                    domainName = ExamCatalog.AWS_SAA.domains[index % 4].title
-                )
-            }
-            "sec-plus" -> CISSP_QUESTIONS.mapIndexed { index, q ->
-                q.copy(
-                    id = "sec_$index",
-                    examId = "sec-plus",
-                    domainId = "sec-d${(index % 5) + 1}",
-                    domainName = ExamCatalog.SECURITY_PLUS.domains[index % 5].title
-                )
-            }
-            else -> CISSP_QUESTIONS.mapIndexed { index, q ->
-                q.copy(
-                    id = "gen_$index",
-                    examId = examId,
-                    domainId = "gen-d${(index % 4) + 1}",
-                    domainName = "Domain ${(index % 4) + 1}: Core Competency"
-                )
-            }
+            "aws-saa" -> AWS_SAA_QUESTIONS
+            "sec-plus" -> SEC_PLUS_QUESTIONS
+            "pmp" -> PMP_QUESTIONS
+            "cism" -> CISM_QUESTIONS
+            "ceh" -> CEH_QUESTIONS
+            else -> emptyList()
         }
     }
 }

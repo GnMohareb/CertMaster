@@ -63,32 +63,32 @@ interface ExamApiService {
         @Body session: ExamSession
     ): Response<Map<String, Any>>
 
-    // Central Web Platform Cloud Sync Endpoints (shared with src/services/apiSyncService.ts)
-    @POST("api/profile/sync")
+    // Central Web Platform Cloud Sync Endpoints (shared with apps/web/server.ts)
+    @POST("profile/sync")
     suspend fun syncProfile(
         @Header("Authorization") authHeader: String?,
         @Body profile: UserCentralProfile
     ): Response<Map<String, Any>>
 
-    @POST("api/subscriptions/verify")
+    @POST("subscriptions/verify")
     suspend fun verifySubscription(
         @Header("Authorization") authHeader: String?,
         @Body request: Map<String, String>
     ): Response<Map<String, Any>>
 
-    @POST("api/scores/telemetry")
+    @POST("scores/telemetry")
     suspend fun sendScoreTelemetry(
         @Header("Authorization") authHeader: String?,
         @Body telemetry: Map<String, Any>
     ): Response<Map<String, Any>>
 
-    @POST("api/study-plan/sync")
+    @POST("study-plan/sync")
     suspend fun syncStudyPlan(
         @Header("Authorization") authHeader: String?,
         @Body studyPlanPayload: Map<String, Any>
     ): Response<Map<String, Any>>
 
-    @POST("api/flashcards/sync")
+    @POST("flashcards/sync")
     suspend fun syncFlashcards(
         @Header("Authorization") authHeader: String?,
         @Body flashcardsPayload: Map<String, Any>

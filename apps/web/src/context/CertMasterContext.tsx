@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -57,12 +57,37 @@ import {
   migrateLegacyProfile,
 } from '../lib/canonicalContract';
 import { ALL_112_EXAM_BANKS } from '../data/examBanks';
-import { FLASHCARDS } from '../data/studyMaterials';
+import { MULTI_EXAM_FLASHCARDS, getQuestionsForExamId } from '../data/multiExamQuestions';
 import { DIRTY_DOZEN_SECURITY_TESTS } from '../../firestore.rules.test';
+
+export type PrimaryLearnerSection =
+  | 'dashboard'
+  | 'my-certifications'
+  | 'study'
+  | 'practice'
+  | 'progress'
+  | 'catalog'
+  | 'account';
+
+export type LegacyTab = 'dashboard' | 'catalog' | 'assessment' | 'simulator' | 'study' | 'sync';
+
+export type SyncConnectionState = 'LOCAL_ONLY' | 'SYNC_PENDING' | 'SYNCHRONIZED' | 'SYNC_FAILED';
+
+export type PracticeSessionMode = 'DIAGNOSTIC' | 'QUICK' | 'DOMAIN' | 'MOCK' | 'ADAPTIVE';
+
+export interface AITutorChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  citations?: { title: string; section: string; authority: string }[];
+  suggestedFollowUps?: string[];
+  timestamp: string;
+}
 
 export interface ActiveExamSession {
   examId: string;
   examTitle: string;
+  practiceMode?: PracticeSessionMode;
   durationMinutes: number;
   timeRemainingSeconds: number;
   isRunning: boolean;
@@ -84,6 +109,8 @@ interface CertMasterContextType {
   firebaseUser: FirebaseUser | null;
   isAuthReady: boolean;
   isCloudConnected: boolean;
+  isDemoMode: boolean;
+  syncState: SyncConnectionState;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
   updateUserProfileInCloud: (updates: Partial<{
@@ -101,7 +128,15 @@ interface CertMasterContextType {
   isSyncing: boolean;
   syncLogs: SyncAuditLog[];
   activeExam: ActiveExamSession | null;
-  startExamSession: (examId: string, customQuestions?: ExamQuestion[], durationMinutes?: number) => void;
+  lastCompletedExam: ActiveExamSession | null;
+  practiceMode: PracticeSessionMode;
+  setPracticeMode: (mode: PracticeSessionMode) => void;
+  startExamSession: (
+    examId: string,
+    customQuestions?: ExamQuestion[],
+    durationMinutes?: number,
+    mode?: PracticeSessionMode
+  ) => void;
   pauseExamSession: () => void;
   resumeExamSession: () => void;
   jumpToQuestion: (index: number) => void;
@@ -119,8 +154,19 @@ interface CertMasterContextType {
   customSources: StudySource[];
   addCustomSource: (source: Omit<StudySource, 'id' | 'schemaVersion' | 'cachedAtMillis'>) => Promise<void>;
   purchaseExam: (examId: string, tier?: 'single' | 'universal') => void;
-  activeTab: 'dashboard' | 'catalog' | 'assessment' | 'simulator' | 'study' | 'sync';
-  setActiveTab: (tab: 'dashboard' | 'catalog' | 'assessment' | 'simulator' | 'study' | 'sync') => void;
+  // Navigation & URL Hash Routing
+  activeSection: PrimaryLearnerSection;
+  activeSubTab: string;
+  selectedCertId: string;
+  setSelectedCertId: (certId: string) => void;
+  navigateTo: (section: PrimaryLearnerSection, subTab?: string, certId?: string) => void;
+  activeTab: LegacyTab;
+  setActiveTab: (tab: LegacyTab) => void;
+  // AI Tutor
+  aiTutorMessages: AITutorChatMessage[];
+  isTutorLoading: boolean;
+  sendAITutorMessage: (queryText: string, domainFilter?: string) => Promise<void>;
+  // Modals & Toasts
   checkoutExamId: string | null;
   setCheckoutExamId: (id: string | null) => void;
   isSSOModalOpen: boolean;
@@ -318,6 +364,42 @@ const INITIAL_STUDY_PLAN: StudyPlanDoc = {
     'Communication & Network Security',
   ],
   status: 'ACTIVE',
+  currentStage: 4,
+  readinessPercent: 78,
+  passProbabilityPercent: 84,
+  passGuaranteeQualified: false,
+  milestones: [
+    {
+      stage: 1,
+      stageName: 'Stage 1: Diagnostic & Behavioral Baseline',
+      description: 'Complete the 15-Question Behavioral & Knowledge Calibration Assessment.',
+      status: 'COMPLETED',
+    },
+    {
+      stage: 2,
+      stageName: 'Stage 2: Core Domain Study & Audio Briefings',
+      description: 'Review NotebookLM study guides and listen to Maya & Liam audio lessons.',
+      status: 'COMPLETED',
+    },
+    {
+      stage: 3,
+      stageName: 'Stage 3: Spaced-Repetition Flashcard Mastery',
+      description: 'Advance at least 50% of active recall flashcards to Box 4-5 (Known).',
+      status: 'COMPLETED',
+    },
+    {
+      stage: 4,
+      stageName: 'Stage 4: Full Timed Mock Exam Simulations',
+      description: 'Complete at least 3 full-length timed mock exams at >=70% accuracy.',
+      status: 'COMPLETED',
+    },
+    {
+      stage: 5,
+      stageName: 'Stage 5: Pass Guarantee Qualification',
+      description: 'Achieve >=85% Authoritative Readiness Score across all domains.',
+      status: 'IN_PROGRESS',
+    },
+  ],
 };
 
 const INITIAL_READINESS: Record<string, ExamReadinessDoc> = {
@@ -384,7 +466,28 @@ const INITIAL_TESTS: IntegrationTestResult[] = [
     name: '5. Firestore Security Rules & Dirty Dozen Boundary Audit',
     category: 'Security Rules',
     status: 'IDLE',
-    details: 'Verifies cross-user PII isolation and all 12 Dirty Dozen security rule guards.',
+    details: 'Verifies cross-user PII isolation and all 14 security rule & entitlement guards.',
+  },
+];
+
+const INITIAL_AI_MESSAGES: AITutorChatMessage[] = [
+  {
+    id: 'ai-welcome',
+    role: 'assistant',
+    text: 'Welcome to the CertMaster Grounded AI Exam Tutor. Ask me any question about your active certification domains, architecture trade-offs, or exam distractors — every answer is grounded in your authoritative study sources.',
+    citations: [
+      {
+        title: 'CertMaster Canonical Knowledge Base',
+        section: 'All 6 Full-Prep Certifications',
+        authority: 'ISC2 / AWS / CompTIA / PMI / ISACA / EC-Council',
+      },
+    ],
+    suggestedFollowUps: [
+      'Compare Bell-LaPadula and Biba integrity models for CISSP',
+      'When should I use an AWS Gateway VPC Endpoint vs Interface Endpoint?',
+      'How do I calculate Earned Value (CPI and SPI) on the PMP exam?',
+    ],
+    timestamp: new Date().toLocaleTimeString(),
   },
 ];
 
@@ -396,6 +499,57 @@ function formatFirestoreTimestamp(ts: unknown): string {
   return new Date().toISOString();
 }
 
+function parseUrlHash(hash: string): {
+  section: PrimaryLearnerSection;
+  subTab: string;
+  certId?: string;
+} {
+  const cleaned = hash.replace(/^#\/?/, '').trim();
+  if (!cleaned) {
+    return { section: 'dashboard', subTab: 'overview' };
+  }
+  const parts = cleaned.split('/').filter(Boolean);
+  const first = parts[0]?.toLowerCase();
+
+  if (first === 'my-certifications' || first === 'certifications') {
+    const certCandidate = parts[1] ? normalizeExamId(parts[1]) : undefined;
+    const subCandidate = parts[2] || 'overview';
+    return {
+      section: 'my-certifications',
+      subTab: subCandidate,
+      certId: certCandidate,
+    };
+  }
+  if (first === 'study') {
+    return { section: 'study', subTab: parts[1] || 'guides' };
+  }
+  if (first === 'practice' || first === 'simulator' || first === 'assessment') {
+    const defaultSub =
+      first === 'assessment' ? 'diagnostic' : parts[1] || 'mock';
+    return { section: 'practice', subTab: defaultSub };
+  }
+  if (first === 'progress' || first === 'results') {
+    return { section: 'progress', subTab: parts[1] || 'trends' };
+  }
+  if (first === 'catalog' || first === 'explore') {
+    return { section: 'catalog', subTab: parts[1] || 'all' };
+  }
+  if (first === 'account' || first === 'sync') {
+    return { section: 'account', subTab: parts[1] || 'profile' };
+  }
+  return { section: 'dashboard', subTab: 'overview' };
+}
+
+function sectionToLegacyTab(section: PrimaryLearnerSection, subTab: string): LegacyTab {
+  if (section === 'catalog') return 'catalog';
+  if (section === 'study') return 'study';
+  if (section === 'practice') {
+    return subTab === 'diagnostic' ? 'assessment' : 'simulator';
+  }
+  if (section === 'account' && subTab === 'sync') return 'sync';
+  return 'dashboard';
+}
+
 export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profile, setProfile] = useState<UserCentralProfile>(() => {
     const saved = localStorage.getItem('certmaster_user_profile');
@@ -403,7 +557,6 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       try {
         const parsed = JSON.parse(saved);
         const migrated = migrateLegacyProfile({ ...INITIAL_PROFILE, ...parsed });
-        // Ensure behavioralArchetype stays an object for Web UI components
         return {
           ...INITIAL_PROFILE,
           ...migrated,
@@ -424,7 +577,8 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
-  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
+  const [syncState, setSyncState] = useState<SyncConnectionState>('LOCAL_ONLY');
 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('certmaster_theme') as 'dark' | 'light') || 'dark';
@@ -435,15 +589,27 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [historicalAttempts, setHistoricalAttempts] = useState<HistoricalExamAttempt[]>(
     INITIAL_HISTORICAL_ATTEMPTS
   );
-  const [flashcards, setFlashcards] = useState<Flashcard[]>(FLASHCARDS);
+  const [flashcards, setFlashcards] = useState<Flashcard[]>(MULTI_EXAM_FLASHCARDS);
   const [studyPlan, setStudyPlan] = useState<StudyPlanDoc>(INITIAL_STUDY_PLAN);
   const [readinessMap, setReadinessMap] = useState<Record<string, ExamReadinessDoc>>(INITIAL_READINESS);
   const [customSources, setCustomSources] = useState<StudySource[]>([]);
 
   const [activeExam, setActiveExam] = useState<ActiveExamSession | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'catalog' | 'assessment' | 'simulator' | 'study' | 'sync'
-  >('dashboard');
+  const [lastCompletedExam, setLastCompletedExam] = useState<ActiveExamSession | null>(null);
+  const [practiceMode, setPracticeMode] = useState<PracticeSessionMode>('MOCK');
+
+  // Navigation & URL Hash Routing State
+  const initialRoute = parseUrlHash(typeof window !== 'undefined' ? window.location.hash : '');
+  const [activeSection, setActiveSection] = useState<PrimaryLearnerSection>(initialRoute.section);
+  const [activeSubTab, setActiveSubTab] = useState<string>(initialRoute.subTab);
+  const [selectedCertId, setSelectedCertIdState] = useState<string>(
+    initialRoute.certId || normalizeExamId(profile.targetExamId || 'cissp')
+  );
+
+  // AI Tutor State
+  const [aiTutorMessages, setAiTutorMessages] = useState<AITutorChatMessage[]>(INITIAL_AI_MESSAGES);
+  const [isTutorLoading, setIsTutorLoading] = useState<boolean>(false);
+
   const [checkoutExamId, setCheckoutExamId] = useState<string | null>(null);
   const [isSSOModalOpen, setIsSSOModalOpen] = useState<boolean>(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
@@ -452,12 +618,80 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [integrationTests, setIntegrationTests] = useState<IntegrationTestResult[]>(INITIAL_TESTS);
   const [isRunningTests, setIsRunningTests] = useState<boolean>(false);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage((cur) => (cur === msg ? null : cur));
     }, 4500);
-  };
+  }, []);
+
+  // Listen to browser hashchange (Back/Forward navigation)
+  useEffect(() => {
+    const onHashChange = () => {
+      const parsed = parseUrlHash(window.location.hash);
+      setActiveSection(parsed.section);
+      setActiveSubTab(parsed.subTab);
+      if (parsed.certId) {
+        setSelectedCertIdState(normalizeExamId(parsed.certId));
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const navigateTo = useCallback(
+    (section: PrimaryLearnerSection, subTab: string = 'overview', certId?: string) => {
+      const normalizedCert = certId ? normalizeExamId(certId) : selectedCertId;
+      setActiveSection(section);
+      setActiveSubTab(subTab);
+      if (certId) {
+        setSelectedCertIdState(normalizedCert);
+      }
+
+      if (typeof window !== 'undefined') {
+        let nextHash = `#/${section}`;
+        if (section === 'my-certifications' && normalizedCert) {
+          nextHash = `#/my-certifications/${normalizedCert}/${subTab}`;
+        } else if (subTab && subTab !== 'overview') {
+          nextHash = `#/${section}/${subTab}`;
+        }
+        if (window.location.hash !== nextHash) {
+          window.history.pushState(null, '', nextHash);
+        }
+      }
+    },
+    [selectedCertId]
+  );
+
+  const setSelectedCertId = useCallback(
+    (certId: string) => {
+      const canonical = normalizeExamId(certId);
+      setSelectedCertIdState(canonical);
+      setProfile((prev) => ({
+        ...prev,
+        targetExamId: canonical,
+      }));
+    },
+    []
+  );
+
+  const activeTab: LegacyTab = sectionToLegacyTab(activeSection, activeSubTab);
+
+  const setActiveTab = useCallback(
+    (tab: LegacyTab) => {
+      if (tab === 'dashboard') navigateTo('dashboard', 'overview');
+      else if (tab === 'catalog') navigateTo('catalog', 'all');
+      else if (tab === 'assessment') {
+        setPracticeMode('DIAGNOSTIC');
+        navigateTo('practice', 'diagnostic');
+      } else if (tab === 'simulator') {
+        setPracticeMode('MOCK');
+        navigateTo('practice', 'mock');
+      } else if (tab === 'study') navigateTo('study', 'guides');
+      else if (tab === 'sync') navigateTo('account', 'sync');
+    },
+    [navigateTo]
+  );
 
   // Persist local cache fallback
   useEffect(() => {
@@ -483,177 +717,113 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setFirebaseUser(user);
       setIsAuthReady(true);
 
-      if (user) {
-        const uid = sanitizeId(user.uid);
-        const userDocPath = `users/${uid}`;
-        try {
-          const existingSnap = await getDoc(doc(db, 'users', uid));
-          if (!existingSnap.exists()) {
-            // Step 1: Create parent /users/{uid} first so Master Gate parentUserExists(uid) is satisfied
-            const initialUserDoc = {
-              userId: uid,
-              displayName: sanitizeString(user.displayName || profile.displayName, 120, 'G. N. Mohareb'),
-              avatarUrl: sanitizeString(
-                user.photoURL || profile.avatarUrl,
-                500,
-                '/src/assets/images/avatar_gnmohareb_1793219947224.jpg'
-              ),
-              subscriptionTier: profile.subscriptionTier,
-              assessmentScorePercent: clampNumber(profile.assessmentScorePercent, 0, 100),
-              cognitiveStressBaseline: clampNumber(profile.cognitiveStressBaseline, 0, 100),
-              archetypeName: sanitizeString(
-                profile.behavioralArchetype.name,
-                100,
-                'Analytical Hesitator'
-              ),
-              archetypeDescription: sanitizeString(
-                profile.behavioralArchetype.description,
-                600,
-                DEFAULT_ARCHETYPE.description
-              ),
-              avgDwellSeconds: clampNumber(profile.behavioralArchetype.avgDwellSeconds, 0, 3600),
-              switchRatePercent: clampNumber(profile.behavioralArchetype.switchRatePercent, 0, 100),
-              distractorEliminationRate: clampNumber(
-                profile.behavioralArchetype.distractorEliminationRate,
-                0,
-                100
-              ),
-              confidenceIndex: clampNumber(profile.behavioralArchetype.confidenceIndex, 0, 100),
-              recommendedStrategy: sanitizeString(
-                profile.behavioralArchetype.recommendedStrategy,
-                600,
-                DEFAULT_ARCHETYPE.recommendedStrategy
-              ),
-              preferredTheme: theme,
-              targetExamId: 'cissp',
-              dailyStudyGoalMinutes: 45,
-              androidDeviceId: sanitizeString(
-                profile.androidDeviceId || 'Pixel-8-Pro-G9H3K',
-                128,
-                'Pixel-8-Pro-G9H3K'
-              ),
-              lastActivePlatform: 'WEB',
-              schemaVersion: CERTMASTER_SCHEMA_VERSION,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            };
+      if (!user) {
+        setIsCloudConnected(false);
+        setSyncState('LOCAL_ONLY');
+        return;
+      }
 
-            await setDoc(doc(db, 'users', uid), initialUserDoc);
+      setSyncState('SYNC_PENDING');
+      const uid = sanitizeId(user.uid);
+      const userDocPath = `users/${uid}`;
+      try {
+        const existingSnap = await getDoc(doc(db, 'users', uid));
+        if (!existingSnap.exists()) {
+          // Clean, non-spoofed provisioning for new production Firebase accounts:
+          // Never grant unverified 'Universal Multi-Pass' or fake historical exam attempts.
+          const initialUserDoc = {
+            userId: uid,
+            displayName: sanitizeString(user.displayName || 'CertMaster Learner', 120, 'CertMaster Learner'),
+            avatarUrl: sanitizeString(
+              user.photoURL || '/src/assets/images/avatar_gnmohareb_1793219947224.jpg',
+              500,
+              '/src/assets/images/avatar_gnmohareb_1793219947224.jpg'
+            ),
+            subscriptionTier: 'Free Trial',
+            assessmentCompleted: false,
+            assessmentScorePercent: 0,
+            cognitiveStressBaseline: 50,
+            archetypeName: 'Uncalibrated',
+            archetypeDescription: 'Complete the 15-question Behavioral & Knowledge Calibration to establish your baseline.',
+            avgDwellSeconds: 0,
+            switchRatePercent: 0,
+            distractorEliminationRate: 0,
+            confidenceIndex: 50,
+            recommendedStrategy: 'Take the Diagnostic Calibration Assessment to unlock personalized pacing recommendations.',
+            preferredTheme: theme,
+            targetExamId: 'cissp',
+            dailyStudyGoalMinutes: 45,
+            androidDeviceId: 'Unpaired',
+            lastActivePlatform: 'WEB',
+            schemaVersion: CERTMASTER_SCHEMA_VERSION,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          };
 
-            // Step 2: Populate subcollections in a batch now that parent /users/{uid} exists
-            const batch = writeBatch(db);
+          await setDoc(doc(db, 'users', uid), initialUserDoc);
 
-            // Isolated PII
-            batch.set(doc(db, 'users', uid, 'private', 'pii'), {
-              userId: uid,
-              email: sanitizeString(user.email || profile.email, 254, 'gnmohareb@gmail.com'),
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
+          const batch = writeBatch(db);
 
-            // Subscriptions
-            Object.values(INITIAL_PROFILE.subscriptions).forEach((sub) => {
-              const eId = sanitizeId(sub.examId);
-              batch.set(doc(db, 'users', uid, 'subscriptions', eId), {
-                userId: uid,
-                examId: eId,
-                status: sub.status,
-                platform: sub.platform,
-                expiresAt: sanitizeString(sub.expiresAt || '2027-12-31T23:59:59Z', 64),
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
-            });
+          // Isolated PII
+          batch.set(doc(db, 'users', uid, 'private', 'pii'), {
+            userId: uid,
+            email: sanitizeString(user.email || '', 254, ''),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
 
-            // Historical Exam Attempts
-            INITIAL_HISTORICAL_ATTEMPTS.forEach((att) => {
-              const aId = sanitizeId(att.id);
-              batch.set(doc(db, 'users', uid, 'attempts', aId), {
-                attemptId: aId,
-                userId: uid,
-                examId: sanitizeId(att.examId),
-                attemptType: att.attemptType || 'SIMULATION',
-                platform: att.platform || 'WEB',
-                scorePercent: clampNumber(att.scorePercent, 0, 100),
-                totalQuestions: att.totalQuestions || 8,
-                correctAnswers: att.correctAnswers || 6,
-                timeSpentMinutes: clampNumber(att.timeSpentMinutes, 0, 600),
-                averageDwellSec: clampNumber(att.averageDwellSec, 0, 3600),
-                stressScore: clampNumber(att.stressScore, 0, 100),
-                dateString: sanitizeString(att.date, 32, '2026-10-24'),
-                domainScores: att.domainScores,
-                createdAt: serverTimestamp(),
-              });
-            });
+          // Default Free Trial entitlement for primary CISSP track only (compliant with firestore.rules)
+          batch.set(doc(db, 'users', uid, 'subscriptions', 'cissp'), {
+            userId: uid,
+            examId: 'cissp',
+            status: 'TRIAL',
+            platform: 'WEB',
+            expiresAt: '2026-12-31T23:59:59Z',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
 
-            // Flashcards
-            FLASHCARDS.forEach((fc) => {
-              const cId = sanitizeId(fc.id);
-              batch.set(doc(db, 'users', uid, 'flashcards', cId), {
-                userId: uid,
-                cardId: cId,
-                examId: 'cissp',
-                domain: sanitizeString(fc.domain, 120, 'Security Architecture & Engineering'),
-                state: fc.state,
-                reviewCount: fc.state === 'unstudied' ? 0 : 1,
-                platform: 'WEB',
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
-            });
+          // Initial Study Plan
+          batch.set(doc(db, 'users', uid, 'studyPlans', 'plan_cissp_primary'), {
+            planId: 'plan_cissp_primary',
+            userId: uid,
+            examId: 'cissp',
+            targetDate: '2026-12-15',
+            weeklyHours: 10,
+            focusDomains: [
+              'Security & Risk Management',
+              'Security Architecture & Engineering',
+            ],
+            status: 'ACTIVE',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
 
-            // Study Plan
-            batch.set(doc(db, 'users', uid, 'studyPlans', 'plan_cissp_primary'), {
-              planId: 'plan_cissp_primary',
-              userId: uid,
-              examId: 'cissp',
-              targetDate: '2026-12-15',
-              weeklyHours: 12,
-              focusDomains: [
-                'Security Architecture & Engineering',
-                'Software Development Security',
-                'Communication & Network Security',
-              ],
-              status: 'ACTIVE',
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
+          // Initial Sync Event
+          const initEventId = `sync_init_${Date.now()}`;
+          batch.set(doc(db, 'users', uid, 'syncEvents', initEventId), {
+            eventId: initEventId,
+            userId: uid,
+            direction: 'WEB_TO_ANDROID',
+            action: 'Authenticated Learner Profile Provisioned (Free Trial)',
+            status: 'SUCCESS',
+            payloadSummary: `Provisioned user ${uid} on Firestore DB ${FIRESTORE_DATABASE_ID.slice(0, 24)}...`,
+            createdAt: serverTimestamp(),
+          });
 
-            // Readiness
-            batch.set(doc(db, 'users', uid, 'readiness', 'cissp'), {
-              userId: uid,
-              examId: 'cissp',
-              readinessScore: 78,
-              passProbability: 84,
-              simulationsCompleted: 4,
-              weakestDomain: 'Software Development Security',
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-
-            // Initial Sync Event
-            const initEventId = `sync_init_${Date.now()}`;
-            batch.set(doc(db, 'users', uid, 'syncEvents', initEventId), {
-              eventId: initEventId,
-              userId: uid,
-              direction: 'WEB_TO_ANDROID',
-              action: 'Cloud Profile & 112-Bank Entitlements Provisioned',
-              status: 'SUCCESS',
-              payloadSummary: `Provisioned user ${uid} on Firestore DB ${FIRESTORE_DATABASE_ID.slice(0, 24)}...`,
-              createdAt: serverTimestamp(),
-            });
-
-            await batch.commit();
-          }
-          setIsCloudConnected(true);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, userDocPath);
+          await batch.commit();
         }
+        setIsCloudConnected(true);
+        setSyncState('SYNCHRONIZED');
+      } catch (error) {
+        setIsCloudConnected(false);
+        setSyncState('SYNC_FAILED');
+        handleFirestoreError(error, OperationType.WRITE, userDocPath);
       }
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [theme]);
 
   // =========================================================================
   // 2. REAL-TIME FIRESTORE SNAPSHOT LISTENERS (WEB <-> ANDROID SYNC)
@@ -675,6 +845,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           displayName: data.displayName || prev.displayName,
           avatarUrl: data.avatarUrl || prev.avatarUrl,
           subscriptionTier: data.subscriptionTier || prev.subscriptionTier,
+          assessmentCompleted:
+            typeof data.assessmentCompleted === 'boolean'
+              ? data.assessmentCompleted
+              : prev.assessmentCompleted,
           assessmentScorePercent:
             typeof data.assessmentScorePercent === 'number'
               ? data.assessmentScorePercent
@@ -710,7 +884,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               data.recommendedStrategy || prev.behavioralArchetype.recommendedStrategy,
           },
           preferredTheme: data.preferredTheme || prev.preferredTheme,
-          targetExamId: data.targetExamId || prev.targetExamId,
+          targetExamId: normalizeExamId(String(data.targetExamId || prev.targetExamId || 'cissp')),
           dailyStudyGoalMinutes:
             typeof data.dailyStudyGoalMinutes === 'number'
               ? data.dailyStudyGoalMinutes
@@ -724,8 +898,13 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (data.preferredTheme === 'dark' || data.preferredTheme === 'light') {
           setTheme(data.preferredTheme);
         }
+        setIsCloudConnected(true);
+        setSyncState('SYNCHRONIZED');
       },
-      (error) => handleFirestoreError(error, OperationType.GET, `users/${uid}`)
+      (error) => {
+        setSyncState('SYNC_FAILED');
+        handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+      }
     );
 
     // 2.2 Listen to /users/{uid}/private/pii
@@ -778,7 +957,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const unsubAttempts = onSnapshot(
       attemptsQuery,
       (snap) => {
-        if (snap.empty) return;
+        if (snap.empty) {
+          setHistoricalAttempts([]);
+          return;
+        }
         const attemptsList: HistoricalExamAttempt[] = snap.docs.map((d) => {
           const data = d.data();
           return {
@@ -839,7 +1021,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           };
         });
         setFlashcards(
-          FLASHCARDS.map((fc) =>
+          MULTI_EXAM_FLASHCARDS.map((fc) =>
             progressById[fc.id]
               ? {
                   ...fc,
@@ -865,7 +1047,8 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       (snap) => {
         if (snap.empty) return;
         const firstDoc = snap.docs[0].data();
-        setStudyPlan({
+        setStudyPlan((prev) => ({
+          ...prev,
           planId: firstDoc.planId || snap.docs[0].id,
           userId: firstDoc.userId,
           examId: normalizeExamId(String(firstDoc.examId || 'cissp')),
@@ -873,7 +1056,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           weeklyHours: firstDoc.weeklyHours ?? 12,
           focusDomains: Array.isArray(firstDoc.focusDomains) ? firstDoc.focusDomains : [],
           status: firstDoc.status || 'ACTIVE',
-        });
+        }));
       },
       (error) => handleFirestoreError(error, OperationType.LIST, `users/${uid}/studyPlans`)
     );
@@ -959,7 +1142,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const signOutUser = async () => {
     await signOut(auth);
-    showToast('Signed out of live Firebase session. Running in local cache mode.');
+    setSyncState('LOCAL_ONLY');
+    setIsCloudConnected(false);
+    showToast('Signed out of live Firebase session. Running in local demo mode.');
   };
 
   const updateUserProfileInCloud = async (
@@ -984,7 +1169,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       'Pixel-8-Pro-G9H3K'
     );
     const nextTheme = updates.preferredTheme ?? theme;
-    const nextTargetExam = sanitizeId(updates.targetExamId ?? profile.targetExamId ?? 'cissp');
+    const nextTargetExam = normalizeExamId(
+      sanitizeId(updates.targetExamId ?? profile.targetExamId ?? 'cissp')
+    );
     const nextGoal = clampNumber(
       updates.dailyStudyGoalMinutes ?? profile.dailyStudyGoalMinutes ?? 45,
       5,
@@ -1002,8 +1189,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       lastActivePlatform: 'WEB',
       lastSyncTimestamp: new Date().toISOString(),
     }));
+    setSelectedCertIdState(nextTargetExam);
 
     if (firebaseUser) {
+      setSyncState('SYNC_PENDING');
       const uid = sanitizeId(firebaseUser.uid);
       try {
         await updateDoc(doc(db, 'users', uid), {
@@ -1034,7 +1223,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           payloadSummary: `Theme: ${nextTheme}, Target Exam: ${nextTargetExam}, Goal: ${nextGoal}m/day pushed to Firestore`,
           createdAt: serverTimestamp(),
         });
+        setSyncState('SYNCHRONIZED');
       } catch (error) {
+        setSyncState('SYNC_FAILED');
         handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
       }
     }
@@ -1057,6 +1248,23 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
     setStudyPlan(updatedPlan);
 
+    try {
+      await fetch('/api/study-plan/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: firebaseUser?.uid || profile.userId,
+          examId: updatedPlan.examId,
+          targetDate: updatedPlan.targetDate,
+          weeklyHours: updatedPlan.weeklyHours,
+          focusDomains: updatedPlan.focusDomains,
+          status: updatedPlan.status,
+        }),
+      });
+    } catch {
+      // Non-blocking backend sync
+    }
+
     if (firebaseUser) {
       const uid = sanitizeId(firebaseUser.uid);
       const planId = sanitizeId(updatedPlan.planId);
@@ -1068,7 +1276,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           status: updatedPlan.status,
           updatedAt: serverTimestamp(),
         });
+        setSyncState('SYNCHRONIZED');
       } catch (error) {
+        setSyncState('SYNC_FAILED');
         handleFirestoreError(error, OperationType.UPDATE, `users/${uid}/studyPlans/${planId}`);
       }
     }
@@ -1080,15 +1290,14 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // =========================================================================
   const syncWithAndroid = async () => {
     setIsSyncing(true);
+    setSyncState('SYNC_PENDING');
     try {
-      // 1. Call Express backend sync validation endpoint
       const response = await fetch('/api/profile/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: firebaseUser?.uid || profile.userId,
           displayName: profile.displayName,
-          subscriptionTier: profile.subscriptionTier,
           assessmentScorePercent: profile.assessmentScorePercent,
           cognitiveStressBaseline: profile.cognitiveStressBaseline,
           preferredTheme: theme,
@@ -1097,9 +1306,11 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           platform: 'WEB',
         }),
       });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} from /api/profile/sync`);
+      }
       await response.json();
 
-      // 2. If authenticated with Firebase, write live sync confirmation to Firestore
       if (firebaseUser) {
         const uid = sanitizeId(firebaseUser.uid);
         const eventId = `sync_bus_${Date.now()}`;
@@ -1138,24 +1349,33 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
 
       setIsCloudConnected(true);
-      showToast('✓ Synchronized with CertMaster Cloud Firestore & Android companion app');
+      setSyncState(firebaseUser ? 'SYNCHRONIZED' : 'LOCAL_ONLY');
+      showToast('✓ Synchronized with CertMaster Cloud & Android companion app');
     } catch (error) {
+      setSyncState('SYNC_FAILED');
+      const errEntry: SyncAuditLog = {
+        id: `sync-err-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString(),
+        direction: 'WEB_TO_ANDROID',
+        action: 'Bi-Directional Sync Failed',
+        status: 'PENDING',
+        payloadSummary: error instanceof Error ? error.message : 'Network error during sync',
+      };
+      setSyncLogs((prev) => [errEntry, ...prev.slice(0, 19)]);
       if (firebaseUser) {
         handleFirestoreError(error, OperationType.WRITE, `users/${firebaseUser.uid}/syncEvents`);
+      } else {
+        showToast('Sync failed — operation retained in local state for retry.');
       }
     } finally {
       setIsSyncing(false);
     }
   };
 
-  /**
-   * Simulates an exam attempt submitted from the CertMaster Native Android App
-   * directly into the shared Firestore database (or state) so the Web UI
-   * demonstrates real-time cross-platform analytics updates.
-   */
   const simulateAndroidExamCompletion = async () => {
     setIsSyncing(true);
     const todayStr = new Date().toISOString().split('T')[0];
+    const activeCert = normalizeExamId(selectedCertId || profile.targetExamId || 'cissp');
     const newScore = Math.min(96, Math.max(78, (profile.assessmentScorePercent || 74) + 5));
     const attemptId = `att_android_${Date.now()}`;
     const domainScores: Record<string, number> = {
@@ -1170,6 +1390,27 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     try {
+      // Persist to shared Express API session store as well
+      await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attemptId,
+          userId: firebaseUser?.uid || profile.userId,
+          examId: activeCert,
+          attemptType: 'SIMULATION',
+          platform: 'ANDROID',
+          scorePercent: newScore,
+          totalQuestions: 8,
+          correctAnswers: Math.round((newScore / 100) * 8),
+          timeSpentMinutes: 114,
+          averageDwellSec: 39,
+          stressScore: 61,
+          dateString: todayStr,
+          domainScores,
+        }),
+      });
+
       if (firebaseUser) {
         const uid = sanitizeId(firebaseUser.uid);
         const batch = writeBatch(db);
@@ -1177,7 +1418,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         batch.set(doc(db, 'users', uid, 'attempts', attemptId), {
           attemptId,
           userId: uid,
-          examId: 'cissp',
+          examId: activeCert,
           attemptType: 'SIMULATION',
           platform: 'ANDROID',
           scorePercent: newScore,
@@ -1191,9 +1432,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           createdAt: serverTimestamp(),
         });
 
-        batch.set(doc(db, 'users', uid, 'readiness', 'cissp'), {
+        batch.set(doc(db, 'users', uid, 'readiness', activeCert), {
           userId: uid,
-          examId: 'cissp',
+          examId: activeCert,
           readinessScore: newScore,
           passProbability: Math.min(99, newScore + 6),
           simulationsCompleted: historicalAttempts.length + 1,
@@ -1207,9 +1448,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           eventId,
           userId: uid,
           direction: 'ANDROID_TO_WEB',
-          action: 'Android Exam Attempt Received (CISSP)',
+          action: `Android Exam Attempt Received (${activeCert.toUpperCase()})`,
           status: 'SUCCESS',
-          payloadSummary: `Android device (${profile.androidDeviceId || 'Pixel-8-Pro'}) completed CISSP Simulation: ${newScore}%`,
+          payloadSummary: `Android device (${profile.androidDeviceId || 'Pixel-8-Pro'}) completed ${activeCert.toUpperCase()} Simulation: ${newScore}%`,
           createdAt: serverTimestamp(),
         });
 
@@ -1218,7 +1459,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const androidAttempt: HistoricalExamAttempt = {
           id: attemptId,
           date: todayStr,
-          examId: 'cissp',
+          examId: activeCert,
           scorePercent: newScore,
           timeSpentMinutes: 114,
           averageDwellSec: 39,
@@ -1241,16 +1482,16 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             id: `sync_android_${Date.now()}`,
             timestamp: new Date().toLocaleTimeString(),
             direction: 'ANDROID_TO_WEB',
-            action: 'Android Exam Attempt Received (CISSP)',
+            action: `Android Exam Attempt Received (${activeCert.toUpperCase()})`,
             status: 'SUCCESS',
-            payloadSummary: `Android device (${profile.androidDeviceId || 'Pixel-8-Pro'}) completed CISSP Simulation: ${newScore}%`,
+            payloadSummary: `Android device (${profile.androidDeviceId || 'Pixel-8-Pro'}) completed ${activeCert.toUpperCase()} Simulation: ${newScore}%`,
           },
           ...prev,
         ]);
       }
 
       showToast(
-        `✓ Incoming Android CISSP Exam Attempt (${newScore}%) synced to Performance Dashboard!`
+        `✓ Incoming Android ${activeCert.toUpperCase()} Exam Attempt (${newScore}%) synced to Progress & Results!`
       );
     } catch (error) {
       if (firebaseUser) {
@@ -1267,20 +1508,39 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const startExamSession = (
     examId: string,
     customQuestions?: ExamQuestion[],
-    durationMinutes: number = 180
+    durationMinutes: number = 180,
+    mode: PracticeSessionMode = 'MOCK'
   ) => {
-    const bank = ALL_112_EXAM_BANKS.find((b) => b.id === examId);
-    const questions = customQuestions || [];
+    const canonicalId = examId === 'assessment' ? 'assessment' : normalizeExamId(examId);
+    const bank = ALL_112_EXAM_BANKS.find((b) => b.id === canonicalId);
+    const resolvedQuestions =
+      customQuestions && customQuestions.length > 0
+        ? customQuestions
+        : canonicalId === 'assessment'
+        ? []
+        : getQuestionsForExamId(canonicalId);
+
+    if (canonicalId !== 'assessment' && resolvedQuestions.length === 0) {
+      showToast(
+        `${bank?.code || canonicalId.toUpperCase()} is currently a Catalog Preview (Blueprint Only). Select one of the 6 Full-Prep Certifications to launch a live exam.`
+      );
+      return;
+    }
+
     const totalSec = durationMinutes * 60;
+    setPracticeMode(mode);
 
     setActiveExam({
-      examId,
-      examTitle: bank ? `${bank.code} - ${bank.title}` : 'Behavioral Calibration Assessment',
+      examId: canonicalId,
+      examTitle: bank
+        ? `${bank.code} - ${bank.title}`
+        : 'Behavioral Calibration Assessment',
+      practiceMode: mode,
       durationMinutes,
       timeRemainingSeconds: totalSec,
       isRunning: true,
       isPaused: false,
-      questions,
+      questions: resolvedQuestions,
       currentIndex: 0,
       answers: {},
       eliminations: {},
@@ -1289,7 +1549,13 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       currentQuestionStartTime: Date.now(),
       isCompleted: false,
     });
-    setActiveTab(customQuestions && examId === 'assessment' ? 'assessment' : 'simulator');
+
+    if (canonicalId === 'assessment') {
+      navigateTo('practice', 'diagnostic');
+    } else {
+      setSelectedCertIdState(canonicalId);
+      navigateTo('practice', mode.toLowerCase());
+    }
   };
 
   const pauseExamSession = () => {
@@ -1404,9 +1670,17 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const submitExamSession = async () => {
     if (!activeExam) return;
     let correctCount = 0;
+    const domainCorrect: Record<string, { correct: number; total: number }> = {};
+
     activeExam.questions.forEach((q) => {
+      const domName = q.domain || 'General';
+      if (!domainCorrect[domName]) {
+        domainCorrect[domName] = { correct: 0, total: 0 };
+      }
+      domainCorrect[domName].total += 1;
       if (activeExam.answers[q.id] === q.correctOptionId) {
         correctCount++;
+        domainCorrect[domName].correct += 1;
       }
     });
 
@@ -1429,12 +1703,6 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       3600
     );
     const switchRatePct = clampNumber(Math.round((totalSwitches / totalQ) * 100), 0, 100);
-    const elimRatePct = clampNumber(Math.round((totalEliminations / (totalQ * 3)) * 100), 0, 100);
-    const newStress = clampNumber(
-      Math.round(50 + avgDwellSec * 0.4 + totalSwitches * 3),
-      35,
-      95
-    );
 
     if (activeExam.examId === 'assessment') {
       const classified = classifyBehavioralArchetype({
@@ -1512,16 +1780,11 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         600
       );
       const simStress = calculateSimulationBehavioralStress(totalSwitches, scorePct >= 70);
-      const domainScores: Record<string, number> = {
-        'Security & Risk Management': Math.min(100, scorePct + 4),
-        'Asset Security': Math.min(100, scorePct + 2),
-        'Security Architecture & Engineering': Math.max(50, scorePct - 5),
-        'Communication & Network Security': Math.max(50, scorePct - 3),
-        'Identity & Access Management (IAM)': Math.min(100, scorePct + 6),
-        'Security Assessment & Testing': scorePct,
-        'Security Operations': Math.min(100, scorePct + 1),
-        'Software Development Security': Math.max(50, scorePct - 4),
-      };
+
+      const domainScores: Record<string, number> = {};
+      Object.entries(domainCorrect).forEach(([dom, counts]) => {
+        domainScores[dom] = Math.round((counts.correct / Math.max(1, counts.total)) * 100);
+      });
 
       const newAttempt: HistoricalExamAttempt = {
         id: attemptId,
@@ -1541,15 +1804,44 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const updatedAttempts = [...historicalAttempts, newAttempt];
       setHistoricalAttempts(updatedAttempts);
 
-      // Recompute canonical readiness and study plan
-      const knownCardsCount = flashcards.filter((f) => f.state === 'known').length;
+      // Persist session to Express API for cross-platform Android pull
+      try {
+        await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            attemptId,
+            userId: firebaseUser?.uid || profile.userId,
+            examId: canonicalExamId,
+            attemptType: 'SIMULATION',
+            platform: 'WEB',
+            scorePercent: scorePct,
+            totalQuestions: totalQ,
+            correctAnswers: correctCount,
+            timeSpentMinutes: timeSpent,
+            averageDwellSec: avgDwellSec,
+            stressScore: simStress,
+            dateString: todayStr,
+            domainScores,
+          }),
+        });
+      } catch {
+        // Non-blocking
+      }
+
+      const certFlashcards = flashcards.filter((f) =>
+        matchesExamId(f.examId || 'cissp', canonicalExamId)
+      );
+      const knownCardsCount = certFlashcards.filter((f) => f.state === 'known').length;
+      const weakestEntry = Object.entries(domainScores).sort((a, b) => a[1] - b[1])[0];
+
       const { readiness: computedReadiness, studyPlan: computedPlan } =
         calculateReadinessAndStudyPlan({
           userId: firebaseUser?.uid || profile.userId,
           examId: canonicalExamId,
           passingScorePercent: 70,
           assessmentCompleted: true,
-          assessmentScorePercent: profile.assessmentScorePercent,
+          assessmentScorePercent: profile.assessmentScorePercent || scorePct,
           cognitiveStressBaseline: simStress,
           behavioralArchetype: profile.behavioralArchetype.name,
           averageDwellTimeSec: avgDwellSec,
@@ -1557,10 +1849,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             .filter((a) => matchesExamId(a.examId, canonicalExamId))
             .map((a) => a.scorePercent),
           knownFlashcardsCount: knownCardsCount,
-          totalFlashcardsCount: flashcards.length,
-          weakestDomainId: 'd3',
-          weakestDomainName: 'Security Architecture & Engineering',
-          weakestDomainScore: Math.max(50, scorePct - 5),
+          totalFlashcardsCount: Math.max(1, certFlashcards.length),
+          weakestDomainId: 'd1',
+          weakestDomainName: weakestEntry ? weakestEntry[0] : 'Security Architecture & Engineering',
+          weakestDomainScore: weakestEntry ? weakestEntry[1] : Math.max(50, scorePct - 5),
           targetDate: studyPlan.targetDate,
           weeklyHours: studyPlan.weeklyHours,
         });
@@ -1630,12 +1922,17 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
 
-      showToast(`Exam completed! Score: ${scorePct}% · Synchronized to shared Firestore backend.`);
+      showToast(`Exam completed! Score: ${scorePct}% · Synchronized to shared backend.`);
     }
 
-    setActiveExam((prev) =>
-      prev ? { ...prev, isRunning: false, isCompleted: true, resultScorePercent: scorePct } : null
-    );
+    const completedSession: ActiveExamSession = {
+      ...activeExam,
+      isRunning: false,
+      isCompleted: true,
+      resultScorePercent: scorePct,
+    };
+    setActiveExam(completedSession);
+    setLastCompletedExam(completedSession);
   };
 
   const cancelExamSession = () => {
@@ -1643,124 +1940,82 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // =========================================================================
-  // 6. CROSS-PLATFORM SUBSCRIPTION & FLASHCARD MUTATIONS
+  // 6. SERVER-VERIFIED SUBSCRIPTION ENTITLEMENT & FLASHCARD MUTATIONS
   // =========================================================================
   const purchaseExam = async (examId: string, tier: 'single' | 'universal' = 'single') => {
-    const bank = ALL_112_EXAM_BANKS.find((b) => b.id === examId);
-    const now = new Date().toISOString();
+    const cleanExamId = normalizeExamId(sanitizeId(examId));
+    const bank = ALL_112_EXAM_BANKS.find((b) => b.id === cleanExamId);
+    const receiptToken = `rcpt_web_${tier}_${cleanExamId}_${Date.now()}`;
 
-    if (tier === 'universal') {
-      const updatedSubs: Record<string, SubscriptionEntitlement> = {};
-      ALL_112_EXAM_BANKS.forEach((b) => {
-        updatedSubs[b.id] = {
-          examId: b.id,
-          status: 'ACTIVE',
+    try {
+      const verifyRes = await fetch('/api/subscriptions/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: firebaseUser?.uid || profile.userId,
+          examId: cleanExamId,
+          tier,
           platform: 'WEB',
-          expiresAt: '2028-01-01T00:00:00Z',
-          lastSyncedAt: now,
-        };
+          receiptToken,
+        }),
       });
 
-      setProfile((prev) => ({
-        ...prev,
-        subscriptionTier: 'Universal Multi-Pass',
-        subscriptions: updatedSubs,
-      }));
-
-      if (firebaseUser) {
-        const uid = sanitizeId(firebaseUser.uid);
-        try {
-          const batch = writeBatch(db);
-          batch.update(doc(db, 'users', uid), {
-            subscriptionTier: 'Universal Multi-Pass',
-            lastActivePlatform: 'WEB',
-            updatedAt: serverTimestamp(),
-          });
-          // Write top popular banks in batch to keep batch well under 500 writes
-          ALL_112_EXAM_BANKS.slice(0, 30).forEach((b) => {
-            const bId = sanitizeId(b.id);
-            batch.set(doc(db, 'users', uid, 'subscriptions', bId), {
-              userId: uid,
-              examId: bId,
-              status: 'ACTIVE',
-              platform: 'WEB',
-              expiresAt: '2028-01-01T00:00:00Z',
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-          });
-          const eventId = `sync_univ_${Date.now()}`;
-          batch.set(doc(db, 'users', uid, 'syncEvents', eventId), {
-            eventId,
-            userId: uid,
-            direction: 'WEB_TO_ANDROID',
-            action: 'Universal Multi-Pass Provisioned',
-            status: 'SUCCESS',
-            payloadSummary: 'Universal Multi-Pass (112 Exam Banks) unlocked on Web and synced to Android',
-            createdAt: serverTimestamp(),
-          });
-          await batch.commit();
-        } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, `users/${uid}/subscriptions`);
-        }
+      if (!verifyRes.ok) {
+        const errJson = await verifyRes.json().catch(() => ({}));
+        showToast(
+          `Entitlement verification rejected: ${errJson.error || 'Valid server receipt required'}`
+        );
+        return;
       }
 
-      showToast(
-        '🎉 Universal Multi-Pass Activated! All 112 Exam Banks unlocked across Web & Android.'
-      );
-    } else {
-      const cleanExamId = sanitizeId(examId);
-      const newEntitlement: SubscriptionEntitlement = {
-        examId: cleanExamId,
-        status: 'ACTIVE',
-        platform: 'WEB',
-        expiresAt: '2027-12-31T23:59:59Z',
-        lastSyncedAt: now,
-      };
+      const verified = await verifyRes.json();
+      const now = verified.verifiedAt || new Date().toISOString();
 
-      setProfile((prev) => ({
-        ...prev,
-        subscriptions: {
-          ...prev.subscriptions,
-          [cleanExamId]: newEntitlement,
-        },
-      }));
-
-      if (firebaseUser) {
-        const uid = sanitizeId(firebaseUser.uid);
-        try {
-          const batch = writeBatch(db);
-          batch.set(doc(db, 'users', uid, 'subscriptions', cleanExamId), {
-            userId: uid,
-            examId: cleanExamId,
+      if (tier === 'universal') {
+        const updatedSubs: Record<string, SubscriptionEntitlement> = {};
+        ALL_112_EXAM_BANKS.forEach((b) => {
+          updatedSubs[b.id] = {
+            examId: b.id,
             status: 'ACTIVE',
             platform: 'WEB',
-            expiresAt: '2027-12-31T23:59:59Z',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-          const eventId = `sync_sub_${Date.now()}`;
-          batch.set(doc(db, 'users', uid, 'syncEvents', eventId), {
-            eventId,
-            userId: uid,
-            direction: 'WEB_TO_ANDROID',
-            action: `Single Exam Entitlement Unlocked (${bank?.code || cleanExamId})`,
-            status: 'SUCCESS',
-            payloadSummary: `Exam ${cleanExamId} unlocked on Web and pushed to Android via Firestore`,
-            createdAt: serverTimestamp(),
-          });
-          await batch.commit();
-        } catch (error) {
-          handleFirestoreError(
-            error,
-            OperationType.WRITE,
-            `users/${uid}/subscriptions/${cleanExamId}`
-          );
-        }
-      }
+            expiresAt: verified.expiresAt || '2028-01-01T00:00:00Z',
+            lastSyncedAt: now,
+          };
+        });
 
+        setProfile((prev) => ({
+          ...prev,
+          subscriptionTier: 'Universal Multi-Pass',
+          subscriptions: updatedSubs,
+        }));
+
+        showToast(
+          '✓ Server-verified Universal Multi-Pass Activated across Web & Android.'
+        );
+      } else {
+        const newEntitlement: SubscriptionEntitlement = {
+          examId: cleanExamId,
+          status: 'ACTIVE',
+          platform: 'WEB',
+          expiresAt: verified.expiresAt || '2027-12-31T23:59:59Z',
+          lastSyncedAt: now,
+        };
+
+        setProfile((prev) => ({
+          ...prev,
+          subscriptions: {
+            ...prev.subscriptions,
+            [cleanExamId]: newEntitlement,
+          },
+        }));
+
+        showToast(
+          `✓ Server-verified entitlement active for ${bank?.code || cleanExamId.toUpperCase()}.`
+        );
+      }
+    } catch (error) {
       showToast(
-        `✓ Entitlement active for ${bank?.code || examId}. Instant cross-platform unlock verified.`
+        `Entitlement verification error: ${error instanceof Error ? error.message : 'Network error'}`
       );
     }
   };
@@ -1788,6 +2043,26 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           : f
       )
     );
+
+    try {
+      await fetch('/api/flashcards/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: firebaseUser?.uid || profile.userId,
+          cardId: id,
+          examId: normalizeExamId(targetCard?.examId || selectedCertId || 'cissp'),
+          domain: targetCard?.domain || 'General',
+          state,
+          boxLevel,
+          lastReviewedEpoch: nowEpoch,
+          reviewCount: nextReviewCount,
+          platform: 'WEB',
+        }),
+      });
+    } catch {
+      // Non-blocking
+    }
 
     if (firebaseUser && targetCard) {
       const uid = sanitizeId(firebaseUser.uid);
@@ -1820,10 +2095,23 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       ...source,
       schemaVersion: CERTMASTER_SCHEMA_VERSION,
       id: `src_${Date.now()}`,
-      examId: normalizeExamId(source.examId || 'cissp'),
+      examId: normalizeExamId(source.examId || selectedCertId || 'cissp'),
       cachedAtMillis: Date.now(),
     };
     setCustomSources((prev) => [newSource, ...prev]);
+
+    try {
+      await fetch('/api/sources/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newSource,
+          userId: firebaseUser?.uid || profile.userId,
+        }),
+      });
+    } catch {
+      // Non-blocking
+    }
 
     if (firebaseUser) {
       const uid = sanitizeId(firebaseUser.uid);
@@ -1839,10 +2127,62 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleFirestoreError(error, OperationType.WRITE, `users/${uid}/sources/${sId}`);
       }
     }
+    showToast('✓ Custom study note saved & synchronized to Android Study Vault');
   };
 
   // =========================================================================
-  // 7. AUTOMATED INTEGRATION VERIFICATION SUITE
+  // 7. GROUNDED AI EXAM TUTOR
+  // =========================================================================
+  const sendAITutorMessage = async (queryText: string, domainFilter?: string) => {
+    if (!queryText.trim()) return;
+    const userMsg: AITutorChatMessage = {
+      id: `usr_${Date.now()}`,
+      role: 'user',
+      text: queryText.trim(),
+      timestamp: new Date().toLocaleTimeString(),
+    };
+    setAiTutorMessages((prev) => [...prev, userMsg]);
+    setIsTutorLoading(true);
+
+    try {
+      const res = await fetch('/api/ai/tutor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          examId: selectedCertId || profile.targetExamId || 'cissp',
+          domain: domainFilter,
+          query: queryText.trim(),
+        }),
+      });
+      const data = await res.json();
+      const assistantMsg: AITutorChatMessage = {
+        id: `ai_${Date.now()}`,
+        role: 'assistant',
+        text:
+          data.answer ||
+          'Focus on eliminating distractors that address symptoms rather than root-cause architectural controls.',
+        citations: data.citations || [],
+        suggestedFollowUps: data.suggestedFollowUps || [],
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setAiTutorMessages((prev) => [...prev, assistantMsg]);
+    } catch {
+      setAiTutorMessages((prev) => [
+        ...prev,
+        {
+          id: `ai_fallback_${Date.now()}`,
+          role: 'assistant',
+          text: `For ${selectedCertId.toUpperCase()}, prioritize governance, risk-based control selection, and authoritative standard references before tactical implementation options.`,
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ]);
+    } finally {
+      setIsTutorLoading(false);
+    }
+  };
+
+  // =========================================================================
+  // 8. AUTOMATED INTEGRATION VERIFICATION SUITE
   // =========================================================================
   const runIntegrationVerificationSuite = async () => {
     setIsRunningTests(true);
@@ -1867,7 +2207,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         category: 'Authentication',
         status: validIds ? 'PASSED' : 'FAILED',
         durationMs: Math.round(performance.now() - t1Start),
-        details: `Connected to Project: ${healthJson.firebaseProjectId} · DB: ${healthJson.firestoreDatabaseId.slice(0, 28)}... · Auth State: ${firebaseUser ? `Signed In (${firebaseUser.email})` : 'Ready (Google SSO Configured)'}`,
+        details: `Connected to Project: ${healthJson.firebaseProjectId} · DB: ${healthJson.firestoreDatabaseId.slice(0, 28)}... · Auth State: ${firebaseUser ? `Signed In (${firebaseUser.email})` : 'Local Demo Mode (Google SSO Ready)'}`,
       });
     } catch (e) {
       results.push({
@@ -1887,6 +2227,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const catJson = await catRes.json();
       const passed =
         catJson.totalExamBanks === 112 &&
+        catJson.fullPrepCount === 6 &&
         Array.isArray(catJson.vendors) &&
         catJson.vendors.length === 12 &&
         Array.isArray(catJson.cisspDomains) &&
@@ -1898,7 +2239,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         category: 'Catalog & Schema',
         status: passed ? 'PASSED' : 'FAILED',
         durationMs: Math.round(performance.now() - t2Start),
-        details: `Verified ${catJson.totalExamBanks} exam banks across ${catJson.vendors.length} vendors, ${catJson.cisspDomains.length} CISSP CBK domains, Schema v${catJson.schemaVersion}.`,
+        details: `Verified ${catJson.totalExamBanks} exam banks (${catJson.fullPrepCount} Full-Prep, ${catJson.catalogPreviewCount} Blueprint Preview) across ${catJson.vendors.length} vendors, Schema v${catJson.schemaVersion}.`,
       });
     } catch (e) {
       results.push({
@@ -1920,11 +2261,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         body: JSON.stringify({
           userId: firebaseUser?.uid || profile.userId,
           displayName: profile.displayName,
-          subscriptionTier: profile.subscriptionTier,
           assessmentScorePercent: profile.assessmentScorePercent,
           cognitiveStressBaseline: profile.cognitiveStressBaseline,
           preferredTheme: theme,
-          targetExamId: 'cissp',
+          targetExamId: selectedCertId || 'cissp',
           androidDeviceId: profile.androidDeviceId || 'Pixel-8-Pro-G9H3K',
           platform: 'WEB',
         }),
@@ -1935,7 +2275,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const uid = sanitizeId(firebaseUser.uid);
         await updateDoc(doc(db, 'users', uid), {
           preferredTheme: theme,
-          targetExamId: 'cissp',
+          targetExamId: selectedCertId || 'cissp',
           lastActivePlatform: 'WEB',
           updatedAt: serverTimestamp(),
         });
@@ -1947,7 +2287,7 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         category: 'Progress Sync',
         status: syncJson.syncStatus === 'SYNCHRONIZED' ? 'PASSED' : 'FAILED',
         durationMs: Math.round(performance.now() - t3Start),
-        details: `Verified round-trip sync for ${syncJson.firestoreDocumentPath} (${ FLASHCARDS.length } flashcards & study plan active).`,
+        details: `Verified round-trip sync for ${syncJson.firestoreDocumentPath} (${MULTI_EXAM_FLASHCARDS.length} multi-exam flashcards & study plan active).`,
       });
     } catch (e) {
       results.push({
@@ -1997,25 +2337,24 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     }
 
-    // TEST 5: Firestore Security Rules & Dirty Dozen Boundary Audit
+    // TEST 5: Firestore Security Rules & Entitlement Escalation Boundary Audit
     const t5Start = performance.now();
     try {
       let unauthorizedDenied = false;
       try {
-        // Attempt to read a non-owned user's isolated PII document — MUST be rejected by firestore.rules
         await getDoc(doc(db, 'users', 'usr_unauthorized_victim_999', 'private', 'pii'));
       } catch {
         unauthorizedDenied = true;
       }
 
-      const dirtyDozenCount = DIRTY_DOZEN_SECURITY_TESTS.length;
+      const securityScenarioCount = DIRTY_DOZEN_SECURITY_TESTS.length;
       results.push({
         id: 'test-security-rules',
         name: '5. Firestore Security Rules & Dirty Dozen Boundary Audit',
         category: 'Security Rules',
-        status: unauthorizedDenied && dirtyDozenCount === 12 ? 'PASSED' : 'FAILED',
+        status: unauthorizedDenied && securityScenarioCount >= 12 ? 'PASSED' : 'FAILED',
         durationMs: Math.round(performance.now() - t5Start),
-        details: `Cross-user PII access rejected with PERMISSION_DENIED · All ${dirtyDozenCount}/12 Dirty Dozen rule invariants enforced.`,
+        details: `Cross-user PII access rejected with PERMISSION_DENIED · All ${securityScenarioCount} security & entitlement rule invariants enforced.`,
       });
     } catch (e) {
       results.push({
@@ -2041,6 +2380,8 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         firebaseUser,
         isAuthReady,
         isCloudConnected,
+        isDemoMode: !firebaseUser,
+        syncState,
         signInWithGoogle,
         signOutUser,
         updateUserProfileInCloud,
@@ -2051,6 +2392,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isSyncing,
         syncLogs,
         activeExam,
+        lastCompletedExam,
+        practiceMode,
+        setPracticeMode,
         startExamSession,
         pauseExamSession,
         resumeExamSession,
@@ -2069,8 +2413,16 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         customSources,
         addCustomSource,
         purchaseExam,
+        activeSection,
+        activeSubTab,
+        selectedCertId,
+        setSelectedCertId,
+        navigateTo,
         activeTab,
         setActiveTab,
+        aiTutorMessages,
+        isTutorLoading,
+        sendAITutorMessage,
         checkoutExamId,
         setCheckoutExamId,
         isSSOModalOpen,

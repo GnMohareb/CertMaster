@@ -1,25 +1,54 @@
 import React, { useState, useMemo } from 'react';
 import { useCertMaster } from '../../context/CertMasterContext';
 import { ALL_112_EXAM_BANKS, VENDORS } from '../../data/examBanks';
-import { CISSP_EXAM_QUESTIONS } from '../../data/cisspQuestions';
+import {
+  getQuestionsForExamId,
+  getStudyGuidesForExamId,
+  getAudioBriefingsForExamId,
+  FULL_PREP_EXAM_IDS,
+} from '../../data/multiExamQuestions';
 import { VendorType, ExamBank } from '../../types/certmaster';
-import { Search, Smartphone, Globe, Lock, Play, Sparkles, Shield, Check } from 'lucide-react';
+import {
+  Search,
+  Lock,
+  Play,
+  Sparkles,
+  Shield,
+  BookOpen,
+  Headphones,
+  Layers,
+  CheckCircle2,
+  Eye,
+  Award,
+  ArrowRight,
+} from 'lucide-react';
 
 export const SubjectCatalog: React.FC = () => {
-  const { profile, setCheckoutExamId, startExamSession, setActiveTab } = useCertMaster();
+  const {
+    profile,
+    flashcards,
+    readinessMap,
+    setCheckoutExamId,
+    startExamSession,
+    activeSection,
+    selectedCertId,
+    setSelectedCertId,
+    navigateTo,
+    showToast,
+  } = useCertMaster();
 
   const [selectedVendor, setSelectedVendor] = useState<VendorType | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'LOCKED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'FULL_PREP' | 'ACTIVE' | 'LOCKED'>('ALL');
+
+  const isMyCertificationsSection = activeSection === 'my-certifications';
 
   const filteredBanks = useMemo(() => {
     return ALL_112_EXAM_BANKS.filter((bank) => {
-      // Vendor filter
       if (selectedVendor !== 'ALL' && bank.vendor !== selectedVendor) {
         return false;
       }
 
-      // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesCode = bank.code.toLowerCase().includes(query);
@@ -28,10 +57,11 @@ export const SubjectCatalog: React.FC = () => {
         if (!matchesCode && !matchesTitle && !matchesVendor) return false;
       }
 
-      // Status filter
       const sub = profile.subscriptions[bank.id];
-      const isActive = sub && sub.status === 'ACTIVE';
+      const isActive = sub && (sub.status === 'ACTIVE' || sub.status === 'TRIAL');
+      const isFullPrep = bank.contentStatus === 'FULL_PREP' || FULL_PREP_EXAM_IDS.has(bank.id);
 
+      if (statusFilter === 'FULL_PREP' && !isFullPrep) return false;
       if (statusFilter === 'ACTIVE' && !isActive) return false;
       if (statusFilter === 'LOCKED' && isActive) return false;
 
@@ -42,48 +72,241 @@ export const SubjectCatalog: React.FC = () => {
   const handleExamClick = (bank: ExamBank) => {
     const sub = profile.subscriptions[bank.id];
     const isUnlocked = sub && (sub.status === 'ACTIVE' || sub.status === 'TRIAL');
+    const isFullPrep = bank.contentStatus === 'FULL_PREP' || FULL_PREP_EXAM_IDS.has(bank.id);
+
+    if (!isFullPrep) {
+      showToast(
+        `${bank.code} (${bank.title}) is currently a Catalog Preview (Blueprint Only). Select one of the 6 Full-Prep Certifications to launch live study and mock exams.`
+      );
+      return;
+    }
 
     if (isUnlocked) {
-      // Launch simulator! If CISSP, load CISSP_EXAM_QUESTIONS
-      if (bank.id === 'cissp') {
-        startExamSession(bank.id, CISSP_EXAM_QUESTIONS, bank.durationMinutes);
-      } else {
-        // Load CISSP questions as mock bank for demonstration with custom titles
-        const adaptedQuestions = CISSP_EXAM_QUESTIONS.map((q, idx) => ({
-          ...q,
-          id: `${bank.id}-q${idx + 1}`,
-          examId: bank.id,
-        }));
-        startExamSession(bank.id, adaptedQuestions, bank.durationMinutes);
-      }
-      setActiveTab('simulator');
+      const genuineQuestions = getQuestionsForExamId(bank.id);
+      setSelectedCertId(bank.id);
+      startExamSession(bank.id, genuineQuestions, bank.durationMinutes, 'MOCK');
     } else {
       setCheckoutExamId(bank.id);
     }
   };
 
+  // =========================================================================
+  // MY CERTIFICATIONS WORKSPACE VIEW (#/my-certifications)
+  // =========================================================================
+  if (isMyCertificationsSection) {
+    const enrolledBanks = ALL_112_EXAM_BANKS.filter((b) => {
+      const sub = profile.subscriptions[b.id];
+      return (
+        FULL_PREP_EXAM_IDS.has(b.id) ||
+        (sub && (sub.status === 'ACTIVE' || sub.status === 'TRIAL'))
+      );
+    });
+    const activeBank =
+      ALL_112_EXAM_BANKS.find((b) => b.id === selectedCertId) || ALL_112_EXAM_BANKS[0];
+    const certQuestions = getQuestionsForExamId(activeBank.id);
+    const certGuides = getStudyGuidesForExamId(activeBank.id);
+    const certAudio = getAudioBriefingsForExamId(activeBank.id);
+    const certCards = flashcards.filter((f) => (f.examId || 'cissp') === activeBank.id);
+    const certReadiness = readinessMap[activeBank.id] || {
+      readinessScore: 76,
+      passProbability: 82,
+      simulationsCompleted: 2,
+      weakestDomain: certQuestions[0]?.domain || 'Core Domain Architecture',
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Enrolled Certifications Switcher Strip */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
+                <Award className="h-4 w-4" />
+                <span>My Enrolled Certifications & Full-Prep Tracks</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                Select Your Active Certification Workspace
+              </h1>
+            </div>
+            <button
+              onClick={() => navigateTo('catalog', 'all')}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 shrink-0"
+            >
+              <span>Explore All 112 Certifications</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {enrolledBanks.map((bank) => {
+              const isSelected = bank.id === activeBank.id;
+              const sub = profile.subscriptions[bank.id];
+              const bQuestions = getQuestionsForExamId(bank.id);
+              return (
+                <button
+                  key={bank.id}
+                  onClick={() => {
+                    setSelectedCertId(bank.id);
+                    navigateTo('my-certifications', 'overview', bank.id);
+                  }}
+                  className={`flex flex-col justify-between rounded-xl border p-4 text-left transition-all ${
+                    isSelected
+                      ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/30 dark:border-blue-500 dark:bg-blue-950/40'
+                      : 'border-slate-200 bg-slate-50/60 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/40'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] mb-1">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400">
+                        {bank.vendor}
+                      </span>
+                      <span className="rounded bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                        {sub?.status === 'TRIAL' ? 'TRIAL ACTIVE' : 'FULL PREP ACTIVE'}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      {bank.code}
+                    </h3>
+                    <div className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1">
+                      {bank.title}
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-500">
+                    <span>{bQuestions.length} Live Scenario Qs</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">
+                      {isSelected ? '● Active Track' : 'Switch Track →'}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selected Certification Workspace Detail */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 sm:p-8 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                {activeBank.vendor} · {activeBank.difficulty} · Full Preparation Suite
+              </div>
+              <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+                {activeBank.code} — {activeBank.title}
+              </h2>
+              <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
+                {activeBank.description}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                onClick={() =>
+                  startExamSession(
+                    activeBank.id,
+                    certQuestions,
+                    activeBank.durationMinutes,
+                    'MOCK'
+                  )
+                }
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-700 shadow-sm"
+              >
+                <Play className="h-3.5 w-3.5 fill-current" />
+                <span>Launch {activeBank.code} Mock Exam</span>
+              </button>
+              <button
+                onClick={() => navigateTo('study', 'guides')}
+                className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
+                <span>Open Study Hub</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Certification Resource Modules */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={() => navigateTo('study', 'guides')}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:border-blue-500 dark:border-slate-800 dark:bg-slate-950/50 transition-all"
+            >
+              <BookOpen className="h-5 w-5 text-emerald-500 mb-2" />
+              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                {certGuides.length} Study Guides
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Domain reference summaries & official citations
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigateTo('study', 'audio')}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:border-blue-500 dark:border-slate-800 dark:bg-slate-950/50 transition-all"
+            >
+              <Headphones className="h-5 w-5 text-blue-500 mb-2" />
+              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                {certAudio.length} Audio Briefings
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Maya & Liam multi-speaker domain deep dives
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigateTo('study', 'flashcards')}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:border-blue-500 dark:border-slate-800 dark:bg-slate-950/50 transition-all"
+            >
+              <Layers className="h-5 w-5 text-amber-500 mb-2" />
+              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                {certCards.length} Active Flashcards
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Leitner Box 1–5 spaced repetition deck
+              </p>
+            </button>
+
+            <button
+              onClick={() => navigateTo('progress', 'readiness')}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:border-blue-500 dark:border-slate-800 dark:bg-slate-950/50 transition-all"
+            >
+              <CheckCircle2 className="h-5 w-5 text-purple-500 mb-2" />
+              <div className="text-sm font-bold text-slate-900 dark:text-white">
+                {certReadiness.readinessScore}% Readiness
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Pass Probability: {certReadiness.passProbability}%
+              </p>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // EXPLORE CERTIFICATIONS CATALOG VIEW (#/catalog)
+  // =========================================================================
   return (
     <div className="space-y-6">
-      {/* Catalog Header & Universal Banner */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm transition-colors">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
-              <span>Universal Exam Registry</span>
+              <span>Universal Certification Registry</span>
               <span>·</span>
-              <span>112 Certified Banks</span>
+              <span>6 Full-Prep Suites + 106 Blueprint Previews</span>
               <span>·</span>
-              <span className="text-emerald-600 dark:text-emerald-400">Cross-Platform Sync Guaranteed</span>
+              <span className="text-emerald-600 dark:text-emerald-400">
+                Truthful Content Integrity
+              </span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Enterprise Subject Banks & Certifications
+              Explore 112 Enterprise Certifications
             </h1>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
-              Every bank purchased or unlocked on the CertMaster Web Hub is instantly synchronized and available on the CertMaster Android companion app with complete state, score, and telemetry retention.
+              Certifications with full question banks, flashcards, study guides, and audio lessons are clearly badged as <strong>Full Prep Available</strong>. Blueprint-only catalog entries are marked <strong>Catalog Preview</strong> and never substitute another exam's questions.
             </p>
           </div>
 
-          {/* Quick Universal Pass CTA */}
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => setCheckoutExamId('all-access')}
@@ -102,14 +325,13 @@ export const SubjectCatalog: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search 112 exams (e.g. CISSP, AWS, CISM, PMP)..."
+              placeholder="Search 112 exams (e.g. CISSP, AWS, Security+, PMP, CISM, CEH)..."
               className="w-full rounded-lg border border-slate-300 bg-slate-50 pl-9 pr-3 py-2 text-xs text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           </div>
 
-          {/* Segmented Status Selector */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg dark:bg-slate-800/80 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-lg dark:bg-slate-800/80 w-full sm:w-auto">
             <button
               onClick={() => setStatusFilter('ALL')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
@@ -119,6 +341,16 @@ export const SubjectCatalog: React.FC = () => {
               }`}
             >
               All 112 Exams
+            </button>
+            <button
+              onClick={() => setStatusFilter('FULL_PREP')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+                statusFilter === 'FULL_PREP'
+                  ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-900 dark:text-emerald-400 font-semibold'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              Full Prep Ready (6)
             </button>
             <button
               onClick={() => setStatusFilter('ACTIVE')}
@@ -182,45 +414,40 @@ export const SubjectCatalog: React.FC = () => {
           const sub = profile.subscriptions[bank.id];
           const isActive = sub && sub.status === 'ACTIVE';
           const isTrial = sub && sub.status === 'TRIAL';
+          const isFullPrep =
+            bank.contentStatus === 'FULL_PREP' || FULL_PREP_EXAM_IDS.has(bank.id);
 
           return (
             <div
               key={bank.id}
               className={`flex flex-col justify-between rounded-xl border p-5 transition-all ${
-                isActive
-                  ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 hover:border-blue-500/50'
+                isFullPrep
+                  ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 hover:border-blue-500/60 shadow-sm'
                   : 'border-slate-200 bg-slate-50/70 dark:border-slate-800/80 dark:bg-slate-950/60'
               }`}
             >
               <div>
-                {/* Quiet Header Metadata (No Pills) */}
                 <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">{bank.vendor}</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {bank.vendor}
+                    </span>
                     <span>·</span>
                     <span>{bank.difficulty}</span>
                   </div>
 
-                  {/* Entitlement Status Indicator */}
-                  {isActive ? (
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                      <span>Web & Android Active</span>
-                    </div>
-                  ) : isTrial ? (
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
-                      <span>Trial Active</span>
-                    </div>
+                  {/* Truthful Content Status Badge */}
+                  {isFullPrep ? (
+                    <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                      Full Prep Available
+                    </span>
                   ) : (
-                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                      <Lock className="h-3 w-3" />
-                      <span>$29 or Pass</span>
-                    </div>
+                    <span className="rounded-md bg-slate-200/80 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                      Catalog Preview
+                    </span>
                   )}
                 </div>
 
-                {/* Exam Title & Code */}
                 <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
                   {bank.code}
                 </h3>
@@ -228,15 +455,13 @@ export const SubjectCatalog: React.FC = () => {
                   {bank.title}
                 </div>
 
-                {/* Description */}
                 <p className="mt-2.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                   {bank.description}
                 </p>
 
-                {/* Metrics Line (Tabular figures, no pills) */}
                 <div className="mt-4 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 font-mono pt-3 border-t border-slate-200 dark:border-slate-800">
                   <span className="tabular-nums font-semibold text-slate-900 dark:text-white">
-                    {bank.questionsCount.toLocaleString()} Qs
+                    {isFullPrep ? 'Live Bank Ready' : 'Blueprint Spec'}
                   </span>
                   <span>·</span>
                   <span className="tabular-nums">{bank.durationMinutes}m Timed</span>
@@ -245,26 +470,43 @@ export const SubjectCatalog: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Button */}
               <div className="mt-5 pt-3">
-                {isActive || isTrial ? (
+                {!isFullPrep ? (
                   <button
                     onClick={() => handleExamClick(bank)}
-                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-sm"
+                    className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 transition-colors"
                   >
-                    <Play className="h-3.5 w-3.5 fill-current" />
-                    <span>Launch Exam Simulator</span>
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Blueprint Preview Only</span>
                   </button>
-                ) : (
-                  <div className="flex items-center gap-2">
+                ) : isActive || isTrial ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedCertId(bank.id);
+                        navigateTo('my-certifications', 'overview', bank.id);
+                      }}
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    >
+                      <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Study Hub</span>
+                    </button>
                     <button
                       onClick={() => handleExamClick(bank)}
-                      className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-sm"
                     >
-                      <Lock className="h-3.5 w-3.5 text-slate-400" />
-                      <span>Unlock Bank ($29)</span>
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                      <span>Start Exam</span>
                     </button>
                   </div>
+                ) : (
+                  <button
+                    onClick={() => handleExamClick(bank)}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <Lock className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Unlock Full Prep ($29)</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -272,11 +514,12 @@ export const SubjectCatalog: React.FC = () => {
         })}
       </div>
 
-      {/* Empty State */}
       {filteredBanks.length === 0 && (
         <div className="rounded-xl border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
           <Shield className="mx-auto h-10 w-10 text-slate-400" />
-          <h3 className="mt-3 text-sm font-bold text-slate-900 dark:text-white">No certification banks found</h3>
+          <h3 className="mt-3 text-sm font-bold text-slate-900 dark:text-white">
+            No certification banks found
+          </h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Try adjusting your search query or reset the vendor filter.
           </p>

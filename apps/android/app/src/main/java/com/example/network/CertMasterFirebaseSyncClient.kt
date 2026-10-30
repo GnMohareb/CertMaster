@@ -6,6 +6,7 @@ import com.example.data.local.DomainScoreRecord
 import com.example.data.local.FlashcardEntity
 import com.example.data.local.SimulationScoreEntity
 import com.example.data.local.StudySourceEntity
+import com.example.data.local.SyncQueueEntity
 import com.example.domain.AuthoritativeMetricsEngine
 import com.example.model.ExamReadinessReport
 import com.example.model.ExamSubscription
@@ -30,12 +31,111 @@ import org.json.JSONObject
  */
 class CertMasterFirebaseSyncClient(private val context: Context? = null) {
 
+    companion object {
+        const val FIREBASE_PROJECT_ID = "gen-lang-client-0788513176"
+        const val FIRESTORE_DATABASE_ID = "ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001"
+        const val CANONICAL_SCHEMA_VERSION = 2
+    }
+
+    /**
+     * Optional delivery hook for integration/offline-retry verification or custom REST relay.
+     */
+    var customDeliveryHandler: (suspend (SyncQueueEntity) -> Boolean)? = null
+
     fun isFirestoreAvailable(): Boolean {
         val ctx = context ?: return false
         return try {
             FirebaseApp.getApps(ctx).isNotEmpty()
         } catch (_: Exception) {
             false
+        }
+    }
+
+    /**
+     * Connects to the authoritative named Firestore database shared with the Web Platform.
+     */
+    fun getNamedFirestoreInstance(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance(FirebaseApp.getInstance(), FIRESTORE_DATABASE_ID)
+    }
+
+    /**
+     * Delivers a single queued offline operation to Firestore or custom delivery transport.
+     * Throws an exception if payload validation or delivery fails so the operation remains in `pending_sync_queue`.
+     */
+    suspend fun deliverQueuedOperation(userId: String, op: SyncQueueEntity): Result<Boolean> {
+        return executeWithRetry(maxAttempts = 3, initialDelayMs = 50L) {
+            val payload = JSONObject(op.payloadJson)
+            val handler = customDeliveryHandler
+            if (handler != null) {
+                val ok = handler(op)
+                if (!ok) {
+                    throw IllegalStateException("Remote sync transport rejected operation ${op.operationId}")
+                }
+                return@executeWithRetry true
+            }
+
+            if (isFirestoreAvailable() && userId.isNotBlank() && userId != "usr_gnmohareb_cissp_001") {
+                val db = getNamedFirestoreInstance()
+                val userRef = db.collection("users").document(userId)
+                when (op.domainType) {
+                    "ATTEMPT" -> {
+                        val attemptId = payload.optString("attemptId").ifEmpty { op.entityId }
+                        val examId = ExamCatalog.normalizeExamId(payload.optString("examId", "cissp"))
+                        val attemptMap = mapOf(
+                            "schemaVersion" to CANONICAL_SCHEMA_VERSION,
+                            "attemptId" to attemptId,
+                            "sessionId" to attemptId,
+                            "userId" to userId,
+                            "examId" to examId,
+                            "attemptType" to "SIMULATION",
+                            "platform" to "ANDROID",
+                            "scorePercent" to payload.optInt("scorePercent", 0),
+                            "totalQuestions" to payload.optInt("totalQuestions", 10),
+                            "correctAnswers" to payload.optInt("correctCount", 0),
+                            "timeSpentMinutes" to (payload.optInt("timeSpentSeconds", 60) / 60).coerceAtLeast(1),
+                            "averageDwellSec" to payload.optInt("averageLatencySeconds", 40),
+                            "stressScore" to payload.optInt("behavioralStressScore", 50)
+                        )
+                        userRef.collection("attempts").document(attemptId).set(attemptMap, SetOptions.merge()).await()
+                    }
+                    "FLASHCARD" -> {
+                        val cardId = payload.optString("id").ifEmpty { op.entityId }
+                        val box = payload.optInt("boxLevel", 1).coerceIn(1, 5)
+                        val state = when {
+                            box <= 1 -> "unstudied"
+                            box == 2 -> "needs_review"
+                            else -> "known"
+                        }
+                        val cardMap = mapOf(
+                            "schemaVersion" to CANONICAL_SCHEMA_VERSION,
+                            "userId" to userId,
+                            "cardId" to cardId,
+                            "id" to cardId,
+                            "boxLevel" to box,
+                            "state" to state,
+                            "status" to payload.optString("status", FlashcardStatus.fromBoxLevel(box).name),
+                            "lastReviewedEpoch" to payload.optLong("lastReviewedEpoch", System.currentTimeMillis()),
+                            "platform" to "ANDROID"
+                        )
+                        userRef.collection("flashcards").document(cardId).set(cardMap, SetOptions.merge()).await()
+                    }
+                    "SOURCE" -> {
+                        val srcId = payload.optString("id").ifEmpty { op.entityId }
+                        val srcMap = mapOf(
+                            "schemaVersion" to CANONICAL_SCHEMA_VERSION,
+                            "id" to srcId,
+                            "userId" to userId,
+                            "examId" to ExamCatalog.normalizeExamId(payload.optString("examId", "cissp")),
+                            "domainId" to payload.optString("domainId", "d1"),
+                            "title" to payload.optString("title", "Study Note"),
+                            "summary" to payload.optString("summary", ""),
+                            "cachedAtMillis" to System.currentTimeMillis()
+                        )
+                        userRef.collection("sources").document(srcId).set(srcMap, SetOptions.merge()).await()
+                    }
+                }
+            }
+            true
         }
     }
 
@@ -335,7 +435,7 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
         }
 
         return executeWithRetry {
-            val db = FirebaseFirestore.getInstance()
+            val db = getNamedFirestoreInstance()
             val userRef = db.collection("users").document(userId)
 
             // 1. Check remote profile and resolve any conflict deterministically
@@ -349,7 +449,9 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
                     assessmentCompleted = data["assessmentCompleted"] as? Boolean ?: profile.assessmentCompleted,
                     assessmentScorePercent = (data["assessmentScorePercent"] as? Number)?.toInt() ?: profile.assessmentScorePercent,
                     cognitiveStressBaseline = (data["cognitiveStressBaseline"] as? Number)?.toInt() ?: profile.cognitiveStressBaseline,
-                    behavioralArchetype = data["behavioralArchetype"] as? String ?: profile.behavioralArchetype,
+                    behavioralArchetype = data["behavioralArchetype"] as? String
+                        ?: data["archetypeName"] as? String
+                        ?: profile.behavioralArchetype,
                     hesitationNotes = data["hesitationNotes"] as? String ?: profile.hesitationNotes,
                     lastSyncTimestampMillis = (data["lastSyncTimestampMillis"] as? Number)?.toLong() ?: 0L
                 )
@@ -358,21 +460,31 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
                 profile.copy(lastSyncTimestampMillis = System.currentTimeMillis())
             }
 
-            // 2. Write merged profile to /users/{userId}
+            // 2. Write merged profile to /users/{userId} (preserving server-controlled subscriptionTier)
+            val safeTier = if (snapshot.exists()) {
+                (snapshot.data?.get("subscriptionTier") as? String) ?: "Free Trial"
+            } else {
+                "Free Trial"
+            }
             val profileMap = mapOf(
+                "schemaVersion" to CANONICAL_SCHEMA_VERSION,
                 "userId" to userId,
                 "email" to resolvedProfile.email,
                 "displayName" to resolvedProfile.displayName,
                 "avatarUrl" to resolvedProfile.avatarUrl,
-                "subscriptionTier" to resolvedProfile.subscriptionTier,
+                "subscriptionTier" to safeTier,
                 "assessmentCompleted" to resolvedProfile.assessmentCompleted,
                 "assessmentScorePercent" to resolvedProfile.assessmentScorePercent,
                 "cognitiveStressBaseline" to resolvedProfile.cognitiveStressBaseline,
+                "archetypeName" to resolvedProfile.behavioralArchetype,
                 "behavioralArchetype" to resolvedProfile.behavioralArchetype,
                 "hesitationNotes" to resolvedProfile.hesitationNotes,
                 "averageDwellTimeSec" to resolvedProfile.averageDwellTimeSec,
                 "distractorEliminationRate" to resolvedProfile.distractorEliminationRate,
                 "optionSwitchCountAvg" to resolvedProfile.optionSwitchCountAvg,
+                "preferredTheme" to resolvedProfile.preferredTheme,
+                "targetExamId" to ExamCatalog.normalizeExamId(resolvedProfile.targetExamId),
+                "lastActivePlatform" to "ANDROID",
                 "lastSyncTimestampMillis" to resolvedProfile.lastSyncTimestampMillis,
                 "deviceSyncedCount" to resolvedProfile.deviceSyncedCount,
                 "currentJourneyStage" to readiness.currentJourneyStage,
@@ -382,22 +494,28 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
             )
             userRef.set(profileMap, SetOptions.merge()).await()
 
-            // 3. Synchronize subscription entitlements in /users/{userId}/entitlements/{examId}
+            // 3. Synchronize non-escalating subscription metadata (paid ACTIVE requires server receipt verification)
             resolvedProfile.subscriptions.forEach { sub ->
                 val canonicalExamId = ExamCatalog.normalizeExamId(sub.examId)
-                val subMap = mapOf(
-                    "examId" to canonicalExamId,
-                    "examTitle" to sub.examTitle,
-                    "shortCode" to sub.shortCode,
-                    "vendor" to sub.vendor,
-                    "status" to sub.status.toWebStatusString(),
-                    "subscribedPlatform" to sub.platformOrigin.name,
-                    "validUntilDate" to sub.validUntilDate,
-                    "priceFormatted" to sub.priceFormatted,
-                    "universalAccess" to sub.universalAccess,
-                    "activeSessionsCount" to sub.activeSessionsCount
-                )
-                userRef.collection("entitlements").document(canonicalExamId).set(subMap, SetOptions.merge()).await()
+                val webStatus = sub.status.toWebStatusString()
+                if (webStatus != "ACTIVE") {
+                    val subMap = mapOf(
+                        "schemaVersion" to CANONICAL_SCHEMA_VERSION,
+                        "userId" to userId,
+                        "examId" to canonicalExamId,
+                        "examTitle" to sub.examTitle,
+                        "shortCode" to sub.shortCode,
+                        "vendor" to sub.vendor,
+                        "status" to webStatus,
+                        "platform" to "ANDROID",
+                        "subscribedPlatform" to sub.platformOrigin.name,
+                        "validUntilDate" to sub.validUntilDate,
+                        "priceFormatted" to sub.priceFormatted,
+                        "universalAccess" to sub.universalAccess,
+                        "activeSessionsCount" to sub.activeSessionsCount
+                    )
+                    userRef.collection("subscriptions").document(canonicalExamId).set(subMap, SetOptions.merge()).await()
+                }
             }
 
             // 4. Synchronize 5-Stage Study Plan & Exam Readiness in /users/{userId}/studyPlans/{examId}
@@ -413,34 +531,65 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
                 mObj.put("actionRoute", m.actionRoute)
                 milestonesArr.put(mObj)
             }
+            val canonicalReadinessExamId = ExamCatalog.normalizeExamId(readiness.examId)
             val studyPlanMap = mapOf(
-                "examId" to ExamCatalog.normalizeExamId(readiness.examId),
+                "schemaVersion" to CANONICAL_SCHEMA_VERSION,
+                "planId" to canonicalReadinessExamId,
+                "examId" to canonicalReadinessExamId,
                 "userId" to userId,
                 "currentStage" to readiness.currentJourneyStage,
                 "readinessPercent" to readiness.readinessPercent,
+                "passProbabilityPercent" to readiness.passProbabilityPercent,
                 "passGuaranteeQualified" to readiness.passGuaranteeQualified,
                 "targetDate" to resolvedProfile.examTargetDate,
+                "weeklyHours" to 12,
+                "focusDomains" to listOf(readiness.weakestDomainName),
+                "status" to "ACTIVE",
                 "milestonesJson" to milestonesArr.toString(),
                 "updatedAtMillis" to System.currentTimeMillis()
             )
             userRef.collection("studyPlans")
-                .document(ExamCatalog.normalizeExamId(readiness.examId))
+                .document(canonicalReadinessExamId)
                 .set(studyPlanMap, SetOptions.merge())
+                .await()
+
+            val readinessMap = mapOf(
+                "schemaVersion" to CANONICAL_SCHEMA_VERSION,
+                "userId" to userId,
+                "examId" to canonicalReadinessExamId,
+                "readinessScore" to readiness.readinessPercent,
+                "readinessPercent" to readiness.readinessPercent,
+                "passProbability" to readiness.passProbabilityPercent,
+                "passProbabilityPercent" to readiness.passProbabilityPercent,
+                "simulationsCompleted" to readiness.completedSimulationsCount,
+                "weakestDomain" to readiness.weakestDomainName
+            )
+            userRef.collection("readiness")
+                .document(canonicalReadinessExamId)
+                .set(readinessMap, SetOptions.merge())
                 .await()
 
             // 5. Synchronize recent simulation attempts in /users/{userId}/attempts/{sessionId}
             scores.takeLast(10).forEach { score ->
                 val attemptMap = mapOf(
+                    "schemaVersion" to CANONICAL_SCHEMA_VERSION,
+                    "attemptId" to score.id,
                     "sessionId" to score.id,
                     "userId" to userId,
                     "examId" to ExamCatalog.normalizeExamId(score.examId),
                     "examTitle" to ExamCatalog.getExamById(score.examId).title,
+                    "attemptType" to "SIMULATION",
+                    "platform" to "ANDROID",
                     "timestamp" to score.timestampMillis,
                     "totalQuestions" to score.totalQuestions,
+                    "correctAnswers" to ((score.overallScorePercent * score.totalQuestions) / 100),
                     "correctCount" to ((score.overallScorePercent * score.totalQuestions) / 100),
                     "scorePercent" to score.overallScorePercent,
                     "passed" to score.isPassed,
+                    "timeSpentMinutes" to (score.timeSpentSeconds / 60).coerceAtLeast(1),
                     "timeSpentSeconds" to score.timeSpentSeconds,
+                    "averageDwellSec" to 40,
+                    "stressScore" to 50,
                     "domainScoresJson" to score.domainScoresJson
                 )
                 userRef.collection("attempts").document(score.id).set(attemptMap, SetOptions.merge()).await()
@@ -448,14 +597,25 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
 
             // 6. Synchronize flashcards in /users/{userId}/flashcards/{cardId}
             flashcards.forEach { card ->
+                val box = card.boxLevel.coerceIn(1, 5)
+                val stateStr = when {
+                    box <= 1 -> "unstudied"
+                    box == 2 -> "needs_review"
+                    else -> "known"
+                }
                 val cardMap = mapOf(
+                    "schemaVersion" to CANONICAL_SCHEMA_VERSION,
                     "id" to card.id,
+                    "cardId" to card.id,
                     "userId" to userId,
                     "examId" to ExamCatalog.normalizeExamId(card.examId),
                     "domainId" to card.domainId,
-                    "boxLevel" to card.boxLevel,
-                    "status" to FlashcardStatus.fromBoxLevel(card.boxLevel).name,
-                    "lastReviewedEpoch" to card.lastReviewedEpoch
+                    "domain" to card.domainName,
+                    "boxLevel" to box,
+                    "state" to stateStr,
+                    "status" to FlashcardStatus.fromBoxLevel(box).name,
+                    "lastReviewedEpoch" to card.lastReviewedEpoch,
+                    "platform" to "ANDROID"
                 )
                 userRef.collection("flashcards").document(card.id).set(cardMap, SetOptions.merge()).await()
             }
@@ -463,6 +623,7 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
             // 7. Synchronize AI-generated / NotebookLM study sources in /users/{userId}/sources/{sourceId}
             sources.forEach { src ->
                 val srcMap = mapOf(
+                    "schemaVersion" to CANONICAL_SCHEMA_VERSION,
                     "id" to src.id,
                     "userId" to userId,
                     "examId" to ExamCatalog.normalizeExamId(src.examId),

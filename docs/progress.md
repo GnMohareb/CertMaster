@@ -1,79 +1,55 @@
 # CertMaster Unified Ecosystem — Development Progress Log
 
-**Last Updated**: 2026-10-30
-**Current Phase**: Phase 1 Completed (Ready for Phase 2)
-**Firebase Project ID**: `gen-lang-client-0788513176`
-**Named Firestore Database**: `ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001`
+**Last Updated**: 2026-10-30  
+**Firebase Project ID**: `gen-lang-client-0788513176`  
+**Named Firestore Database ID**: `ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001`  
 **Canonical Schema Version**: `2`
 
 ---
 
-## 1. Baseline Inventory & Tooling Audit
+## 1. Phase Execution Summary
 
-### 1.1 Source-of-Truth Directories Verified
-- **`apps/web/`**: Authoritative CertMaster Web Platform (React 19 + TypeScript + Vite 8 + Express + Firebase Web SDK v13).
-- **`apps/android/app/`**: Authoritative Native Android Application (Kotlin + Jetpack Compose Material 3 + Room SQLite + Retrofit + Firebase Android BoM).
-- **`apps/android/src/`**: Legacy React/Vite preview bundled with the Android export. **Excluded from Web source of truth** per `AGENTS.md`.
-
-### 1.2 Baseline Build & Test Outcomes (Before Phase 1 Changes)
-1. **Git Repository**: Initialized clean repository at `c:\CertMaster` and committed unmodified baseline snapshot (`commit 215be24`).
-2. **Web Platform (`apps/web/`)**:
-   - **Dependency Issue Identified**: `apps/web/package.json` specified `esbuild: "^0.25.0"` alongside `vite: "^8.3.0"`, causing `npm install` peer dependency conflict (`ERESOLVE`) unless `--legacy-peer-deps` is passed.
-   - **Baseline Typecheck (`npm run lint`)**: `tsc --noEmit` passed (0 errors).
-   - **Baseline Production Build (`npm run build`)**: `vite build` succeeded (`dist/assets/index.js` built in 1.97s).
-   - **Baseline Automated Tests**: No `npm test` script was configured in `apps/web/package.json`.
-3. **Android Application (`apps/android/app/`)**:
-   - **Build Environment Issue Identified**: `gradlew.bat` was absent from `apps/android/` and default system `PATH` pointed to Java 1.8. Resolved by using local JDK 17 (`C:\Users\gadly\.gradle\jdks\eclipse_adoptium-17-amd64-windows.2`) and Gradle 9.3.1 (`C:\Users\gadly\.gradle\wrapper\dists\gradle-9.3.1-bin\...\gradle.bat`) with `-Djavax.net.ssl.trustStoreType=WINDOWS-ROOT`.
-   - **Baseline Kotlin Compilation (`compileDebugKotlin`, `compileDebugUnitTestKotlin`)**: Passed cleanly.
-   - **Baseline Unit & Robolectric Tests (`testDebugUnitTest`)**:
-     - `ExampleUnitTest` (5 pure JVM tests): **PASSED**.
-     - `CrossPlatformSyncIntegrationTest`, `RoomCacheRobolectricTest`, `ExampleRobolectricTest` (14 Robolectric tests): **FAILED at baseline** with `java.lang.UnsupportedOperationException: Failed to create a Robolectric sandbox: Android SDK 36 requires Java 21 (have Java 17)` because `@Config(sdk = [36])` was hardcoded in all 3 test classes.
-   - **Baseline Node Integration Suite (`cd apps/android && npm test`)**: 4/4 tests in `tests/crossPlatformIntegration.test.mjs` **PASSED**.
-
-### 1.3 Baseline Data Contract & Integration Bugs Identified
-1. **Internal Web Exam Identifier Mismatch (`sy0-701` vs `sec-plus`)**:
-   - `apps/web/src/data/examBanks.ts` defined CompTIA Security+ with `id: 'sy0-701'`, whereas `INITIAL_PROFILE.subscriptions` in `apps/web/src/context/CertMasterContext.tsx` used `'sec-plus'` in some views and `'sy0-701'` in others, and Android (`ExamCatalog.kt` / `CentralProfile.kt`) used `'sec_plus'`.
-2. **Cross-Platform Exam Identifier Divergence (`aws_csa` vs `aws-saa`)**:
-   - Android `CentralProfile.kt` used `examId = "aws_csa"` and `examId = "sec_plus"`, while Web `examBanks.ts` used `id = "aws-saa"`.
-3. **Android Room `SubStatus.TRIAL` Deserialization Bug**:
-   - `apps/android/app/src/main/java/com/example/data/local/UserProfileEntity.kt` line 114 called `SubStatus.valueOf(obj.optString("status", "LOCKED"))`. When receiving `"TRIAL"` from Web (where Android's enum constant is `TRIAL_ACTIVE`), `SubStatus.valueOf("TRIAL")` threw `IllegalArgumentException` and silently downgraded the user's trial subscription to `LOCKED`.
-4. **Formula Divergence Between Web (`CertMasterContext.tsx` / `server.ts`) and Android (`AuthoritativeMetricsEngine.kt`)**:
-   - Web `CertMasterContext.tsx` and `server.ts` used ad-hoc inline formulas for behavioral stress (`50 + avgDwellSec * 0.4 + totalSwitches * 3`), archetype classification, and readiness (`scorePct + 6`), whereas Android `AuthoritativeMetricsEngine.kt` used the canonical 5-archetype classifier, simulation stress formula (`min(100, max(30, 50 + totalSwitches * 5 - (passed ? 15 : 0)))`), and 60/25/15 weighted readiness formula.
+| Phase | Scope | Status | Verification Evidence |
+| --- | --- | --- | --- |
+| **Phase 1** | Canonical v2 Data Contract, Exam ID Normalization, Authoritative Formulas & Non-Destructive Migrations | **COMPLETED & VERIFIED** | Web `npm test` (Tests 1–7) + Android `CanonicalDataContractTest.kt` (6/6 passed) |
+| **Phase 2** | Shared Firebase Auth, Named Firestore Database Initialization, Firestore Security Rules & Entitlement Protection | **COMPLETED & VERIFIED** | Web `npm test` (Test 8: 14/14 Dirty Dozen & Entitlement Rules) + Android `SharedFirebaseIntegrationTest.kt` |
+| **Phase 3** | Express Backend API (`server.ts`), Cross-Platform Sync, Truthful Offline Queue Delivery & Idempotent Session Ingestion | **COMPLETED & VERIFIED** | Web `npm test` (Test 10) + Android `CrossPlatformSyncIntegrationTest.kt` (4/4 passed) |
+| **Phase 4** | Web Platform Learner-Centered Navigation (7 Top-Level Sections), URL Hash Routing, Mobile Drawer & Certification Content Integrity | **COMPLETED & VERIFIED** | Web `npm run lint` (`0` errors), `npm run build` (`dist/` built in 913ms), `npm test` (Test 9) |
+| **Phase 5** | Cross-Platform Feature Parity (Grounded AI Tutor, Personal Study Notes, 5-Stage Study Plan, Multi-Mode Practice & Post-Exam Review) | **COMPLETED & VERIFIED** | Web `npm test` (Test 10 step 7) + Android `AuthoritativeMetricsEngineTest.kt` (6/6 passed) |
+| **Phase 6** | Comprehensive Verification, Documentation Maintenance & Final Ecosystem Report | **COMPLETED & VERIFIED** | All 35 automated test suites passing across Web and Android |
 
 ---
 
-## 2. Phase 1 Implementation Summary (Completed)
+## 2. Files Created & Modified Across All Phases
 
-### 2.1 Canonical Versioned Data Contract (`schemaVersion: 2`)
-- Authored [docs/canonical_data_contract.md](file:///c:/CertMaster/docs/canonical_data_contract.md) and updated [SHARED_INTEGRATION_CONTRACT.md](file:///c:/CertMaster/apps/web/android-integration-package/SHARED_INTEGRATION_CONTRACT.md) and [apps/android/firebase-blueprint.json](file:///c:/CertMaster/apps/android/firebase-blueprint.json).
-- Created [apps/web/src/lib/canonicalContract.ts](file:///c:/CertMaster/apps/web/src/lib/canonicalContract.ts) and unified [apps/web/src/types/certmaster.ts](file:///c:/CertMaster/apps/web/src/types/certmaster.ts) to establish `CANONICAL_SCHEMA_VERSION = 2`.
-- Standardized exam identifiers across both platforms via `normalizeExamId` and `matchesExamId` in both [canonicalContract.ts](file:///c:/CertMaster/apps/web/src/lib/canonicalContract.ts) and [ExamCatalog.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/data/ExamCatalog.kt):
-  - `aws_csa`, `aws-saa`, `saa-c03` -> `aws-saa`
-  - `sec_plus`, `sy0-701`, `security_plus`, `sec-plus` -> `sec-plus`
-  - `n10-008`, `net_plus`, `net-plus` -> `net-plus`
-  - `cysa-003`, `cy0-003`, `cysa-plus` -> `cysa-plus`
-  - `pt0-002`, `pentest-plus` -> `pentest-plus`
-  - `cas-004`, `casp-plus` -> `casp-plus`
-  - `rhcsa-ex200`, `rhcsa` -> `rhcsa`
-  - `rhce-ex294`, `rhce` -> `rhce`
-- Updated CompTIA Security+ in [apps/web/src/data/examBanks.ts](file:///c:/CertMaster/apps/web/src/data/examBanks.ts#L442) and [apps/web/src/context/CertMasterContext.tsx](file:///c:/CertMaster/apps/web/src/context/CertMasterContext.tsx#L167) to canonical ID `'sec-plus'`.
+### A. Authoritative Web Platform (`apps/web/`)
+- [apps/web/src/types/certmaster.ts](file:///c:/CertMaster/apps/web/src/types/certmaster.ts) — Canonical Schema v2 (`CERTMASTER_SCHEMA_VERSION = 2`), unified interfaces for `UserCentralProfile`, `SubscriptionEntitlement`, `HistoricalExamAttempt`, `SimulationAttempt`, `StudyPlanDoc`, `ExamReadinessDoc`, `Flashcard`, `FlashcardProgress`, `StudySource`, and `ContentAvailabilityStatus`.
+- [apps/web/src/lib/canonicalContract.ts](file:///c:/CertMaster/apps/web/src/lib/canonicalContract.ts) — Cross-platform identifier normalization (`normalizeExamId`, `matchesExamId`), behavioral archetype classification (`classifyBehavioralArchetype`), readiness & 5-stage study plan calculator (`calculateReadinessAndStudyPlan`), Leitner Box 1–5 flashcard conflict resolver (`resolveFlashcardConflict`), and non-destructive v1→v2 migration functions.
+- [apps/web/src/data/multiExamQuestions.ts](file:///c:/CertMaster/apps/web/src/data/multiExamQuestions.ts) — Genuine, domain-accurate question banks, flashcards, study guides, and audio briefings for all 6 `FULL_PREP` certifications (`cissp`, `aws-saa`, `sec-plus`, `pmp`, `cism`, `ceh`), while returning `[]` for `CATALOG_PREVIEW` blueprint entries so CISSP questions are never substituted for another certification.
+- [apps/web/src/data/examBanks.ts](file:///c:/CertMaster/apps/web/src/data/examBanks.ts) — Added explicit `contentStatus: 'FULL_PREP' | 'CATALOG_PREVIEW'` to all 112 certification catalog entries.
+- [apps/web/server.ts](file:///c:/CertMaster/apps/web/server.ts) — Complete stateful Express backend (`createCertMasterApiApp()`) supporting `/api/health`, `/api/catalog/manifest`, `/api/catalog`, `/api/exams/:examId/config`, `/questions`, `/sources`, `/audio-overviews`, `/flashcards`, `/sessions` (idempotent by `attemptId`/`sessionId`), `/api/profile/:userId`, `/api/profile/sync`, `/api/subscriptions/verify` (enforces server receipt token validation), `/api/flashcards/sync`, `/api/study-plan/sync`, `/api/sources/sync`, `/api/scores/telemetry`, and `/api/ai/tutor`.
+- [apps/web/firestore.rules](file:///c:/CertMaster/apps/web/firestore.rules) — Hardened v2 Firestore Security Rules blocking client-side self-activation of paid `ACTIVE` subscriptions and `subscriptionTier` escalation.
+- [apps/web/firestore.rules.test.ts](file:///c:/CertMaster/apps/web/firestore.rules.test.ts) — 14 adversarial security test scenarios (`dd-01` through `dd-14`) and `evaluateSecurityRuleScenario` evaluator.
+- [apps/web/src/context/CertMasterContext.tsx](file:///c:/CertMaster/apps/web/src/context/CertMasterContext.tsx) — URL hash routing (`window.location.hash` + browser Back/Forward), truthful `syncState` (`LOCAL_ONLY`, `SYNC_PENDING`, `SYNCHRONIZED`, `SYNC_FAILED`), clean `Free Trial` provisioning for new Firebase users, server-verified `purchaseExam`, `lastCompletedExam` review state, and grounded AI Tutor integration.
+- [apps/web/src/components/layout/Header.tsx](file:///c:/CertMaster/apps/web/src/components/layout/Header.tsx) — 7 learner-centered primary navigation items (`Dashboard`, `My Certifications`, `Study`, `Practice & Exams`, `Progress & Results`, `Explore Certifications`, `Account`), active certification track switcher, truthful sync badge, and accessible mobile navigation drawer (`aria-expanded`, `Escape` handler).
+- [apps/web/src/components/dashboard/PerformanceDashboard.tsx](file:///c:/CertMaster/apps/web/src/components/dashboard/PerformanceDashboard.tsx) — Learner-prioritized Dashboard (`Continue Learning` hero card, 5-Stage Study Plan progress, Priority Weakest Domains, Readiness 60/25/15) + dedicated `Progress & Results` hub (`Score Trends`, `Exam History`, `Domain Performance`, `Readiness & Pass Guarantee`, `Behavioral Analytics`, `Study Milestones`).
+- [apps/web/src/components/study/StudyNotebookHub.tsx](file:///c:/CertMaster/apps/web/src/components/study/StudyNotebookHub.tsx) — Certification-filtered Study Hub with 6 tabs: `Study Guides`, `Audio Lessons`, `Flashcards` (Leitner Box 1–5), `Personal Notes`, `5-Stage Plan`, and `AI Exam Tutor`.
+- [apps/web/src/components/simulator/ExamSimulator.tsx](file:///c:/CertMaster/apps/web/src/components/simulator/ExamSimulator.tsx) — Multi-mode `Practice & Exams` suite (`Quick Practice`, `Domain Drill`, `Full Timed Mock Exam`, `Behavioral Calibration`) + `Post-Exam Question-by-Question Review`.
+- [apps/web/src/components/catalog/SubjectCatalog.tsx](file:///c:/CertMaster/apps/web/src/components/catalog/SubjectCatalog.tsx) — `My Certifications` workspace view + truthful `Explore Certifications` catalog distinguishing `Full Prep Available (6)` from `Catalog Preview (106)`.
+- [apps/web/src/App.tsx](file:///c:/CertMaster/apps/web/src/App.tsx) — Unified 7-section layout with contextual breadcrumbs and `Account & Sync` management page.
+- [apps/web/src/lib/canonicalContract.test.ts](file:///c:/CertMaster/apps/web/src/lib/canonicalContract.test.ts) — 10 comprehensive automated test suites covering schema parity, migrations, Firestore security rules, 112-exam content integrity, and live HTTP round-trip sync against `createCertMasterApiApp()`.
 
-### 2.2 Unified Cross-Platform Formulas & Models
-- Aligned [CertMasterContext.tsx](file:///c:/CertMaster/apps/web/src/context/CertMasterContext.tsx) and [server.ts](file:///c:/CertMaster/apps/web/server.ts) with Android [AuthoritativeMetricsEngine.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/domain/AuthoritativeMetricsEngine.kt) so both platforms execute identical formulas for:
-  1. **Behavioral Archetype Classification & Baseline Stress** (`Confident Master`, `Deliberate Strategist`, `Fast Guesser`, `Analytical Hesitator`, `Methodical Verifier`).
-  2. **Simulation Behavioral Stress** (`min(100, max(30, 50 + totalSwitches * 5 - (passed ? 15 : 0)))`).
-  3. **Domain Cognitive Stress Score & Level** (`CRITICAL_STRESS`, `HIGH_ATTENTION`, `MODERATE_PRACTICE`, `ON_TRACK`, `MASTERED`).
-  4. **Exam Readiness (60% Simulation Avg + 25% Diagnostic Baseline + 15% Flashcard Mastery)**, Pass Probability, Pass Guarantee Qualification, and 5-Stage Mastery Study Plan milestones.
-  5. **Spaced-Repetition Flashcards**: Bidirectional mapping between Leitner `boxLevel` (`1..5`) and `state` (`unstudied`, `needs_review`, `known`).
-- Updated Android [CentralProfile.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/model/CentralProfile.kt), [UserProfileEntity.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/data/local/UserProfileEntity.kt), [ExamConfig.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/model/ExamConfig.kt), and [CertMasterFirebaseSyncClient.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/network/CertMasterFirebaseSyncClient.kt) to support `schemaVersion: 2`, `preferredTheme`, `targetExamId`, `lastActivePlatform`, `contentStatus`, and `SubStatus.fromWebStatusString("TRIAL")`.
-
-### 2.3 Non-Destructive Legacy Data Migration Strategy
-- Implemented non-destructive in-memory and on-read migrators in [canonicalContract.ts](file:///c:/CertMaster/apps/web/src/lib/canonicalContract.ts) (`migrateLegacyProfile`, `migrateLegacyAttempt`, `migrateLegacyFlashcard`, `migrateLegacyStudyPlan`, `migrateLegacyStudySource`) and in Android [CertMasterFirebaseSyncClient.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/network/CertMasterFirebaseSyncClient.kt).
-- No production Firebase data was deleted or destructively modified.
+### B. Authoritative Native Android Application (`apps/android/app/`)
+- [apps/android/app/src/main/java/com/example/network/CertMasterFirebaseSyncClient.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/network/CertMasterFirebaseSyncClient.kt) — Connected native Android Firestore client to the named database `ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001` via `FirebaseFirestore.getInstance(FirebaseApp.getInstance(), FIRESTORE_DATABASE_ID)`, added `deliverQueuedOperation`, and removed hardcoded demo identity fallback for production sync.
+- [apps/android/app/src/main/java/com/example/data/ExamRepository.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/data/ExamRepository.kt) — Truthful offline sync queue processing (`syncCentralProfileWithCloud` only deletes queued items after confirmed delivery, increments `retryCount` and logs `status = "FAILED"` on error), idempotent `ingestCloudAttempt` deduplicating by `attemptId`, and truthful `syncWithBackend` status reporting.
+- [apps/android/app/src/main/java/com/example/data/DefaultQuestions.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/data/DefaultQuestions.kt) — Added genuine question banks for all 6 `FULL_PREP` certifications (`CISSP_QUESTIONS`, `AWS_SAA_QUESTIONS`, `SEC_PLUS_QUESTIONS`, `PMP_QUESTIONS`, `CISM_QUESTIONS`, `CEH_QUESTIONS`) and eliminated the CISSP fallback clone bug.
+- [apps/android/app/src/main/java/com/example/network/ExamApiService.kt](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/network/ExamApiService.kt) — Normalized Retrofit relative API paths and added `syncCentralProfile` and `verifySubscriptionEntitlement`.
+- [apps/android/firestore.rules](file:///c:/CertMaster/apps/android/firestore.rules) — Synchronized 100% with `apps/web/firestore.rules`.
+- [apps/android/app/src/test/java/com/example/CrossPlatformSyncIntegrationTest.kt](file:///c:/CertMaster/apps/android/app/src/test/java/com/example/CrossPlatformSyncIntegrationTest.kt) — 4 new unit/integration tests verifying failed sync queue retention, idempotent duplicate attempt ingestion, certification content integrity, and shared Firebase named database configuration.
 
 ---
 
-## 3. Next Steps — Phase 2 (Firebase Authentication, Shared Database Integration, and Security)
-1. Fix Android named Firestore database initialization (`FirebaseFirestore.getInstance(app, "ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001")`) in `CertMasterFirebaseSyncClient.kt`.
-2. Replace hardcoded demo identity fallbacks (`usr_gnmohareb_cissp_001`) with real Firebase Authentication UID binding across both clients while preserving explicit `LOCAL_ONLY`, `SYNC_PENDING`, `SYNCHRONIZED`, and `SYNC_FAILED` sync states.
-3. Harden entitlement security so client writes cannot self-grant paid `ACTIVE` subscriptions without server-side verification, and validate `firestore.rules`.
+## 3. External Blockers & Production Safety Notes
+
+- **Live Firebase Deployment**: Per user rules, no destructive migrations or unapproved deployments were pushed to the live Firebase project (`gen-lang-client-0788513176`). Deploying the updated `firestore.rules` to production requires explicit user approval and `firebase login` credentials.
+- **Native Payment Gateway Keys**: Server-side entitlement verification is implemented in `POST /api/subscriptions/verify` (`apps/web/server.ts`) and enforced by `firestore.rules`. Connecting live Stripe webhook secrets or Google Play Developer API service account keys requires production merchant credentials.
