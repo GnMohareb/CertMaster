@@ -1,0 +1,553 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public/shared user profile, learning preferences, and behavioral telemetry summary synchronized between Web and Android.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the student",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "Profile avatar URL or asset path",
+          "maxLength": 500
+        },
+        "subscriptionTier": {
+          "type": "string",
+          "description": "Current active subscription tier",
+          "enum": ["Universal Multi-Pass", "Single-Exam Pass", "Free Trial"],
+          "maxLength": 64
+        },
+        "assessmentScorePercent": {
+          "type": "number",
+          "description": "Calibrated baseline readiness percentage (0-100)"
+        },
+        "cognitiveStressBaseline": {
+          "type": "number",
+          "description": "Behavioral stress index (0-100)"
+        },
+        "archetypeName": {
+          "type": "string",
+          "description": "Classified behavioral archetype name",
+          "maxLength": 100
+        },
+        "archetypeDescription": {
+          "type": "string",
+          "description": "Detailed behavioral archetype description",
+          "maxLength": 600
+        },
+        "avgDwellSeconds": {
+          "type": "number",
+          "description": "Average question dwell duration in seconds"
+        },
+        "switchRatePercent": {
+          "type": "number",
+          "description": "Option switch hesitation rate percentage"
+        },
+        "distractorEliminationRate": {
+          "type": "number",
+          "description": "Rate of distractor strikethrough usage"
+        },
+        "confidenceIndex": {
+          "type": "number",
+          "description": "Confidence index (0-100)"
+        },
+        "recommendedStrategy": {
+          "type": "string",
+          "description": "Coaching directive for exam pacing",
+          "maxLength": 600
+        },
+        "preferredTheme": {
+          "type": "string",
+          "description": "Synchronized UI theme preference across Web and Android",
+          "enum": ["dark", "light"],
+          "maxLength": 16
+        },
+        "targetExamId": {
+          "type": "string",
+          "description": "Primary active certification exam ID",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dailyStudyGoalMinutes": {
+          "type": "number",
+          "description": "Daily study goal in minutes"
+        },
+        "androidDeviceId": {
+          "type": "string",
+          "description": "Paired Android companion device identifier",
+          "maxLength": 128
+        },
+        "lastActivePlatform": {
+          "type": "string",
+          "description": "Last platform that wrote to this profile",
+          "enum": ["WEB", "ANDROID"],
+          "maxLength": 16
+        },
+        "schemaVersion": {
+          "type": "number",
+          "description": "Schema version for cross-platform compatibility"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "subscriptionTier",
+        "assessmentScorePercent",
+        "cognitiveStressBaseline",
+        "archetypeName",
+        "preferredTheme",
+        "targetExamId",
+        "lastActivePlatform",
+        "schemaVersion",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserPrivatePII": {
+      "title": "UserPrivatePII",
+      "description": "Strictly isolated PII document storing user email and billing identifiers.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified user email address",
+          "maxLength": 254
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": ["userId", "email", "createdAt", "updatedAt"]
+    },
+    "SubscriptionEntitlementDoc": {
+      "title": "SubscriptionEntitlementDoc",
+      "description": "Cross-platform exam subscription and entitlement status shared between Web and Android.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "examId": {
+          "type": "string",
+          "description": "Certification exam ID (e.g., cissp, aws-saa)",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "status": {
+          "type": "string",
+          "description": "Entitlement status",
+          "enum": ["ACTIVE", "EXPIRED", "TRIAL", "LOCKED"],
+          "maxLength": 16
+        },
+        "platform": {
+          "type": "string",
+          "description": "Originating purchase platform",
+          "enum": ["WEB", "ANDROID"],
+          "maxLength": 16
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "ISO expiration date string",
+          "maxLength": 64
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": ["userId", "examId", "status", "platform", "expiresAt", "createdAt", "updatedAt"]
+    },
+    "ExamAttemptRecord": {
+      "title": "ExamAttemptRecord",
+      "description": "Completed practice examination or diagnostic assessment attempt synchronized across Web and Android.",
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "description": "Unique attempt identifier",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Student Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "examId": {
+          "type": "string",
+          "description": "Exam identifier (e.g., cissp, assessment)",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "attemptType": {
+          "type": "string",
+          "description": "Type of assessment",
+          "enum": ["SIMULATION", "DIAGNOSTIC", "PRACTICE"],
+          "maxLength": 32
+        },
+        "platform": {
+          "type": "string",
+          "description": "Platform where the attempt was completed",
+          "enum": ["WEB", "ANDROID"],
+          "maxLength": 16
+        },
+        "scorePercent": {
+          "type": "number",
+          "description": "Percentage score achieved (0-100)"
+        },
+        "totalQuestions": {
+          "type": "number",
+          "description": "Total number of questions in the attempt"
+        },
+        "correctAnswers": {
+          "type": "number",
+          "description": "Number of questions answered correctly"
+        },
+        "timeSpentMinutes": {
+          "type": "number",
+          "description": "Total duration spent in minutes"
+        },
+        "averageDwellSec": {
+          "type": "number",
+          "description": "Mean dwell time per question in seconds"
+        },
+        "stressScore": {
+          "type": "number",
+          "description": "Calculated cognitive stress index during attempt (0-100)"
+        },
+        "dateString": {
+          "type": "string",
+          "description": "YYYY-MM-DD date label for trend charts",
+          "maxLength": 32
+        },
+        "domainScores": {
+          "type": "object",
+          "description": "Map of domain names to accuracy percentages"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        }
+      },
+      "required": [
+        "attemptId",
+        "userId",
+        "examId",
+        "attemptType",
+        "platform",
+        "scorePercent",
+        "totalQuestions",
+        "correctAnswers",
+        "timeSpentMinutes",
+        "averageDwellSec",
+        "stressScore",
+        "dateString",
+        "domainScores",
+        "createdAt"
+      ]
+    },
+    "FlashcardProgress": {
+      "title": "FlashcardProgress",
+      "description": "Spaced-repetition active recall card mastery state shared between Web and Android.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "cardId": {
+          "type": "string",
+          "description": "Flashcard identifier (e.g., fc-1)",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "examId": {
+          "type": "string",
+          "description": "Associated exam ID",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name",
+          "maxLength": 120
+        },
+        "state": {
+          "type": "string",
+          "description": "Spaced repetition mastery state",
+          "enum": ["unstudied", "known", "needs_review"],
+          "maxLength": 32
+        },
+        "reviewCount": {
+          "type": "number",
+          "description": "Total number of recall repetitions"
+        },
+        "platform": {
+          "type": "string",
+          "description": "Platform that last updated this card",
+          "enum": ["WEB", "ANDROID"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": ["userId", "cardId", "examId", "domain", "state", "reviewCount", "platform", "createdAt", "updatedAt"]
+    },
+    "StudyPlan": {
+      "title": "StudyPlan",
+      "description": "Personalized study plan and schedule synchronized between Web and Android.",
+      "type": "object",
+      "properties": {
+        "planId": {
+          "type": "string",
+          "description": "Study plan ID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "examId": {
+          "type": "string",
+          "description": "Target certification exam ID",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "targetDate": {
+          "type": "string",
+          "description": "Target exam completion date YYYY-MM-DD",
+          "maxLength": 32
+        },
+        "weeklyHours": {
+          "type": "number",
+          "description": "Planned weekly study hours"
+        },
+        "focusDomains": {
+          "type": "array",
+          "description": "Bounded list of high-priority domains (max 10)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Current plan status",
+          "enum": ["ACTIVE", "PAUSED", "COMPLETED"],
+          "maxLength": 32
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": ["planId", "userId", "examId", "targetDate", "weeklyHours", "focusDomains", "status", "createdAt", "updatedAt"]
+    },
+    "ExamReadiness": {
+      "title": "ExamReadiness",
+      "description": "Per-exam readiness index, domain mastery breakdown, and pass probability.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "examId": {
+          "type": "string",
+          "description": "Exam ID",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "readinessScore": {
+          "type": "number",
+          "description": "Aggregate readiness score (0-100)"
+        },
+        "passProbability": {
+          "type": "number",
+          "description": "Estimated probability of passing the live exam (0-100)"
+        },
+        "simulationsCompleted": {
+          "type": "number",
+          "description": "Total simulations completed for this exam"
+        },
+        "weakestDomain": {
+          "type": "string",
+          "description": "Domain requiring highest priority remediation",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": ["userId", "examId", "readinessScore", "passProbability", "simulationsCompleted", "weakestDomain", "createdAt", "updatedAt"]
+    },
+    "SyncEventDoc": {
+      "title": "SyncEventDoc",
+      "description": "Cross-platform telemetry and synchronization audit event.",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "description": "Unique sync event ID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "direction": {
+          "type": "string",
+          "description": "Direction of synchronization",
+          "enum": ["WEB_TO_ANDROID", "ANDROID_TO_WEB"],
+          "maxLength": 32
+        },
+        "action": {
+          "type": "string",
+          "description": "Sync action title",
+          "maxLength": 120
+        },
+        "status": {
+          "type": "string",
+          "description": "Execution status",
+          "enum": ["SUCCESS", "SYNCING", "PENDING"],
+          "maxLength": 32
+        },
+        "payloadSummary": {
+          "type": "string",
+          "description": "Human-readable summary of synchronized state",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        }
+      },
+      "required": ["eventId", "userId", "direction", "action", "status", "payloadSummary", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Central user profile and behavioral telemetry document."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivatePII" },
+      "description": "Isolated PII document storing user email address."
+    },
+    "/users/{userId}/subscriptions/{examId}": {
+      "schema": { "$ref": "#/entities/SubscriptionEntitlementDoc" },
+      "description": "Per-exam subscription entitlement document."
+    },
+    "/users/{userId}/attempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/ExamAttemptRecord" },
+      "description": "Historical exam simulation and diagnostic assessment attempts."
+    },
+    "/users/{userId}/flashcards/{cardId}": {
+      "schema": { "$ref": "#/entities/FlashcardProgress" },
+      "description": "Spaced-repetition flashcard progress records."
+    },
+    "/users/{userId}/studyPlans/{planId}": {
+      "schema": { "$ref": "#/entities/StudyPlan" },
+      "description": "User study plan configurations."
+    },
+    "/users/{userId}/readiness/{examId}": {
+      "schema": { "$ref": "#/entities/ExamReadiness" },
+      "description": "Per-exam readiness and pass probability analytics."
+    },
+    "/users/{userId}/syncEvents/{eventId}": {
+      "schema": { "$ref": "#/entities/SyncEventDoc" },
+      "description": "Cross-platform synchronization audit log entries."
+    }
+  }
+}

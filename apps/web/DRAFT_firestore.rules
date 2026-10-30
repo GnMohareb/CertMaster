@@ -1,0 +1,565 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // 1. GLOBAL SAFETY NET (Default-Deny Catch-All)
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // 2. PRIMITIVE HELPERS & IDENTITY VERIFICATION
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function parentUserExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    // =========================================================================
+    // 3. ENTITY VALIDATION BLUEPRINTS (Anti-Update-Gap)
+    // =========================================================================
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+        'userId',
+        'displayName',
+        'subscriptionTier',
+        'assessmentScorePercent',
+        'cognitiveStressBaseline',
+        'archetypeName',
+        'preferredTheme',
+        'targetExamId',
+        'lastActivePlatform',
+        'schemaVersion',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'userId',
+        'displayName',
+        'avatarUrl',
+        'subscriptionTier',
+        'assessmentScorePercent',
+        'cognitiveStressBaseline',
+        'archetypeName',
+        'archetypeDescription',
+        'avgDwellSeconds',
+        'switchRatePercent',
+        'distractorEliminationRate',
+        'confidenceIndex',
+        'recommendedStrategy',
+        'preferredTheme',
+        'targetExamId',
+        'dailyStudyGoalMinutes',
+        'androidDeviceId',
+        'lastActivePlatform',
+        'schemaVersion',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+      (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 500)) &&
+      data.subscriptionTier is string && data.subscriptionTier.size() <= 64 &&
+      data.subscriptionTier in ['Universal Multi-Pass', 'Single-Exam Pass', 'Free Trial'] &&
+      data.assessmentScorePercent is number && data.assessmentScorePercent >= 0 && data.assessmentScorePercent <= 100 &&
+      data.cognitiveStressBaseline is number && data.cognitiveStressBaseline >= 0 && data.cognitiveStressBaseline <= 100 &&
+      data.archetypeName is string && data.archetypeName.size() >= 1 && data.archetypeName.size() <= 100 &&
+      (!('archetypeDescription' in data) || (data.archetypeDescription is string && data.archetypeDescription.size() <= 600)) &&
+      (!('avgDwellSeconds' in data) || (data.avgDwellSeconds is number && data.avgDwellSeconds >= 0 && data.avgDwellSeconds <= 3600)) &&
+      (!('switchRatePercent' in data) || (data.switchRatePercent is number && data.switchRatePercent >= 0 && data.switchRatePercent <= 100)) &&
+      (!('distractorEliminationRate' in data) || (data.distractorEliminationRate is number && data.distractorEliminationRate >= 0 && data.distractorEliminationRate <= 100)) &&
+      (!('confidenceIndex' in data) || (data.confidenceIndex is number && data.confidenceIndex >= 0 && data.confidenceIndex <= 100)) &&
+      (!('recommendedStrategy' in data) || (data.recommendedStrategy is string && data.recommendedStrategy.size() <= 600)) &&
+      data.preferredTheme is string && data.preferredTheme.size() <= 16 && data.preferredTheme in ['dark', 'light'] &&
+      data.targetExamId is string && data.targetExamId.size() >= 1 && data.targetExamId.size() <= 64 && data.targetExamId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      (!('dailyStudyGoalMinutes' in data) || (data.dailyStudyGoalMinutes is number && data.dailyStudyGoalMinutes >= 5 && data.dailyStudyGoalMinutes <= 720)) &&
+      (!('androidDeviceId' in data) || (data.androidDeviceId is string && data.androidDeviceId.size() <= 128)) &&
+      data.lastActivePlatform is string && data.lastActivePlatform.size() <= 16 && data.lastActivePlatform in ['WEB', 'ANDROID'] &&
+      data.schemaVersion is number && data.schemaVersion >= 1 && data.schemaVersion <= 10;
+    }
+
+    function isValidUserPrivatePII(data) {
+      return data.keys().hasAll(['userId', 'email', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['userId', 'email', 'createdAt', 'updatedAt']) &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.userId == request.auth.uid &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 254;
+    }
+
+    function isValidSubscriptionEntitlementDoc(data) {
+      return data.keys().hasAll(['userId', 'examId', 'status', 'platform', 'expiresAt', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['userId', 'examId', 'status', 'platform', 'expiresAt', 'createdAt', 'updatedAt']) &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.userId == request.auth.uid &&
+        data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.status is string && data.status.size() <= 16 && data.status in ['ACTIVE', 'EXPIRED', 'TRIAL', 'LOCKED'] &&
+        data.platform is string && data.platform.size() <= 16 && data.platform in ['WEB', 'ANDROID'] &&
+        data.expiresAt is string && data.expiresAt.size() <= 64;
+    }
+
+    function isValidExamAttemptRecord(data) {
+      return data.keys().hasAll([
+        'attemptId',
+        'userId',
+        'examId',
+        'attemptType',
+        'platform',
+        'scorePercent',
+        'totalQuestions',
+        'correctAnswers',
+        'timeSpentMinutes',
+        'averageDwellSec',
+        'stressScore',
+        'dateString',
+        'domainScores',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'attemptId',
+        'userId',
+        'examId',
+        'attemptType',
+        'platform',
+        'scorePercent',
+        'totalQuestions',
+        'correctAnswers',
+        'timeSpentMinutes',
+        'averageDwellSec',
+        'stressScore',
+        'dateString',
+        'domainScores',
+        'createdAt'
+      ]) &&
+      data.attemptId is string && data.attemptId.size() >= 1 && data.attemptId.size() <= 128 && data.attemptId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.attemptType is string && data.attemptType.size() <= 32 && data.attemptType in ['SIMULATION', 'DIAGNOSTIC', 'PRACTICE'] &&
+      data.platform is string && data.platform.size() <= 16 && data.platform in ['WEB', 'ANDROID'] &&
+      data.scorePercent is number && data.scorePercent >= 0 && data.scorePercent <= 100 &&
+      data.totalQuestions is number && data.totalQuestions >= 1 && data.totalQuestions <= 500 &&
+      data.correctAnswers is number && data.correctAnswers >= 0 && data.correctAnswers <= data.totalQuestions &&
+      data.timeSpentMinutes is number && data.timeSpentMinutes >= 0 && data.timeSpentMinutes <= 600 &&
+      data.averageDwellSec is number && data.averageDwellSec >= 0 && data.averageDwellSec <= 3600 &&
+      data.stressScore is number && data.stressScore >= 0 && data.stressScore <= 100 &&
+      data.dateString is string && data.dateString.size() >= 8 && data.dateString.size() <= 32 &&
+      data.domainScores is map && data.domainScores.keys().size() <= 20;
+    }
+
+    function isValidFlashcardProgress(data) {
+      return data.keys().hasAll([
+        'userId',
+        'cardId',
+        'examId',
+        'domain',
+        'state',
+        'reviewCount',
+        'platform',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'userId',
+        'cardId',
+        'examId',
+        'domain',
+        'state',
+        'reviewCount',
+        'platform',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.cardId is string && data.cardId.size() >= 1 && data.cardId.size() <= 64 && data.cardId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.domain is string && data.domain.size() >= 1 && data.domain.size() <= 120 &&
+      data.state is string && data.state.size() <= 32 && data.state in ['unstudied', 'known', 'needs_review'] &&
+      data.reviewCount is number && data.reviewCount >= 0 && data.reviewCount <= 10000 &&
+      data.platform is string && data.platform.size() <= 16 && data.platform in ['WEB', 'ANDROID'];
+    }
+
+    function isValidStudyPlan(data) {
+      return data.keys().hasAll([
+        'planId',
+        'userId',
+        'examId',
+        'targetDate',
+        'weeklyHours',
+        'focusDomains',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'planId',
+        'userId',
+        'examId',
+        'targetDate',
+        'weeklyHours',
+        'focusDomains',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.planId is string && data.planId.size() >= 1 && data.planId.size() <= 128 && data.planId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.targetDate is string && data.targetDate.size() >= 8 && data.targetDate.size() <= 32 &&
+      data.weeklyHours is number && data.weeklyHours >= 1 && data.weeklyHours <= 168 &&
+      data.focusDomains is list && data.focusDomains.size() <= 10 &&
+      (data.focusDomains.size() == 0 || (data.focusDomains[0] is string && data.focusDomains[0].size() <= 120)) &&
+      data.status is string && data.status.size() <= 32 && data.status in ['ACTIVE', 'PAUSED', 'COMPLETED'];
+    }
+
+    function isValidExamReadiness(data) {
+      return data.keys().hasAll([
+        'userId',
+        'examId',
+        'readinessScore',
+        'passProbability',
+        'simulationsCompleted',
+        'weakestDomain',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'userId',
+        'examId',
+        'readinessScore',
+        'passProbability',
+        'simulationsCompleted',
+        'weakestDomain',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 64 && data.examId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.readinessScore is number && data.readinessScore >= 0 && data.readinessScore <= 100 &&
+      data.passProbability is number && data.passProbability >= 0 && data.passProbability <= 100 &&
+      data.simulationsCompleted is number && data.simulationsCompleted >= 0 && data.simulationsCompleted <= 10000 &&
+      data.weakestDomain is string && data.weakestDomain.size() >= 1 && data.weakestDomain.size() <= 120;
+    }
+
+    function isValidSyncEventDoc(data) {
+      return data.keys().hasAll([
+        'eventId',
+        'userId',
+        'direction',
+        'action',
+        'status',
+        'payloadSummary',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'eventId',
+        'userId',
+        'direction',
+        'action',
+        'status',
+        'payloadSummary',
+        'createdAt'
+      ]) &&
+      data.eventId is string && data.eventId.size() >= 1 && data.eventId.size() <= 128 && data.eventId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId == request.auth.uid &&
+      data.direction is string && data.direction.size() <= 32 && data.direction in ['WEB_TO_ANDROID', 'ANDROID_TO_WEB'] &&
+      data.action is string && data.action.size() >= 1 && data.action.size() <= 120 &&
+      data.status is string && data.status.size() <= 32 && data.status in ['SUCCESS', 'SYNCING', 'PENDING'] &&
+      data.payloadSummary is string && data.payloadSummary.size() >= 1 && data.payloadSummary.size() <= 500;
+    }
+
+    // =========================================================================
+    // 4. COLLECTION MATCH BLOCKS
+    // =========================================================================
+
+    // --- /users/{userId} ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+      allow create: if isVerifiedOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) &&
+        incoming().userId == userId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action 1: Profile & Preferences Sync
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName',
+            'avatarUrl',
+            'preferredTheme',
+            'targetExamId',
+            'dailyStudyGoalMinutes',
+            'androidDeviceId',
+            'lastActivePlatform',
+            'updatedAt'
+          ]) ||
+          // Action 2: Behavioral Assessment & Telemetry Calibration
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'assessmentScorePercent',
+            'cognitiveStressBaseline',
+            'archetypeName',
+            'archetypeDescription',
+            'avgDwellSeconds',
+            'switchRatePercent',
+            'distractorEliminationRate',
+            'confidenceIndex',
+            'recommendedStrategy',
+            'lastActivePlatform',
+            'updatedAt'
+          ]) ||
+          // Action 3: Subscription Tier Upgrade
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'subscriptionTier',
+            'lastActivePlatform',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if false;
+
+      // --- /users/{userId}/private/{docId} (PII Isolation) ---
+      match /private/{docId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(docId);
+        allow list: if false;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(docId) &&
+          isValidUserPrivatePII(incoming()) &&
+          incoming().userId == userId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(docId) &&
+          isValidUserPrivatePII(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']) &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/subscriptions/{examId} ---
+      match /subscriptions/{examId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(examId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidSubscriptionEntitlementDoc(incoming()) &&
+          incoming().userId == userId &&
+          incoming().examId == examId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidSubscriptionEntitlementDoc(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().examId == existing().examId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'status',
+            'platform',
+            'expiresAt',
+            'updatedAt'
+          ]) &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/attempts/{attemptId} (Immutable Telemetry Record) ---
+      match /attempts/{attemptId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(attemptId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(attemptId) &&
+          isValidExamAttemptRecord(incoming()) &&
+          incoming().userId == userId &&
+          incoming().attemptId == attemptId &&
+          incoming().createdAt == request.time &&
+          parentUserExists(userId);
+
+        allow update, delete: if false;
+      }
+
+      // --- /users/{userId}/flashcards/{cardId} ---
+      match /flashcards/{cardId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(cardId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(cardId) &&
+          isValidFlashcardProgress(incoming()) &&
+          incoming().userId == userId &&
+          incoming().cardId == cardId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(cardId) &&
+          isValidFlashcardProgress(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().cardId == existing().cardId &&
+          incoming().examId == existing().examId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'state',
+            'reviewCount',
+            'platform',
+            'updatedAt'
+          ]) &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/studyPlans/{planId} ---
+      match /studyPlans/{planId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(planId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(planId) &&
+          isValidStudyPlan(incoming()) &&
+          incoming().userId == userId &&
+          incoming().planId == planId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(planId) &&
+          isValidStudyPlan(incoming()) &&
+          existing().status != 'COMPLETED' &&
+          incoming().userId == existing().userId &&
+          incoming().planId == existing().planId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'targetDate',
+            'weeklyHours',
+            'focusDomains',
+            'status',
+            'updatedAt'
+          ]) &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/readiness/{examId} ---
+      match /readiness/{examId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(examId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidExamReadiness(incoming()) &&
+          incoming().userId == userId &&
+          incoming().examId == examId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(examId) &&
+          isValidExamReadiness(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().examId == existing().examId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'readinessScore',
+            'passProbability',
+            'simulationsCompleted',
+            'weakestDomain',
+            'updatedAt'
+          ]) &&
+          parentUserExists(userId);
+
+        allow delete: if false;
+      }
+
+      // --- /users/{userId}/syncEvents/{eventId} (Immutable Audit Log) ---
+      match /syncEvents/{eventId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(eventId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(eventId) &&
+          isValidSyncEventDoc(incoming()) &&
+          incoming().userId == userId &&
+          incoming().eventId == eventId &&
+          incoming().createdAt == request.time &&
+          parentUserExists(userId);
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

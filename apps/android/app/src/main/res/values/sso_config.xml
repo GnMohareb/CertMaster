@@ -1,0 +1,5 @@
+<resources>
+    <string name="default_web_client_id" translatable="false">certmaster-sso-production.apps.googleusercontent.com</string>
+    <string name="certmaster_firebase_project_id" translatable="false">certmaster-unified-prod</string>
+    <string name="certmaster_web_portal_url" translatable="false">https://ais-dev-c43kxdgpgcs6kaaoha4sx7-109050751533.us-west2.run.app</string>
+</resources>

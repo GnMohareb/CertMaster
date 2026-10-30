@@ -1,0 +1,6 @@
+{
+  "name": "CertMaster",
+  "description": "AI-powered generic exam preparation engine with NotebookLM-style study guides, audio briefings, full exam simulations, and multi-exam bank switching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

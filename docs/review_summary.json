@@ -1,0 +1,10 @@
+{
+  "web_original": "certmaster-web-platform.zip",
+  "android_original": "certmaster.zip",
+  "review_date": "2026-10-30",
+  "integration_state": "NOT_COMPLETE",
+  "locally_executed_tests": "4 static Node tests passed, no cloud test run",
+  "canonical_firebase_project_candidate": "gen-lang-client-0788513176",
+  "canonical_named_firestore_candidate": "ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001",
+  "preserve_android_zip_react_preview": true
+}

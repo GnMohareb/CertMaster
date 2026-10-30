@@ -1,0 +1,6 @@
+{
+  "name": "CertMaster Web Platform",
+  "description": "Central enterprise exam prep & certification hub companion to the CertMaster Android app, featuring 112 subject banks, behavioral knowledge profiling, timed simulation engine, and cross-platform synchronization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

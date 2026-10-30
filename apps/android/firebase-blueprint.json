@@ -1,0 +1,151 @@
+{
+  "entities": {
+    "UserCentralProfile": {
+      "title": "UserCentralProfile",
+      "description": "Shared student identity, behavioral telemetry baseline, readiness metrics, and cross-platform subscription state.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "subscriptionTier": { "type": "string", "enum": ["Universal Multi-Pass", "Single-Exam Pass", "Free Trial"] },
+        "assessmentCompleted": { "type": "boolean" },
+        "assessmentScorePercent": { "type": "integer" },
+        "cognitiveStressBaseline": { "type": "integer" },
+        "behavioralArchetype": {
+          "type": "string",
+          "enum": ["Analytical Hesitator", "Confident Master", "Fast Guesser", "Deliberate Strategist", "Methodical Verifier"]
+        },
+        "hesitationNotes": { "type": "string" },
+        "averageDwellTimeSec": { "type": "integer" },
+        "distractorEliminationRate": { "type": "number" },
+        "optionSwitchCountAvg": { "type": "number" },
+        "lastSyncTimestampMillis": { "type": "integer" },
+        "deviceSyncedCount": { "type": "integer" },
+        "currentJourneyStage": { "type": "integer" },
+        "completedSimulationsCount": { "type": "integer" },
+        "highestSimulationScore": { "type": "integer" },
+        "examTargetDate": { "type": "string" }
+      },
+      "required": ["userId", "email", "displayName", "subscriptionTier", "lastSyncTimestampMillis"]
+    },
+    "ExamSubscription": {
+      "title": "ExamSubscription",
+      "description": "Cross-platform subscription entitlement synchronized across WEB, ANDROID, and UNIVERSAL_SYNC.",
+      "type": "object",
+      "properties": {
+        "examId": { "type": "string" },
+        "examTitle": { "type": "string" },
+        "shortCode": { "type": "string" },
+        "vendor": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "TRIAL", "TRIAL_ACTIVE", "LOCKED", "EXPIRED"] },
+        "subscribedPlatform": { "type": "string", "enum": ["WEB", "ANDROID", "UNIVERSAL_SYNC"] },
+        "validUntilDate": { "type": "string" },
+        "priceFormatted": { "type": "string" },
+        "universalAccess": { "type": "boolean" },
+        "activeSessionsCount": { "type": "integer" }
+      },
+      "required": ["examId", "status", "subscribedPlatform", "universalAccess"]
+    },
+    "SimulationAttempt": {
+      "title": "SimulationAttempt",
+      "description": "Recorded exam simulation attempt and behavioral stress telemetry shared across Web and Android.",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "examId": { "type": "string" },
+        "examTitle": { "type": "string" },
+        "timestamp": { "type": "integer" },
+        "totalQuestions": { "type": "integer" },
+        "correctCount": { "type": "integer" },
+        "scorePercent": { "type": "integer" },
+        "passed": { "type": "boolean" },
+        "timeSpentSeconds": { "type": "integer" },
+        "behavioralStressScore": { "type": "integer" },
+        "eliminatedDistractorsCount": { "type": "integer" },
+        "averageLatencySeconds": { "type": "integer" },
+        "domainScoresJson": { "type": "string" }
+      },
+      "required": ["sessionId", "userId", "examId", "timestamp", "scorePercent", "passed"]
+    },
+    "StudyPlan": {
+      "title": "StudyPlan",
+      "description": "5-Stage Mastery Journey milestones, test-day checklist, and exam readiness state.",
+      "type": "object",
+      "properties": {
+        "examId": { "type": "string" },
+        "userId": { "type": "string" },
+        "currentStage": { "type": "integer" },
+        "readinessPercent": { "type": "integer" },
+        "passGuaranteeQualified": { "type": "boolean" },
+        "targetDate": { "type": "string" },
+        "milestonesJson": { "type": "string" },
+        "checklistJson": { "type": "string" },
+        "updatedAtMillis": { "type": "integer" }
+      },
+      "required": ["examId", "userId", "currentStage", "readinessPercent", "updatedAtMillis"]
+    },
+    "FlashcardProgress": {
+      "title": "FlashcardProgress",
+      "description": "Spaced-repetition Leitner box level and review status for a flashcard.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "examId": { "type": "string" },
+        "domainId": { "type": "string" },
+        "boxLevel": { "type": "integer" },
+        "status": { "type": "string", "enum": ["UNREVIEWED", "KNOWN", "NEEDS_REVIEW"] },
+        "lastReviewedEpoch": { "type": "integer" }
+      },
+      "required": ["id", "userId", "examId", "boxLevel", "status", "lastReviewedEpoch"]
+    },
+    "StudySource": {
+      "title": "StudySource",
+      "description": "AI-generated and NotebookLM grounded study source document.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "examId": { "type": "string" },
+        "domainId": { "type": "string" },
+        "domainName": { "type": "string" },
+        "title": { "type": "string" },
+        "authorOrStandard": { "type": "string" },
+        "type": { "type": "string" },
+        "summary": { "type": "string" },
+        "fullContent": { "type": "string" },
+        "cachedAtMillis": { "type": "integer" }
+      },
+      "required": ["id", "examId", "domainId", "title", "summary"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserCentralProfile" },
+      "description": "Student central profile document keyed by Firebase Auth UID or canonical SSO subject ID."
+    },
+    "/users/{userId}/entitlements/{examId}": {
+      "schema": { "$ref": "#/entities/ExamSubscription" },
+      "description": "Per-exam subscription entitlements synchronized across Web and Android."
+    },
+    "/users/{userId}/attempts/{sessionId}": {
+      "schema": { "$ref": "#/entities/SimulationAttempt" },
+      "description": "Historical exam simulation attempts, domain scores, and behavioral stress scores."
+    },
+    "/users/{userId}/studyPlans/{examId}": {
+      "schema": { "$ref": "#/entities/StudyPlan" },
+      "description": "5-Stage Mastery Journey study plan and readiness state per exam."
+    },
+    "/users/{userId}/flashcards/{cardId}": {
+      "schema": { "$ref": "#/entities/FlashcardProgress" },
+      "description": "Student flashcard Leitner box progress and status."
+    },
+    "/users/{userId}/sources/{sourceId}": {
+      "schema": { "$ref": "#/entities/StudySource" },
+      "description": "Student custom and AI-generated grounded study guides."
+    }
+  }
+}

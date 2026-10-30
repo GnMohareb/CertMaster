@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidProfile(data) {
+      return data.keys().hasAll(['userId', 'email', 'displayName', 'subscriptionTier', 'lastSyncTimestampMillis'])
+        && data.userId is string
+        && data.email is string
+        && data.displayName is string
+        && data.displayName.size() <= 120
+        && data.subscriptionTier in ['Universal Multi-Pass', 'Single-Exam Pass', 'Free Trial']
+        && data.lastSyncTimestampMillis is int;
+    }
+
+    function isValidEntitlement(data) {
+      return data.keys().hasAll(['examId', 'status', 'subscribedPlatform', 'universalAccess'])
+        && data.examId is string
+        && data.status in ['ACTIVE', 'TRIAL', 'TRIAL_ACTIVE', 'LOCKED', 'EXPIRED']
+        && data.subscribedPlatform in ['WEB', 'ANDROID', 'UNIVERSAL_SYNC']
+        && data.universalAccess is bool;
+    }
+
+    function isValidAttempt(data) {
+      return data.keys().hasAll(['sessionId', 'userId', 'examId', 'timestamp', 'scorePercent', 'passed'])
+        && data.sessionId is string
+        && data.userId is string
+        && data.examId is string
+        && data.timestamp is int
+        && data.scorePercent is int
+        && data.scorePercent >= 0
+        && data.scorePercent <= 100
+        && data.passed is bool;
+    }
+
+    function isValidStudyPlan(data) {
+      return data.keys().hasAll(['examId', 'userId', 'currentStage', 'readinessPercent', 'updatedAtMillis'])
+        && data.examId is string
+        && data.userId is string
+        && data.currentStage is int
+        && data.currentStage >= 1
+        && data.currentStage <= 5
+        && data.readinessPercent is int
+        && data.readinessPercent >= 0
+        && data.readinessPercent <= 100
+        && data.updatedAtMillis is int;
+    }
+
+    function isValidFlashcard(data) {
+      return data.keys().hasAll(['id', 'userId', 'examId', 'boxLevel', 'status', 'lastReviewedEpoch'])
+        && data.id is string
+        && data.userId is string
+        && data.examId is string
+        && data.boxLevel is int
+        && data.boxLevel >= 1
+        && data.boxLevel <= 5
+        && data.status in ['UNREVIEWED', 'KNOWN', 'NEEDS_REVIEW']
+        && data.lastReviewedEpoch is int;
+    }
+
+    match /catalog/{examId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /exams/{examId}/questions/{questionId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /exams/{examId}/audioOverviews/{audioId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && isValidProfile(request.resource.data)
+        && request.resource.data.userId == userId;
+      allow update: if isOwner(userId)
+        && isValidProfile(request.resource.data)
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(userId);
+
+      match /entitlements/{examId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidEntitlement(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /attempts/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidAttempt(request.resource.data)
+          && request.resource.data.userId == userId;
+        allow delete: if isOwner(userId);
+      }
+
+      match /studyPlans/{examId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidStudyPlan(request.resource.data)
+          && request.resource.data.userId == userId;
+        allow delete: if isOwner(userId);
+      }
+
+      match /flashcards/{cardId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isValidFlashcard(request.resource.data)
+          && request.resource.data.userId == userId;
+        allow delete: if isOwner(userId);
+      }
+
+      match /sources/{sourceId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['id', 'examId', 'domainId', 'title', 'summary']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /analytics/{pointId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

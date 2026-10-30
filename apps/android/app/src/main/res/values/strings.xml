@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">CertMaster</string>
+    <string name="error_google_signin_failed">Google Sign-In could not be completed. Using cached SSO session.</string>
+    <string name="status_sync_completed">Synchronized all 11 domains with CertMaster Cloud &amp; Web Platform</string>
+    <string name="status_offline_queued">Offline mode active: changes cached locally and queued for cloud sync</string>
+</resources>
