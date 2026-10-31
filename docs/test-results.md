@@ -62,3 +62,10 @@
 - Executed against `apps/web/firestore.rules` in the local emulator (project `demo-certmaster-rules`): **15/15 passed**.
 - Covers: owner-only read/write, unverified email denied, cross-UID denied, unknown-field injection denied, client-set `ACTIVE` tier/entitlement denied (both entitlement paths), catalog/question writes denied, default-deny, unauthenticated catalog read denied.
 - NOT verified: live project/database access. Firebase CLI stored credentials expired (`firebase login --reauth` required). Rules NOT deployed.
+
+## Live Firebase Project Verification (2026-10-31, read-only)
+- Account `gnmohareb@gmail.com` owns/accesses project `gen-lang-client-0788513176` (project number 814967786900, matches the OAuth client ID prefix).
+- Named database `ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001` **exists** (FIRESTORE_NATIVE, ENTERPRISE edition).
+- The same project also contains an unrelated database `ai-studio-android-pawport-381aad83-...`; it must NOT be touched by CertMaster.
+- `gmohareb@gitinc.ca` and `george.adly@gmail.com` get HTTP 403 on this project. Use `--account gnmohareb@gmail.com` for CertMaster CLI commands.
+- Node needs `NODE_OPTIONS=--use-system-ca` on this machine (TLS inspection). Verification only; nothing deployed or modified.
