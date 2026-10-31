@@ -55,3 +55,10 @@
 ### 2.3 Cross-Platform Contract Node Test (`apps/android/tests/crossPlatformIntegration.test.mjs`)
 - **Command**: `cd apps/android && npm test`
 - **Result**: **4 / 4 Tests Passed** (`duration_ms: 174.5ms`)
+
+## Live Firestore Emulator Rules Tests (2026-10-31)
+- Tooling: firebase-tools 15.34.2, JDK 21.0.13 (Temurin, user-local `~/.jdks`), `@firebase/rules-unit-testing`.
+- Command: `npm run test:rules` in `apps/web` (needs JDK 21+ on PATH/JAVA_HOME).
+- Executed against `apps/web/firestore.rules` in the local emulator (project `demo-certmaster-rules`): **15/15 passed**.
+- Covers: owner-only read/write, unverified email denied, cross-UID denied, unknown-field injection denied, client-set `ACTIVE` tier/entitlement denied (both entitlement paths), catalog/question writes denied, default-deny, unauthenticated catalog read denied.
+- NOT verified: live project/database access. Firebase CLI stored credentials expired (`firebase login --reauth` required). Rules NOT deployed.
