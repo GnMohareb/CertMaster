@@ -74,3 +74,10 @@
 - Deployed `apps/web/firestore.rules` to project `gen-lang-client-0788513176`, database `ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001` via `firebase deploy --only firestore:rules --config firebase.deploy.json --account gnmohareb@gmail.com`. CLI reported: released rules to cloud.firestore.
 - Pre-deploy: emulator tests 15/15 and dry-run compile passed. Previous live rules were not captured; rollback = redeploy earlier version from Firebase console rules history.
 - Not verified post-deploy: live client reads/writes with a real verified user (needs a real sign-in).
+
+## Android Firebase Setup (2026-10-31, user-requested)
+- Registered Firebase Android app `CertMaster Android` (package `com.aistudio.examprep.kmwqxr`, App ID `1:814967786900:android:5505a40d0c7200a00cd381`) in existing project `gen-lang-client-0788513176` (no new project/database).
+- Registered debug SHA-1 `16:CE:BD:B7:A9:96:10:2D:B4:B0:F4:8C:AA:29:98:15:DC:57:F9:16`. Release SHA-1 NOT registered.
+- Downloaded real `apps/android/app/google-services.json` (public client config).
+- `gradle testDebugUnitTest assembleDebug` with the file present: BUILD SUCCESSFUL (49 tasks).
+- Not verified: Google Sign-In / Firestore sync on a device with a real account.
