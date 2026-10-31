@@ -267,7 +267,7 @@ fun ExamSelectorScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "${exam.domains.size} Domains • Pass: ${exam.passingScorePercent}% • ${exam.durationMinutes} min",
+                                text = "${exam.totalBankQuestions} Sample Qs • ${exam.domains.size} Domains • Pass: ${exam.passingScorePercent}%",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant

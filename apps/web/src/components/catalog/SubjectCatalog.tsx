@@ -59,9 +59,14 @@ export const SubjectCatalog: React.FC = () => {
 
       const sub = profile.subscriptions[bank.id];
       const isActive = sub && (sub.status === 'ACTIVE' || sub.status === 'TRIAL');
-      const isFullPrep = bank.contentStatus === 'FULL_PREP' || FULL_PREP_EXAM_IDS.has(bank.id);
+      const hasInteractiveContent =
+        bank.contentStatus === 'SAMPLE_CONTENT_AVAILABLE' ||
+        bank.contentStatus === 'LIMITED_PREPARATION' ||
+        bank.contentStatus === 'FULL_PREPARATION_AVAILABLE' ||
+        bank.contentStatus === 'FULL_PREP' ||
+        FULL_PREP_EXAM_IDS.has(bank.id);
 
-      if (statusFilter === 'FULL_PREP' && !isFullPrep) return false;
+      if (statusFilter === 'FULL_PREP' && !hasInteractiveContent) return false;
       if (statusFilter === 'ACTIVE' && !isActive) return false;
       if (statusFilter === 'LOCKED' && isActive) return false;
 
@@ -72,11 +77,16 @@ export const SubjectCatalog: React.FC = () => {
   const handleExamClick = (bank: ExamBank) => {
     const sub = profile.subscriptions[bank.id];
     const isUnlocked = sub && (sub.status === 'ACTIVE' || sub.status === 'TRIAL');
-    const isFullPrep = bank.contentStatus === 'FULL_PREP' || FULL_PREP_EXAM_IDS.has(bank.id);
+    const hasInteractiveContent =
+      bank.contentStatus === 'SAMPLE_CONTENT_AVAILABLE' ||
+      bank.contentStatus === 'LIMITED_PREPARATION' ||
+      bank.contentStatus === 'FULL_PREPARATION_AVAILABLE' ||
+      bank.contentStatus === 'FULL_PREP' ||
+      FULL_PREP_EXAM_IDS.has(bank.id);
 
-    if (!isFullPrep) {
+    if (!hasInteractiveContent) {
       showToast(
-        `${bank.code} (${bank.title}) is currently a Catalog Preview (Blueprint Only). Select one of the 6 Full-Prep Certifications to launch live study and mock exams.`
+        `${bank.code} (${bank.title}) is a Catalog Preview (0 Qs · Blueprint Only). Select one of the 6 Sample-Content Certifications to launch live study and practice.`
       );
       return;
     }
@@ -161,7 +171,7 @@ export const SubjectCatalog: React.FC = () => {
                         {bank.vendor}
                       </span>
                       <span className="rounded bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                        {sub?.status === 'TRIAL' ? 'TRIAL ACTIVE' : 'FULL PREP ACTIVE'}
+                        {sub?.status === 'TRIAL' ? 'TRIAL · SAMPLE BANK' : 'SAMPLE CONTENT ACTIVE'}
                       </span>
                     </div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -172,7 +182,7 @@ export const SubjectCatalog: React.FC = () => {
                     </div>
                   </div>
                   <div className="mt-3 pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-500">
-                    <span>{bQuestions.length} Live Scenario Qs</span>
+                    <span>{bQuestions.length} Sample Scenario Qs</span>
                     <span className="font-bold text-blue-600 dark:text-blue-400">
                       {isSelected ? '● Active Track' : 'Switch Track →'}
                     </span>
@@ -188,7 +198,7 @@ export const SubjectCatalog: React.FC = () => {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
             <div>
               <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                {activeBank.vendor} · {activeBank.difficulty} · Full Preparation Suite
+                {activeBank.vendor} · {activeBank.difficulty} · Sample Content Available ({certQuestions.length} Qs, {certGuides.length} Guides, {certCards.length} Cards)
               </div>
               <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
                 {activeBank.code} — {activeBank.title}
@@ -293,17 +303,17 @@ export const SubjectCatalog: React.FC = () => {
             <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
               <span>Universal Certification Registry</span>
               <span>·</span>
-              <span>6 Full-Prep Suites + 106 Blueprint Previews</span>
+              <span>6 Sample-Content Tracks (33 Qs) + 106 Blueprint Previews (0 Qs)</span>
               <span>·</span>
               <span className="text-emerald-600 dark:text-emerald-400">
-                Truthful Content Integrity
+                Evidence-Based Content Classification
               </span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               Explore 112 Enterprise Certifications
             </h1>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
-              Certifications with full question banks, flashcards, study guides, and audio lessons are clearly badged as <strong>Full Prep Available</strong>. Blueprint-only catalog entries are marked <strong>Catalog Preview</strong> and never substitute another exam's questions.
+              Certifications are classified objectively by actual bundled content: <strong>Sample Content Available</strong> (5–8 verified scenario questions, study guides, flashcards, and audio briefings) vs. <strong>Catalog Preview</strong> (domain blueprint only, 0 questions). No certification claims a full 100+ question bank until populated.
             </p>
           </div>
 
@@ -350,7 +360,7 @@ export const SubjectCatalog: React.FC = () => {
                   : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
-              Full Prep Ready (6)
+              Sample Content Ready (6)
             </button>
             <button
               onClick={() => setStatusFilter('ACTIVE')}
@@ -414,14 +424,18 @@ export const SubjectCatalog: React.FC = () => {
           const sub = profile.subscriptions[bank.id];
           const isActive = sub && sub.status === 'ACTIVE';
           const isTrial = sub && sub.status === 'TRIAL';
-          const isFullPrep =
-            bank.contentStatus === 'FULL_PREP' || FULL_PREP_EXAM_IDS.has(bank.id);
+          const hasInteractiveContent =
+            bank.contentStatus === 'SAMPLE_CONTENT_AVAILABLE' ||
+            bank.contentStatus === 'LIMITED_PREPARATION' ||
+            bank.contentStatus === 'FULL_PREPARATION_AVAILABLE' ||
+            bank.contentStatus === 'FULL_PREP' ||
+            FULL_PREP_EXAM_IDS.has(bank.id);
 
           return (
             <div
               key={bank.id}
               className={`flex flex-col justify-between rounded-xl border p-5 transition-all ${
-                isFullPrep
+                hasInteractiveContent
                   ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 hover:border-blue-500/60 shadow-sm'
                   : 'border-slate-200 bg-slate-50/70 dark:border-slate-800/80 dark:bg-slate-950/60'
               }`}
@@ -436,14 +450,20 @@ export const SubjectCatalog: React.FC = () => {
                     <span>{bank.difficulty}</span>
                   </div>
 
-                  {/* Truthful Content Status Badge */}
-                  {isFullPrep ? (
-                    <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                      Full Prep Available
+                  {/* Evidence-Based Content Status Badge */}
+                  {hasInteractiveContent ? (
+                    <span
+                      title={`Status: ${bank.contentStatus} (${bank.questionsCount} questions, ${bank.studyGuidesCount || 0} guides, ${bank.flashcardsCount || 0} flashcards)`}
+                      className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300"
+                    >
+                      Sample Content ({bank.questionsCount} Qs)
                     </span>
                   ) : (
-                    <span className="rounded-md bg-slate-200/80 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                      Catalog Preview
+                    <span
+                      title="Status: CATALOG_PREVIEW (Domain blueprint only, 0 questions bundled)"
+                      className="rounded-md bg-slate-200/80 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                    >
+                      Catalog Preview (0 Qs)
                     </span>
                   )}
                 </div>
@@ -461,17 +481,19 @@ export const SubjectCatalog: React.FC = () => {
 
                 <div className="mt-4 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 font-mono pt-3 border-t border-slate-200 dark:border-slate-800">
                   <span className="tabular-nums font-semibold text-slate-900 dark:text-white">
-                    {isFullPrep ? 'Live Bank Ready' : 'Blueprint Spec'}
+                    {hasInteractiveContent
+                      ? `${bank.questionsCount} Qs · ${bank.studyGuidesCount || 0} Guides`
+                      : `0 Qs · ${bank.domains.length} Domains`}
                   </span>
                   <span>·</span>
-                  <span className="tabular-nums">{bank.durationMinutes}m Timed</span>
+                  <span className="tabular-nums">{bank.durationMinutes}m Spec</span>
                   <span>·</span>
                   <span className="tabular-nums">{bank.passRatePercent}% Pass</span>
                 </div>
               </div>
 
               <div className="mt-5 pt-3">
-                {!isFullPrep ? (
+                {!hasInteractiveContent ? (
                   <button
                     onClick={() => handleExamClick(bank)}
                     className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 transition-colors"

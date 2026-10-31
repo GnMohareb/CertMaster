@@ -183,7 +183,7 @@ fun ExamsHubScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Full Exam Simulation",
+                                text = "Timed Sample Simulation (${currentExam.totalBankQuestions} Qs)",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -195,12 +195,12 @@ fun ExamsHubScreen(
                                     .background(AccentBlue)
                                     .padding(horizontal = 6.dp, vertical = 1.dp)
                             ) {
-                                Text("TIMED", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text("SAMPLE BANK", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${currentExam.durationMinutes} min • Real countdown timer, flag matrix & strike-through",
+                            text = "${currentExam.totalBankQuestions} Qs • ${currentExam.durationMinutes} min • Countdown timer, flag matrix & strike-through",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -248,7 +248,7 @@ fun ExamsHubScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Rapid 10-question drill with instant rationale & explanations",
+                            text = "Rapid ${currentExam.totalBankQuestions}-question sample drill with instant rationale & explanations",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

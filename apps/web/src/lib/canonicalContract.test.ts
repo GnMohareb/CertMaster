@@ -9,6 +9,8 @@ import {
   normalizeExamId,
   matchesExamId,
   getExamContentStatus,
+  getExamBundledContentAudit,
+  classifyExamContentAvailability,
   classifyBehavioralArchetype,
   calculateSimulationBehavioralStress,
   calculateDomainStressScore,
@@ -34,7 +36,12 @@ import {
   getStudyGuidesForExamId,
   MULTI_EXAM_FLASHCARDS,
 } from '../data/multiExamQuestions';
-import { createCertMasterApiApp } from '../../server';
+import {
+  createCertMasterApiApp,
+  createSignedBearerToken,
+  revokeBearerToken,
+  createPaymentWebhookSignature,
+} from '../../server';
 
 test('1. Canonical Schema Version & Shared Firebase Identifiers', () => {
   assert.equal(CANONICAL_SCHEMA_VERSION, 2);
@@ -74,11 +81,61 @@ test('2. Cross-Platform Exam Identifier Normalization & Alias Matching', () => {
   assert.ok(secPlusBank, 'CompTIA Security+ bank must exist in ALL_112_EXAM_BANKS');
   assert.equal(secPlusBank.id, 'sec-plus');
 
-  // Content availability truthfulness
-  assert.equal(getExamContentStatus('cissp'), 'FULL_PREP');
-  assert.equal(getExamContentStatus('aws_csa'), 'FULL_PREP');
-  assert.equal(getExamContentStatus('sec_plus'), 'FULL_PREP');
+  // Evidence-based content availability truthfulness (no sample-content exam labeled FULL_PREPARATION_AVAILABLE)
+  assert.equal(getExamContentStatus('cissp'), 'SAMPLE_CONTENT_AVAILABLE');
+  assert.equal(getExamContentStatus('aws_csa'), 'SAMPLE_CONTENT_AVAILABLE');
+  assert.equal(getExamContentStatus('sec_plus'), 'SAMPLE_CONTENT_AVAILABLE');
   assert.equal(getExamContentStatus('gcp-pca'), 'CATALOG_PREVIEW');
+  assert.equal(
+    classifyExamContentAvailability({
+      questionCount: 120,
+      studyGuideCount: 4,
+      flashcardCount: 30,
+      audioBriefingCount: 2,
+      domainCount: 8,
+    }),
+    'FULL_PREPARATION_AVAILABLE'
+  );
+  assert.equal(
+    classifyExamContentAvailability({
+      questionCount: 40,
+      studyGuideCount: 2,
+      flashcardCount: 10,
+      audioBriefingCount: 1,
+      domainCount: 6,
+    }),
+    'LIMITED_PREPARATION'
+  );
+  assert.equal(
+    classifyExamContentAvailability({
+      questionCount: 8,
+      studyGuideCount: 4,
+      flashcardCount: 8,
+      audioBriefingCount: 3,
+      domainCount: 8,
+    }),
+    'SAMPLE_CONTENT_AVAILABLE'
+  );
+  assert.equal(
+    classifyExamContentAvailability({
+      questionCount: 0,
+      studyGuideCount: 0,
+      flashcardCount: 0,
+      audioBriefingCount: 0,
+      domainCount: 5,
+    }),
+    'CATALOG_PREVIEW'
+  );
+  assert.equal(
+    classifyExamContentAvailability({
+      questionCount: 0,
+      studyGuideCount: 0,
+      flashcardCount: 0,
+      audioBriefingCount: 0,
+      domainCount: 0,
+    }),
+    'CONTENT_COMING_SOON'
+  );
 });
 
 test('3. Behavioral Archetype & Stress Classification Parity with Android AuthoritativeMetricsEngine', () => {
@@ -279,18 +336,46 @@ test('8. Firestore Security Rules Parity & Adversarial Entitlement Protection', 
   }
 });
 
-test('9. Certification Content Integrity Across All 112 Exam Banks', () => {
+test('9. Evidence-Based Certification Content Integrity Across All 112 Exam Banks', () => {
   assert.equal(ALL_112_EXAM_BANKS.length, 112);
 
-  const fullPrepBanks = ALL_112_EXAM_BANKS.filter((b) => b.contentStatus === 'FULL_PREP');
+  const sampleBanks = ALL_112_EXAM_BANKS.filter(
+    (b) => b.contentStatus === 'SAMPLE_CONTENT_AVAILABLE'
+  );
+  const fullPrepBanks = ALL_112_EXAM_BANKS.filter(
+    (b) => b.contentStatus === 'FULL_PREPARATION_AVAILABLE' || b.contentStatus === 'FULL_PREP'
+  );
   const previewBanks = ALL_112_EXAM_BANKS.filter((b) => b.contentStatus === 'CATALOG_PREVIEW');
-  assert.equal(fullPrepBanks.length, 6);
+
+  // Verify no sample-content certification is falsely labeled FULL_PREPARATION_AVAILABLE
+  assert.equal(fullPrepBanks.length, 0);
+  assert.equal(sampleBanks.length, 6);
   assert.equal(previewBanks.length, 106);
 
-  // Verify each FULL_PREP certification returns its own genuine questions, flashcards, and study guides
-  for (const bank of fullPrepBanks) {
+  const expectedCounts: Record<string, number> = {
+    cissp: 8,
+    'aws-saa': 5,
+    'sec-plus': 5,
+    pmp: 3,
+    cism: 3,
+    ceh: 3,
+  };
+
+  // Verify each SAMPLE_CONTENT_AVAILABLE certification returns its exact verified question count, flashcards, and study guides
+  for (const bank of sampleBanks) {
     const questions = getQuestionsForExamId(bank.id);
-    assert.ok(questions.length > 0, `Expected non-empty question bank for ${bank.id}`);
+    const audit = getExamBundledContentAudit(bank.id);
+    assert.equal(
+      questions.length,
+      expectedCounts[bank.id],
+      `Expected ${expectedCounts[bank.id]} verified questions for ${bank.id}`
+    );
+    assert.equal(
+      bank.questionsCount,
+      questions.length,
+      `Catalog questionsCount (${bank.questionsCount}) must match actual bundled questions (${questions.length}) for ${bank.id}`
+    );
+    assert.equal(audit.questionCount, questions.length);
     for (const q of questions) {
       assert.equal(
         normalizeExamId(q.examId),
@@ -304,8 +389,9 @@ test('9. Certification Content Integrity Across All 112 Exam Banks', () => {
     assert.ok(guides.length > 0, `Expected study guides for ${bank.id}`);
   }
 
-  // Verify CATALOG_PREVIEW exams never return CISSP questions
+  // Verify CATALOG_PREVIEW exams report 0 bundled questions and never return CISSP questions
   for (const bank of previewBanks) {
+    assert.equal(bank.questionsCount, 0);
     const questions = getQuestionsForExamId(bank.id);
     assert.equal(
       questions.length,
@@ -315,38 +401,80 @@ test('9. Certification Content Integrity Across All 112 Exam Banks', () => {
   }
 });
 
-test('10. Cross-Platform Backend API Sync, Idempotency & Entitlement Security', async () => {
+test('10. Backend Security Verification: Bearer Auth, UID Ownership, Cryptographic Webhook & Sandbox Payment Gate', async () => {
   const app = createCertMasterApiApp();
   const server = app.listen(0);
   const address = server.address();
   const port = typeof address === 'object' && address ? address.port : 3099;
   const baseUrl = `http://127.0.0.1:${port}/api`;
 
+  const studentUid = 'usr_security_test_01';
+  const otherUid = 'usr_attacker_99';
+  const validToken = createSignedBearerToken(studentUid);
+  const expiredToken = createSignedBearerToken(studentUid, -60_000);
+  const revokedToken = createSignedBearerToken(studentUid, 60_000);
+  revokeBearerToken(revokedToken);
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${validToken}`,
+  };
+
   try {
-    // 1. Health & Catalog Manifest
+    // 1. Health & Catalog Manifest (public discovery)
     const healthRes = await fetch(`${baseUrl}/health`).then((r) => r.json());
     assert.equal(healthRes.schemaVersion, 2);
     assert.equal(healthRes.firebaseProjectId, FIREBASE_PROJECT_ID);
     assert.equal(healthRes.firestoreDatabaseId, FIRESTORE_DATABASE_ID);
 
-    // 2. Reject unverified client attempt to self-grant ACTIVE subscription via /subscriptions/verify
-    const forgedSubRes = await fetch(`${baseUrl}/subscriptions/verify`, {
+    // 2. Reject unauthenticated request (missing Bearer token -> 401)
+    const unauthProfile = await fetch(`${baseUrl}/profile/${studentUid}`);
+    assert.equal(unauthProfile.status, 401);
+
+    // 3. Reject expired token (401) and revoked token (401)
+    const expiredRes = await fetch(`${baseUrl}/profile/${studentUid}`, {
+      headers: { Authorization: `Bearer ${expiredToken}` },
+    });
+    assert.equal(expiredRes.status, 401);
+
+    const revokedRes = await fetch(`${baseUrl}/profile/${studentUid}`, {
+      headers: { Authorization: `Bearer ${revokedToken}` },
+    });
+    assert.equal(revokedRes.status, 401);
+
+    // 4. Reject cross-user profile read & write (authenticated as studentUid, targeting otherUid -> 403)
+    const crossReadRes = await fetch(`${baseUrl}/profile/${otherUid}`, {
+      headers: authHeaders,
+    });
+    assert.equal(crossReadRes.status, 403);
+
+    const crossWriteRes = await fetch(`${baseUrl}/profile/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({
-        userId: 'usr_cross_test_01',
-        examId: 'aws-saa',
-        receiptToken: 'forged_client_token',
+        userId: otherUid,
+        displayName: 'Cross Account Tamper',
       }),
     });
-    assert.equal(forgedSubRes.status, 403);
+    assert.equal(crossWriteRes.status, 403);
 
-    // 3. Reject unverified client attempt to self-escalate subscriptionTier via /profile/sync
+    // 5. Reject forged client receipt with prefix 'rcpt_...' when no cryptographic signature is present (403)
+    const forgedRcptRes = await fetch(`${baseUrl}/subscriptions/verify`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        userId: studentUid,
+        examId: 'aws-saa',
+        receiptToken: 'rcpt_forged_prefix_bypass_attempt',
+      }),
+    });
+    assert.equal(forgedRcptRes.status, 403);
+
+    // 6. Reject unverified client attempt to self-escalate subscriptionTier via /profile/sync
     const unverifiedProfileSync = await fetch(`${baseUrl}/profile/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({
-        userId: 'usr_cross_test_01',
+        userId: studentUid,
         displayName: 'Cross Platform Student',
         subscriptionTier: 'Universal Multi-Pass',
         subscriptions: {
@@ -359,81 +487,57 @@ test('10. Cross-Platform Backend API Sync, Idempotency & Entitlement Security', 
     assert.equal(unverifiedProfileSync.validatedProfile.subscriptionTier, 'Free Trial');
     assert.equal(unverifiedProfileSync.validatedProfile.subscriptions['aws-saa'].status, 'TRIAL');
 
-    // 4. Server-verified receipt grants ACTIVE entitlement and persists across Android & Web
-    const validSubRes = await fetch(`${baseUrl}/subscriptions/verify`, {
+    // 7. Cryptographically signed production webhook (X-CertMaster-Webhook-Signature) grants ACTIVE entitlement
+    const prodSignature = createPaymentWebhookSignature(
+      studentUid,
+      'aws_csa',
+      'single',
+      'stripe_pi_live_verified_991'
+    );
+    const prodSubRes = await fetch(`${baseUrl}/subscriptions/verify`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        ...authHeaders,
+        'X-CertMaster-Webhook-Signature': prodSignature,
+      },
       body: JSON.stringify({
-        userId: 'usr_cross_test_01',
+        userId: studentUid,
         examId: 'aws_csa',
         tier: 'single',
-        receiptToken: 'rcpt_verified_stripe_001',
+        receiptToken: 'stripe_pi_live_verified_991',
         platform: 'WEB',
       }),
     });
-    assert.equal(validSubRes.status, 200);
-    const validSubJson = await validSubRes.json();
-    assert.equal(validSubJson.verifiedEntitlements['aws-saa'].status, 'ACTIVE');
-    assert.equal(validSubJson.subscriptionTier, 'Single-Exam Pass');
+    assert.equal(prodSubRes.status, 200);
+    const prodSubJson = await prodSubRes.json();
+    assert.equal(prodSubJson.verificationMode, 'PRODUCTION_CRYPTO_VERIFIED');
+    assert.equal(prodSubJson.verifiedEntitlements['aws-saa'].status, 'ACTIVE');
+    assert.equal(prodSubJson.subscriptionTier, 'Single-Exam Pass');
 
-    // 5. Android submits an exam session & duplicate submission is idempotent
-    const sessionPayload = {
-      userId: 'usr_cross_test_01',
-      attemptId: 'att_android_sync_01',
-      examId: 'aws_csa',
-      scorePercent: 86,
-      totalQuestions: 20,
-      correctAnswers: 17,
-      timeSpentSeconds: 1500,
-      platform: 'ANDROID',
-    };
-
-    const s1 = await fetch(`${baseUrl}/exams/aws_csa/sessions`, {
+    // 8. Explicitly labeled Sandbox Mode verification works ONLY when X-CertMaster-Sandbox-Mode: true is passed
+    const sandboxSubRes = await fetch(`${baseUrl}/subscriptions/verify`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sessionPayload),
-    }).then((r) => r.json());
-    assert.equal(s1.deduplicated, false);
-    assert.equal(s1.totalAttemptsForUser, 1);
-
-    const s2 = await fetch(`${baseUrl}/exams/aws-saa/sessions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sessionPayload),
-    }).then((r) => r.json());
-    assert.equal(s2.deduplicated, true);
-    assert.equal(s2.totalAttemptsForUser, 1);
-
-    // 6. Web retrieves profile and sees Android's exam attempt + verified AWS SAA entitlement
-    const webPull = await fetch(`${baseUrl}/profile/usr_cross_test_01`).then((r) => r.json());
-    assert.equal(webPull.attempts.length, 1);
-    assert.equal(webPull.attempts[0].examId, 'aws-saa');
-    assert.equal(webPull.attempts[0].scorePercent, 86);
-    assert.equal(webPull.profile.subscriptions['aws-saa'].status, 'ACTIVE');
-
-    // 7. Custom Study Note & Grounded AI Tutor Cross-Platform Parity
-    const noteSync = await fetch(`${baseUrl}/sources/sync`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        ...authHeaders,
+        'X-CertMaster-Sandbox-Mode': 'true',
+      },
       body: JSON.stringify({
-        userId: 'usr_cross_test_01',
-        examId: 'aws_csa',
-        domainId: 'd1',
-        domainName: 'Design Secure Architectures',
-        title: 'S3 Gateway VPC Endpoint Notes',
-        authorOrStandard: 'Learner Note',
-        type: 'CHEAT_SHEET',
-        summary: 'Use Gateway VPC Endpoints for S3 and DynamoDB',
-        fullContent: 'Gateway VPC endpoints add a prefix list route in VPC route tables with zero hourly charge.',
+        userId: studentUid,
+        examId: 'sec_plus',
+        tier: 'single',
+        receiptToken: 'sandbox_rcpt_verified_dev_001',
+        platform: 'ANDROID',
       }),
-    }).then((r) => r.json());
-    assert.equal(noteSync.syncStatus, 'SYNCHRONIZED');
-    assert.equal(noteSync.sources.length, 1);
-    assert.equal(noteSync.sources[0].examId, 'aws-saa');
+    });
+    assert.equal(sandboxSubRes.status, 200);
+    const sandboxSubJson = await sandboxSubRes.json();
+    assert.equal(sandboxSubJson.verificationMode, 'SANDBOX_TEST_ONLY');
+    assert.equal(sandboxSubJson.verifiedEntitlements['sec-plus'].status, 'ACTIVE');
 
+    // 9. Grounded AI Tutor explicitly reports provider metadata (LOCAL_GROUNDED_FALLBACK when GEMINI_API_KEY absent)
     const tutorRes = await fetch(`${baseUrl}/ai/tutor`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({
         examId: 'aws_csa',
         query: 'How does a Gateway VPC Endpoint work for Amazon S3?',
@@ -441,7 +545,357 @@ test('10. Cross-Platform Backend API Sync, Idempotency & Entitlement Security', 
     }).then((r) => r.json());
     assert.equal(tutorRes.examId, 'aws-saa');
     assert.ok(tutorRes.answer.includes('Gateway VPC Endpoint'));
+    assert.ok(
+      tutorRes.provider === 'LOCAL_GROUNDED_FALLBACK' || tutorRes.provider === 'GEMINI_LIVE'
+    );
+    assert.equal(typeof tutorRes.isSimulatedFallback, 'boolean');
     assert.ok(Array.isArray(tutorRes.citations) && tutorRes.citations.length > 0);
+  } finally {
+    server.close();
+  }
+});
+
+test('11. End-to-End Cross-Platform Synchronization Suite (Scenarios A, B, C, and D)', async () => {
+  const app = createCertMasterApiApp();
+  const server = app.listen(0);
+  const address = server.address();
+  const port = typeof address === 'object' && address ? address.port : 3099;
+  const baseUrl = `http://127.0.0.1:${port}/api`;
+
+  const sharedUid = 'usr_e2e_unified_student_01';
+  const token = createSignedBearerToken(sharedUid);
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+
+  try {
+    // =========================================================================
+    // SCENARIO A: ANDROID-TO-WEB SYNCHRONIZATION
+    // 1. Authenticate on Android -> 2. Select AWS-SAA -> 3. Complete exam ->
+    // 4. Review flashcards -> 5. Update study plan -> 6. Sync ->
+    // 7. Open Web with same account -> 8. Verify identical data on Web
+    // =========================================================================
+    const androidExamAttempt = {
+      userId: sharedUid,
+      attemptId: 'att_scenario_a_android_01',
+      examId: 'aws_csa', // Android legacy alias normalized to aws-saa
+      mode: 'FULL_SIMULATION',
+      scorePercent: 84,
+      totalQuestions: 20,
+      correctAnswers: 17,
+      timeSpentSeconds: 1420,
+      optionSwitchCount: 2,
+      eliminatedDistractorsCount: 9,
+      averageLatencySeconds: 34,
+      domainScores: {
+        d1: {
+          domainId: 'd1',
+          domainName: 'Design Secure Architectures',
+          correct: 9,
+          total: 10,
+          percent: 90,
+        },
+        d2: {
+          domainId: 'd2',
+          domainName: 'Design Resilient Architectures',
+          correct: 8,
+          total: 10,
+          percent: 80,
+        },
+      },
+      platform: 'ANDROID',
+    };
+
+    const androidAttemptRes = await fetch(`${baseUrl}/exams/aws_csa/sessions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(androidExamAttempt),
+    }).then((r) => r.json());
+    assert.equal(androidAttemptRes.syncStatus, 'SYNCHRONIZED');
+    assert.equal(androidAttemptRes.deduplicated, false);
+    assert.equal(androidAttemptRes.session.examId, 'aws-saa');
+
+    // Android reviews flashcards (Leitner Box 4 -> known, Box 2 -> needs_review)
+    const androidFlashcardsRes = await fetch(`${baseUrl}/flashcards/sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        platform: 'ANDROID',
+        cards: [
+          {
+            cardId: 'fc-aws-1',
+            examId: 'aws_csa',
+            domainId: 'd1',
+            boxLevel: 4,
+            state: 'known',
+            lastReviewedEpochMillis: 1730000100000,
+          },
+          {
+            cardId: 'fc-aws-2',
+            examId: 'aws_csa',
+            domainId: 'd2',
+            boxLevel: 2,
+            state: 'needs_review',
+            lastReviewedEpochMillis: 1730000100000,
+          },
+        ],
+      }),
+    }).then((r) => r.json());
+    assert.equal(androidFlashcardsRes.syncStatus, 'SYNCHRONIZED');
+
+    // Android updates Study Plan & Readiness
+    const androidPlan = calculateReadinessAndStudyPlan({
+      userId: sharedUid,
+      examId: 'aws_csa',
+      passingScorePercent: 72,
+      assessmentCompleted: true,
+      assessmentScorePercent: 80,
+      cognitiveStressBaseline: 45,
+      simulationScoresPercent: [84],
+      knownFlashcardsCount: 1,
+      totalFlashcardsCount: 2,
+      weakestDomainId: 'd2',
+      weakestDomainName: 'Design Resilient Architectures',
+      weakestDomainScore: 80,
+    });
+    const androidPlanRes = await fetch(`${baseUrl}/study-plan/sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        examId: 'aws_csa',
+        studyPlan: androidPlan,
+      }),
+    }).then((r) => r.json());
+    assert.equal(androidPlanRes.syncStatus, 'SYNCHRONIZED');
+
+    // Android syncs profile with active AWS-SAA selection
+    await fetch(`${baseUrl}/profile/sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        email: 'e2e.student@certmaster.io',
+        displayName: 'Unified E2E Student',
+        activeExamId: 'aws_csa',
+        assessmentCompleted: true,
+        assessmentScorePercent: 80,
+        cognitiveStressBaseline: 45,
+        behavioralArchetype: 'Deliberate Strategist',
+        completedSimulationsCount: 1,
+        highestSimulationScore: 84,
+        platform: 'ANDROID',
+      }),
+    });
+
+    // Open Web Platform with same account & verify identical data
+    const webPullAfterA = await fetch(`${baseUrl}/profile/${sharedUid}`, { headers }).then((r) =>
+      r.json()
+    );
+    assert.equal(webPullAfterA.profile.activeExamId, 'aws-saa');
+    assert.equal(webPullAfterA.profile.highestSimulationScore, 84);
+    assert.equal(webPullAfterA.attempts.length, 1);
+    assert.equal(webPullAfterA.attempts[0].attemptId, 'att_scenario_a_android_01');
+    assert.equal(webPullAfterA.attempts[0].examId, 'aws-saa');
+    assert.equal(webPullAfterA.attempts[0].scorePercent, 84);
+    assert.equal(webPullAfterA.flashcardsById['fc-aws-1'].state, 'known');
+    assert.equal(webPullAfterA.flashcardsById['fc-aws-1'].boxLevel, 4);
+    assert.equal(
+      webPullAfterA.studyPlansByExamId['aws-saa'].readinessPercent,
+      androidPlan.readinessPercent
+    );
+
+    // =========================================================================
+    // SCENARIO B: WEB-TO-ANDROID SYNCHRONIZATION
+    // 1. Authenticate on Web -> 2. Switch active cert to CompTIA Security+ (sy0-701) ->
+    // 3. Complete practice session -> 4. Add custom study note -> 5. Update flashcards ->
+    // 6. Sync -> 7. Open Android with same account -> 8. Verify identical data
+    // =========================================================================
+    await fetch(`${baseUrl}/profile/sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        activeExamId: 'sy0-701', // Web alias normalized to sec-plus
+        completedSimulationsCount: 2,
+        highestSimulationScore: 90,
+        platform: 'WEB',
+      }),
+    });
+
+    await fetch(`${baseUrl}/exams/sy0-701/sessions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        attemptId: 'att_scenario_b_web_02',
+        examId: 'sy0-701',
+        mode: 'PRACTICE',
+        scorePercent: 90,
+        totalQuestions: 10,
+        correctAnswers: 9,
+        timeSpentSeconds: 600,
+        platform: 'WEB',
+      }),
+    });
+
+    await fetch(`${baseUrl}/sources/sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        sourceId: 'src_web_secplus_zero_trust',
+        examId: 'sy0-701',
+        domainId: 'd2',
+        domainName: 'Security Architecture',
+        title: 'Zero Trust Policy Enforcement Points',
+        type: 'CHEAT_SHEET',
+        summary: 'PDP vs PEP in NIST SP 800-207',
+        fullContent: 'Policy Decision Point evaluates continuous trust signals before PEP grants access.',
+      }),
+    });
+
+    await fetch(`${baseUrl}/flashcards/sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        platform: 'WEB',
+        cards: [
+          {
+            cardId: 'fc-sec-1',
+            examId: 'sy0-701',
+            domainId: 'd1',
+            boxLevel: 3,
+            state: 'known',
+            lastReviewedEpochMillis: 1730000200000,
+          },
+        ],
+      }),
+    });
+
+    // Open Android and pull synchronized state
+    const androidPullAfterB = await fetch(`${baseUrl}/profile/${sharedUid}`, { headers }).then(
+      (r) => r.json()
+    );
+    assert.equal(androidPullAfterB.profile.activeExamId, 'sec-plus');
+    assert.equal(androidPullAfterB.profile.highestSimulationScore, 90);
+    assert.equal(androidPullAfterB.attempts.length, 2);
+    assert.ok(
+      androidPullAfterB.attempts.some(
+        (a: { attemptId: string; examId: string }) =>
+          a.attemptId === 'att_scenario_b_web_02' && a.examId === 'sec-plus'
+      )
+    );
+    assert.equal(androidPullAfterB.sources.length, 1);
+    assert.equal(androidPullAfterB.sources[0].examId, 'sec-plus');
+    assert.equal(androidPullAfterB.sources[0].title, 'Zero Trust Policy Enforcement Points');
+    assert.equal(androidPullAfterB.flashcardsById['fc-sec-1'].examId, 'sec-plus');
+    assert.equal(androidPullAfterB.flashcardsById['fc-sec-1'].state, 'known');
+
+    // =========================================================================
+    // SCENARIO C: OFFLINE ANDROID USAGE, RETRY & IDEMPOTENT DEDUPLICATION
+    // 1. Offline attempt & flashcard updates queued locally ->
+    // 2. Network reconnects and flushes queue (including duplicate retry) ->
+    // 3. Verify Web receives exact updates with zero duplicate exam records
+    // =========================================================================
+    const offlineAttemptPayload = {
+      userId: sharedUid,
+      attemptId: 'att_scenario_c_offline_03',
+      examId: 'sec_plus',
+      mode: 'FULL_SIMULATION',
+      scorePercent: 92,
+      totalQuestions: 25,
+      correctAnswers: 23,
+      timeSpentSeconds: 1650,
+      platform: 'ANDROID',
+    };
+
+    // First delivery on reconnect
+    const flush1 = await fetch(`${baseUrl}/exams/sec_plus/sessions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(offlineAttemptPayload),
+    }).then((r) => r.json());
+    assert.equal(flush1.deduplicated, false);
+    assert.equal(flush1.totalAttemptsForUser, 3);
+
+    // Simulated network timeout retry of the exact same queued offline attempt
+    const flush2 = await fetch(`${baseUrl}/exams/sec-plus/sessions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(offlineAttemptPayload),
+    }).then((r) => r.json());
+    assert.equal(flush2.deduplicated, true);
+    assert.equal(
+      flush2.totalAttemptsForUser,
+      3,
+      'Idempotent retry must not create duplicate exam attempt records'
+    );
+
+    // =========================================================================
+    // SCENARIO D: CONFLICTING UPDATES BETWEEN ANDROID AND WEB
+    // 1. Android submits an older flashcard review (timestamp 1730000150000, Box 1 / unstudied)
+    //    after Web already submitted a newer review (timestamp 1730000200000, Box 3 / known).
+    // 2. Verify deterministic conflict resolution preserves the newer review (Box 3 / known).
+    // 3. Same-timestamp tie-breaker: Box 4 vs Box 2 at timestamp 1730000300000 -> Box 4 wins.
+    // =========================================================================
+    await fetch(`${baseUrl}/flashcards/sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        platform: 'ANDROID',
+        cards: [
+          {
+            // Stale offline packet arriving late
+            cardId: 'fc-sec-1',
+            examId: 'sec_plus',
+            domainId: 'd1',
+            boxLevel: 1,
+            state: 'unstudied',
+            lastReviewedEpochMillis: 1730000150000,
+          },
+          {
+            // Tie-breaker test card (initial at t=1730000300000, box 2)
+            cardId: 'fc-sec-2',
+            examId: 'sec_plus',
+            domainId: 'd1',
+            boxLevel: 2,
+            state: 'needs_review',
+            lastReviewedEpochMillis: 1730000300000,
+          },
+        ],
+      }),
+    });
+
+    // Simultaneous update at identical timestamp t=1730000300000 with higher boxLevel=4
+    const conflictRes = await fetch(`${baseUrl}/flashcards/sync`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        userId: sharedUid,
+        platform: 'WEB',
+        cards: [
+          {
+            cardId: 'fc-sec-2',
+            examId: 'sy0-701',
+            domainId: 'd1',
+            boxLevel: 4,
+            state: 'known',
+            lastReviewedEpochMillis: 1730000300000,
+          },
+        ],
+      }),
+    }).then((r) => r.json());
+
+    // Verify deterministic conflict resolution without data corruption
+    assert.equal(conflictRes.flashcardsById['fc-sec-1'].boxLevel, 3);
+    assert.equal(conflictRes.flashcardsById['fc-sec-1'].state, 'known');
+    assert.equal(conflictRes.flashcardsById['fc-sec-2'].boxLevel, 4);
+    assert.equal(conflictRes.flashcardsById['fc-sec-2'].state, 'known');
   } finally {
     server.close();
   }

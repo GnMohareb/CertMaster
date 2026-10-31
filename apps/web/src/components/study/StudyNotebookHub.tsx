@@ -737,18 +737,24 @@ export const StudyNotebookHub: React.FC = () => {
       {/* SECTION 6: GROUNDED AI EXAM TUTOR */}
       {resolvedTab === 'ai-tutor' && (
         <div className="max-w-4xl mx-auto rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               <div>
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Grounded AI Exam Tutor ({activeBank.code})
+                  Grounded Exam Reference Tutor ({activeBank.code})
                 </h2>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Answers grounded in your official study guides, question bank explanations, and NIST/ISO/AWS references.
                 </p>
               </div>
             </div>
+            <span
+              className="rounded-md bg-amber-500/15 px-2.5 py-1 font-mono text-[10px] font-bold text-amber-700 dark:text-amber-300"
+              title="When GEMINI_API_KEY is configured on the backend, uses Gemini 2.5 Live; otherwise uses the Local Grounded Reference Engine."
+            >
+              Engine: {aiTutorMessages.some((m) => m.provider === 'GEMINI_LIVE') ? 'GEMINI_LIVE' : 'LOCAL_GROUNDED_FALLBACK'}
+            </span>
           </div>
 
           <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
@@ -761,6 +767,16 @@ export const StudyNotebookHub: React.FC = () => {
                     : 'bg-slate-50 border border-slate-200 text-slate-800 dark:bg-slate-950/60 dark:border-slate-800 dark:text-slate-200'
                 }`}
               >
+                {msg.role === 'assistant' && (
+                  <div className="mb-1.5 flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                    <span>
+                      {msg.provider === 'GEMINI_LIVE'
+                        ? '● Live Gemini Generative AI'
+                        : '● Local Grounded Reference Engine (Deterministic Fallback)'}
+                    </span>
+                    <span>{msg.timestamp}</span>
+                  </div>
+                )}
                 <div className="whitespace-pre-line">{msg.text}</div>
                 {msg.citations && msg.citations.length > 0 && (
                   <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 text-[10px] font-mono text-slate-500 dark:text-slate-400">

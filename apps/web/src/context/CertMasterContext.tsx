@@ -79,6 +79,9 @@ export interface AITutorChatMessage {
   id: string;
   role: 'user' | 'assistant';
   text: string;
+  provider?: 'GEMINI_LIVE' | 'LOCAL_GROUNDED_FALLBACK';
+  isSimulatedFallback?: boolean;
+  providerNotice?: string;
   citations?: { title: string; section: string; authority: string }[];
   suggestedFollowUps?: string[];
   timestamp: string;
@@ -504,15 +507,32 @@ function parseUrlHash(hash: string): {
   subTab: string;
   certId?: string;
 } {
-  const cleaned = hash.replace(/^#\/?/, '').trim();
+  let queryCert: string | undefined;
+  let queryTab: string | undefined;
+  if (typeof window !== 'undefined' && window.location.search) {
+    const params = new URLSearchParams(window.location.search);
+    const rawExam = params.get('exam') || params.get('cert');
+    if (rawExam) queryCert = normalizeExamId(rawExam);
+    const rawTab = params.get('tab') || params.get('section');
+    if (rawTab) queryTab = rawTab.toLowerCase();
+  }
+
+  const [hashPath, hashQuery] = hash.replace(/^#\/?/, '').trim().split('?');
+  if (hashQuery) {
+    const hParams = new URLSearchParams(hashQuery);
+    const hExam = hParams.get('exam') || hParams.get('cert');
+    if (hExam) queryCert = normalizeExamId(hExam);
+  }
+
+  const cleaned = hashPath || queryTab || '';
   if (!cleaned) {
-    return { section: 'dashboard', subTab: 'overview' };
+    return { section: 'dashboard', subTab: 'overview', certId: queryCert };
   }
   const parts = cleaned.split('/').filter(Boolean);
   const first = parts[0]?.toLowerCase();
 
   if (first === 'my-certifications' || first === 'certifications') {
-    const certCandidate = parts[1] ? normalizeExamId(parts[1]) : undefined;
+    const certCandidate = parts[1] ? normalizeExamId(parts[1]) : queryCert;
     const subCandidate = parts[2] || 'overview';
     return {
       section: 'my-certifications',
@@ -520,24 +540,25 @@ function parseUrlHash(hash: string): {
       certId: certCandidate,
     };
   }
-  if (first === 'study') {
-    return { section: 'study', subTab: parts[1] || 'guides' };
+  if (first === 'study' || first === 'notebook' || first === 'flashcards') {
+    const defaultStudySub = first === 'flashcards' ? 'flashcards' : parts[1] || 'guides';
+    return { section: 'study', subTab: defaultStudySub, certId: queryCert };
   }
   if (first === 'practice' || first === 'simulator' || first === 'assessment') {
     const defaultSub =
       first === 'assessment' ? 'diagnostic' : parts[1] || 'mock';
-    return { section: 'practice', subTab: defaultSub };
+    return { section: 'practice', subTab: defaultSub, certId: queryCert };
   }
-  if (first === 'progress' || first === 'results') {
-    return { section: 'progress', subTab: parts[1] || 'trends' };
+  if (first === 'progress' || first === 'results' || first === 'analytics') {
+    return { section: 'progress', subTab: parts[1] || 'trends', certId: queryCert };
   }
   if (first === 'catalog' || first === 'explore') {
-    return { section: 'catalog', subTab: parts[1] || 'all' };
+    return { section: 'catalog', subTab: parts[1] || 'all', certId: queryCert };
   }
-  if (first === 'account' || first === 'sync') {
-    return { section: 'account', subTab: parts[1] || 'profile' };
+  if (first === 'account' || first === 'sync' || first === 'profile') {
+    return { section: 'account', subTab: parts[1] || 'profile', certId: queryCert };
   }
-  return { section: 'dashboard', subTab: 'overview' };
+  return { section: 'dashboard', subTab: 'overview', certId: queryCert };
 }
 
 function sectionToLegacyTab(section: PrimaryLearnerSection, subTab: string): LegacyTab {
@@ -625,9 +646,9 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, 4500);
   }, []);
 
-  // Listen to browser hashchange (Back/Forward navigation)
+  // Listen to browser hashchange and popstate (Back/Forward navigation)
   useEffect(() => {
-    const onHashChange = () => {
+    const onRouteChange = () => {
       const parsed = parseUrlHash(window.location.hash);
       setActiveSection(parsed.section);
       setActiveSubTab(parsed.subTab);
@@ -635,8 +656,12 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setSelectedCertIdState(normalizeExamId(parsed.certId));
       }
     };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    window.addEventListener('hashchange', onRouteChange);
+    window.addEventListener('popstate', onRouteChange);
+    return () => {
+      window.removeEventListener('hashchange', onRouteChange);
+      window.removeEventListener('popstate', onRouteChange);
+    };
   }, []);
 
   const navigateTo = useCallback(
@@ -649,11 +674,11 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
 
       if (typeof window !== 'undefined') {
-        let nextHash = `#/${section}`;
+        let nextHash = `#/${section}?exam=${normalizedCert}`;
         if (section === 'my-certifications' && normalizedCert) {
-          nextHash = `#/my-certifications/${normalizedCert}/${subTab}`;
+          nextHash = `#/my-certifications/${normalizedCert}/${subTab}?exam=${normalizedCert}`;
         } else if (subTab && subTab !== 'overview') {
-          nextHash = `#/${section}/${subTab}`;
+          nextHash = `#/${section}/${subTab}?exam=${normalizedCert}`;
         }
         if (window.location.hash !== nextHash) {
           window.history.pushState(null, '', nextHash);
@@ -671,8 +696,12 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ...prev,
         targetExamId: canonical,
       }));
+      if (typeof window !== 'undefined') {
+        const nextHash = `#/${activeSection}/${activeSubTab}?exam=${canonical}`;
+        window.history.pushState(null, '', nextHash);
+      }
     },
-    []
+    [activeSection, activeSubTab]
   );
 
   const activeTab: LegacyTab = sectionToLegacyTab(activeSection, activeSubTab);
@@ -1147,6 +1176,38 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Signed out of live Firebase session. Running in local demo mode.');
   };
 
+  const getAuthHeaders = async (extraHeaders?: Record<string, string>): Promise<Record<string, string>> => {
+    const activeUid = firebaseUser?.uid || profile.userId || 'usr_gnmohareb_cissp_001';
+    let bearerToken = '';
+    if (firebaseUser) {
+      try {
+        bearerToken = await firebaseUser.getIdToken();
+      } catch {
+        bearerToken = '';
+      }
+    }
+    if (!bearerToken) {
+      try {
+        const tokenRes = await fetch('/api/auth/session-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: activeUid }),
+        });
+        if (tokenRes.ok) {
+          const tokenJson = await tokenRes.json();
+          bearerToken = tokenJson.bearerToken || '';
+        }
+      } catch {
+        bearerToken = '';
+      }
+    }
+    return {
+      'Content-Type': 'application/json',
+      ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+      ...(extraHeaders || {}),
+    };
+  };
+
   const updateUserProfileInCloud = async (
     updates: Partial<{
       displayName: string;
@@ -1249,9 +1310,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setStudyPlan(updatedPlan);
 
     try {
+      const headers = await getAuthHeaders();
       await fetch('/api/study-plan/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           userId: firebaseUser?.uid || profile.userId,
           examId: updatedPlan.examId,
@@ -1292,9 +1354,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsSyncing(true);
     setSyncState('SYNC_PENDING');
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch('/api/profile/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           userId: firebaseUser?.uid || profile.userId,
           displayName: profile.displayName,
@@ -1391,9 +1454,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       // Persist to shared Express API session store as well
-      await fetch('/api/sessions', {
+      const headers = await getAuthHeaders();
+      await fetch(`/api/exams/${activeCert}/sessions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           attemptId,
           userId: firebaseUser?.uid || profile.userId,
@@ -1806,9 +1870,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       // Persist session to Express API for cross-platform Android pull
       try {
-        await fetch('/api/sessions', {
+        const headers = await getAuthHeaders();
+        await fetch(`/api/exams/${canonicalExamId}/sessions`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             attemptId,
             userId: firebaseUser?.uid || profile.userId,
@@ -1945,12 +2010,15 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const purchaseExam = async (examId: string, tier: 'single' | 'universal' = 'single') => {
     const cleanExamId = normalizeExamId(sanitizeId(examId));
     const bank = ALL_112_EXAM_BANKS.find((b) => b.id === cleanExamId);
-    const receiptToken = `rcpt_web_${tier}_${cleanExamId}_${Date.now()}`;
+    const receiptToken = `sandbox_rcpt_verified_${tier}_${cleanExamId}_${Date.now()}`;
 
     try {
+      const headers = await getAuthHeaders({
+        'X-CertMaster-Sandbox-Mode': 'true',
+      });
       const verifyRes = await fetch('/api/subscriptions/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           userId: firebaseUser?.uid || profile.userId,
           examId: cleanExamId,
@@ -2045,9 +2113,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
 
     try {
+      const headers = await getAuthHeaders();
       await fetch('/api/flashcards/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           userId: firebaseUser?.uid || profile.userId,
           cardId: id,
@@ -2101,9 +2170,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCustomSources((prev) => [newSource, ...prev]);
 
     try {
+      const headers = await getAuthHeaders();
       await fetch('/api/sources/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           ...newSource,
           userId: firebaseUser?.uid || profile.userId,
@@ -2161,6 +2231,11 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         text:
           data.answer ||
           'Focus on eliminating distractors that address symptoms rather than root-cause architectural controls.',
+        provider: data.provider || 'LOCAL_GROUNDED_FALLBACK',
+        isSimulatedFallback: data.isSimulatedFallback ?? true,
+        providerNotice:
+          data.providerNotice ||
+          'Local Grounded Reference Engine (Deterministic Fallback — GEMINI_API_KEY not configured)',
         citations: data.citations || [],
         suggestedFollowUps: data.suggestedFollowUps || [],
         timestamp: new Date().toLocaleTimeString(),
@@ -2255,9 +2330,10 @@ export const CertMasterProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // TEST 3: Real-Time Learning Preferences & Flashcard Sync
     const t3Start = performance.now();
     try {
+      const headers = await getAuthHeaders();
       const syncRes = await fetch('/api/profile/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           userId: firebaseUser?.uid || profile.userId,
           displayName: profile.displayName,

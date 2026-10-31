@@ -149,7 +149,7 @@ fun AITutorScreen(
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = "0 Tokens (Free)",
+                            text = "Local Rule Engine",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = com.example.ui.theme.SuccessGreen
@@ -182,7 +182,7 @@ fun AITutorScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Zero-Token Grounded AI: Chat without API tokens or fees. Knowledge is synthesized locally from your study notes & exam syllabus.",
+                    text = "Local Grounded Reference Engine (Deterministic Offline Fallback): Synthesizes answers directly from your local study notes & exam syllabus without cloud LLM calls.",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 15.sp

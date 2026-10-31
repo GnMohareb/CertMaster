@@ -30,7 +30,13 @@ export type SubscriptionTier = SubscriptionTierType;
 export type AttemptType = 'FULL_SIMULATION' | 'DOMAIN_PRACTICE' | 'DIAGNOSTIC' | 'SIMULATION' | 'PRACTICE';
 export type FlashcardState = 'unstudied' | 'known' | 'needs_review';
 export type StudyPlanStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED';
-export type ContentAvailabilityStatus = 'FULL_PREP' | 'CATALOG_PREVIEW';
+export type ContentAvailabilityStatus =
+  | 'FULL_PREPARATION_AVAILABLE'
+  | 'LIMITED_PREPARATION'
+  | 'SAMPLE_CONTENT_AVAILABLE'
+  | 'CATALOG_PREVIEW'
+  | 'CONTENT_COMING_SOON'
+  | 'FULL_PREP';
 export type StudySourceType =
   | 'OFFICIAL_GUIDE'
   | 'STANDARD_SPEC'
@@ -89,6 +95,10 @@ export interface ExamBank {
     | 'Governance & Audit'
     | 'Linux & DevOps';
   questionsCount: number;
+  officialBlueprintQuestionsCount?: number;
+  studyGuidesCount?: number;
+  flashcardsCount?: number;
+  audioBriefingsCount?: number;
   passRatePercent: number;
   durationMinutes: number;
   price: number;

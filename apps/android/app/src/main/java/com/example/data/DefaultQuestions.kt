@@ -333,6 +333,33 @@ object DefaultQuestions {
                 standardOrFramework = "Amazon S3 User Guide"
             ),
             difficulty = QuestionDifficulty.EASY
+        ),
+        Question(
+            id = "aws-saa-q05",
+            examId = "aws-saa",
+            domainId = "aws-d1",
+            domainName = "Design Secure Architectures",
+            questionText = "A multi-account AWS Organization wants to ensure that no IAM user or role—even an account root user or AdministratorAccess principal in a member account—can ever disable AWS CloudTrail logging or delete flow logs in any region. Which AWS governance mechanism enforces this guardrail centrally?",
+            options = listOf(
+                "Attach a Service Control Policy (SCP) in AWS Organizations with an explicit Deny on cloudtrail:StopLogging and ec2:DeleteFlowLogs",
+                "Create an IAM Group in each member account and attach ReadOnlyAccess",
+                "Configure AWS Trusted Advisor weekly email alerts",
+                "Use Amazon Inspector to scan IAM roles for unused permissions"
+            ),
+            correctIndex = 0,
+            explanation = "Service Control Policies (SCPs) in AWS Organizations define maximum permission guardrails for all principals in member accounts, including the member account root user.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. An explicit Deny in an AWS Organizations SCP cannot be overridden by any local IAM policy.",
+                1 to "IAM groups do not restrict root users or existing AdministratorAccess roles.",
+                2 to "Trusted Advisor is detective/advisory, not a preventive guardrail.",
+                3 to "Amazon Inspector scans workloads for CVEs and network exposure."
+            ),
+            citation = SourceCitation(
+                title = "AWS Organizations User Guide",
+                sectionOrPage = "Service Control Policies (SCPs) Evaluation Logic",
+                standardOrFramework = "AWS Governance & Guardrails"
+            ),
+            difficulty = QuestionDifficulty.HARD
         )
     )
 
@@ -417,6 +444,60 @@ object DefaultQuestions {
                 standardOrFramework = "CompTIA SY0-701 Official Study Guide"
             ),
             difficulty = QuestionDifficulty.MEDIUM
+        ),
+        Question(
+            id = "sec-plus-q04",
+            examId = "sec-plus",
+            domainId = "sec-d3",
+            domainName = "Security Architecture",
+            questionText = "An industrial water treatment facility operates legacy Programmable Logic Controllers (PLCs) running proprietary SCADA protocols that cannot support modern endpoint detection agents or frequent OS reboots. Which architectural security control best protects these ICS/SCADA devices?",
+            options = listOf(
+                "Network segmentation using an Industrial DMZ, Purdue Model zoning, and unidirectional security gateways (data diodes)",
+                "Exposing the PLCs directly to the corporate Wi-Fi network for rapid remote patching",
+                "Configuring automated daily vulnerability exploitation scans against the live PLCs",
+                "Replacing TCP/IP with unencrypted Telnet management sessions"
+            ),
+            correctIndex = 0,
+            explanation = "Operational Technology (OT) and ICS/SCADA environments isolate fragile PLCs in segmented zones separated from corporate IT by an Industrial DMZ and hardware data diodes.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Purdue Model zoning, Industrial DMZs, and data diodes isolate fragile OT/SCADA assets.",
+                1 to "Bridging IT Wi-Fi directly to OT exposes PLCs to lateral movement.",
+                2 to "Active exploitation scans can crash legacy PLC network stacks.",
+                3 to "Telnet transmits credentials and commands in cleartext."
+            ),
+            citation = SourceCitation(
+                title = "CompTIA Security+ SY0-701 & NIST SP 800-82",
+                sectionOrPage = "Objective 3.1 / 3.2: ICS/SCADA Segmentation",
+                standardOrFramework = "NIST SP 800-82 Rev 3 OT Security"
+            ),
+            difficulty = QuestionDifficulty.HARD
+        ),
+        Question(
+            id = "sec-plus-q05",
+            examId = "sec-plus",
+            domainId = "sec-d5",
+            domainName = "Security Program Management & Oversight",
+            questionText = "Two SaaS companies are entering a partnership where Company A will host and process credit applications for Company B. Which third-party governance document defines the exact technical encryption standards, VPN cipher suites, and API authentication protocols required between their systems?",
+            options = listOf(
+                "Interconnection Security Agreement (ISA)",
+                "Non-Disclosure Agreement (NDA)",
+                "Memorandum of Understanding (MOU)",
+                "Acceptable Use Policy (AUP)"
+            ),
+            correctIndex = 0,
+            explanation = "An Interconnection Security Agreement (ISA) specifies the technical and security requirements for establishing, operating, and maintaining a direct system-to-system connection between two organizations (NIST SP 800-47).",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. An ISA defines technical security parameters for system interconnections.",
+                1 to "An NDA governs confidential information handling, not technical VPN/API specs.",
+                2 to "An MOU expresses high-level intent between parties.",
+                3 to "An AUP defines acceptable employee workstation/network behavior."
+            ),
+            citation = SourceCitation(
+                title = "CompTIA Security+ SY0-701 & NIST SP 800-47",
+                sectionOrPage = "Objective 5.4: Third-Party Risk Assessment and Vendor Agreements",
+                standardOrFramework = "NIST SP 800-47 Rev 1"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
         )
     )
 
@@ -445,6 +526,60 @@ object DefaultQuestions {
                 title = "PMI PMBOK Guide 7th Edition",
                 sectionOrPage = "Domain II: Process – Earned Value Management (EVM)",
                 standardOrFramework = "PMI Standard for Earned Value Management"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        ),
+        Question(
+            id = "pmp-q02",
+            examId = "pmp",
+            domainId = "pmp-d1",
+            domainName = "People",
+            questionText = "Midway through a hybrid transformation project, two senior engineers disagree on the microservice message broker architecture, causing sprint velocity to drop by 25%. Both engineers have valid technical points. What should the Project Manager do first?",
+            options = listOf(
+                "Facilitate a collaborative problem-solving workshop where both engineers evaluate objective trade-offs against project quality criteria",
+                "Immediately escalate the dispute to the project sponsor to mandate a decision",
+                "Reassign one of the engineers to a different project team",
+                "Select the cheaper option unilaterally"
+            ),
+            correctIndex = 0,
+            explanation = "In PMI People Domain (Task 1.1: Manage Conflict), Collaborate/Problem-Solve is the preferred win-win conflict resolution technique when technical consensus improves commitment.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Collaborating/Problem-Solving builds consensus and objective technical alignment.",
+                1 to "Premature escalation bypasses team autonomy.",
+                2 to "Avoidance/withdrawal disrupts team cohesion.",
+                3 to "Forcing erodes psychological safety and buy-in."
+            ),
+            citation = SourceCitation(
+                title = "PMI PMBOK Guide 7th Edition & Agile Practice Guide",
+                sectionOrPage = "Domain I: People – Task 1: Manage Conflict",
+                standardOrFramework = "PMI Examination Content Outline"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        ),
+        Question(
+            id = "pmp-q03",
+            examId = "pmp",
+            domainId = "pmp-d3",
+            domainName = "Business Environment",
+            questionText = "During an Agile project delivering a customer portal, a new data privacy law is enacted mandating explicit opt-in consent auditing within 60 days. How should the Project Manager and Product Owner handle this regulatory change?",
+            options = listOf(
+                "Assess the compliance impact, create high-priority compliance user stories, and reprioritize the Product Backlog with the Product Owner for the upcoming sprint",
+                "Complete all originally planned cosmetic features first and address legal compliance next year",
+                "Cancel the current sprint immediately without consulting the Product Owner",
+                "Ask the development team to work unpaid overtime"
+            ),
+            correctIndex = 0,
+            explanation = "Mandatory regulatory compliance takes precedence in backlog refinement (Domain III: Business Environment, Task 3.1: Plan and manage project compliance).",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Reprioritizing the Product Backlog with the Product Owner ensures timely statutory compliance.",
+                1 to "Deferring mandatory legal compliance exposes the enterprise to statutory fines.",
+                2 to "Only the Product Owner cancels a sprint when the Sprint Goal becomes obsolete.",
+                3 to "Unsustainable pace violates Agile sustainable delivery principles."
+            ),
+            citation = SourceCitation(
+                title = "PMI PMP Examination Content Outline (ECO)",
+                sectionOrPage = "Domain III: Business Environment – Plan and Manage Compliance",
+                standardOrFramework = "PMI Agile Practice Guide"
             ),
             difficulty = QuestionDifficulty.MEDIUM
         )
@@ -477,6 +612,60 @@ object DefaultQuestions {
                 standardOrFramework = "ISACA Risk IT Framework"
             ),
             difficulty = QuestionDifficulty.MEDIUM
+        ),
+        Question(
+            id = "cism-q02",
+            examId = "cism",
+            domainId = "cism-d1",
+            domainName = "Information Security Governance",
+            questionText = "A newly appointed Information Security Manager discovers that security projects are frequently defunded mid-year because executive leadership views cybersecurity purely as an IT cost center. What is the MOST effective action to establish sustainable executive support?",
+            options = listOf(
+                "Align the information security strategy directly with enterprise business objectives, risk appetite, and board-level governance metrics",
+                "Purchase an advanced AI firewall to demonstrate technical sophistication",
+                "Delegate security funding decisions to junior system administrators",
+                "Increase the frequency of vulnerability scan PDF emails sent to the CEO"
+            ),
+            correctIndex = 0,
+            explanation = "Strategic alignment between information security initiatives, enterprise business objectives, and board risk appetite is the cornerstone of ISACA CISM Domain 1.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Aligning security governance with business goals and risk appetite secures executive sponsorship.",
+                1 to "Tool purchases without business alignment reinforce the cost-center perception.",
+                2 to "Governance cannot be delegated to junior operational staff.",
+                3 to "Raw technical scan data does not communicate business risk value to executives."
+            ),
+            citation = SourceCitation(
+                title = "ISACA CISM Review Manual (16th Edition)",
+                sectionOrPage = "Domain 1: Information Security Governance – Strategic Alignment",
+                standardOrFramework = "ISACA CISM Official Curriculum"
+            ),
+            difficulty = QuestionDifficulty.HARD
+        ),
+        Question(
+            id = "cism-q03",
+            examId = "cism",
+            domainId = "cism-d4",
+            domainName = "Incident Management",
+            questionText = "An enterprise is developing its Business Continuity Plan (BCP) and Disaster Recovery Plan (DRP). Which foundational document provides the prioritized recovery order of critical business applications and establishes authoritative RTO/RPO targets?",
+            options = listOf(
+                "Business Impact Analysis (BIA)",
+                "Vulnerability Assessment Report",
+                "Acceptable Use Policy (AUP)",
+                "Employee Onboarding Handbook"
+            ),
+            correctIndex = 0,
+            explanation = "The Business Impact Analysis (BIA) identifies critical business processes, maps IT dependencies, quantifies downtime impact, and establishes RTO and RPO targets.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. The BIA is the mandatory foundation that establishes RTO, RPO, and recovery priorities.",
+                1 to "Vulnerability assessments identify technical flaws, not business continuity priorities.",
+                2 to "An AUP governs user behavior.",
+                3 to "HR handbooks do not define disaster recovery objectives."
+            ),
+            citation = SourceCitation(
+                title = "ISACA CISM Review Manual",
+                sectionOrPage = "Domain 4: Incident Management – BIA & DRP Integration",
+                standardOrFramework = "ISACA CISM Domain 4 Standard"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
         )
     )
 
@@ -507,6 +696,60 @@ object DefaultQuestions {
                 standardOrFramework = "EC-Council 312-50 Blueprint"
             ),
             difficulty = QuestionDifficulty.EASY
+        ),
+        Question(
+            id = "ceh-q02",
+            examId = "ceh",
+            domainId = "ceh-d3",
+            domainName = "Web, Wireless & Cloud Exploitation",
+            questionText = "While testing a web login form, a penetration tester enters admin' OR '1'='1'-- into the username field and logs in without knowing the password. What vulnerability was exploited, and why did -- allow authentication bypass?",
+            options = listOf(
+                "Authentication Bypass SQL Injection (SQLi); -- comments out the remainder of the SQL WHERE clause",
+                "Reflected Cross-Site Scripting (XSS); -- executes JavaScript in the DOM",
+                "ARP Poisoning; -- overwrites the gateway MAC address",
+                "DNS Zone Transfer (dig axfr)"
+            ),
+            correctIndex = 0,
+            explanation = "In SQL syntax, -- is an inline comment sequence. Injecting admin' OR '1'='1'-- makes the WHERE condition always evaluate to TRUE and comments out the password check.",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. SQLi authentication bypass using -- to comment out the password verification clause.",
+                1 to "XSS injects client-side script into web pages.",
+                2 to "ARP poisoning spoofs Layer 2 MAC addresses.",
+                3 to "DNS Zone Transfer replicates DNS records."
+            ),
+            citation = SourceCitation(
+                title = "EC-Council CEH v12 & OWASP Top 10",
+                sectionOrPage = "Module 14: Hacking Web Applications – SQL Injection (CWE-89)",
+                standardOrFramework = "EC-Council CEH v12 Official Study Guide"
+            ),
+            difficulty = QuestionDifficulty.MEDIUM
+        ),
+        Question(
+            id = "ceh-q03",
+            examId = "ceh",
+            domainId = "ceh-d2",
+            domainName = "System Hacking & Privilege Escalation",
+            questionText = "After gaining an initial foothold on a Windows workstation, an ethical hacker dumps local NTLM password hashes from LSASS memory and uses the raw NTLM hash directly to authenticate to an adjacent file server over SMB without cracking the hash. Which lateral movement technique is this?",
+            options = listOf(
+                "Pass-the-Hash (PtH) — MITRE ATT&CK T1550.002",
+                "VLAN Hopping via Double Tagging (802.1Q)",
+                "Evil Twin Wi-Fi Deauthentication",
+                "BGP Route Hijacking"
+            ),
+            correctIndex = 0,
+            explanation = "In NTLM challenge-response authentication, possessing the unsalted NTLM hash is sufficient to compute the challenge response without knowing the plaintext password (Pass-the-Hash).",
+            optionAnalysis = mapOf(
+                0 to "CORRECT. Pass-the-Hash authenticates directly using the NTLM hash over SMB/WMI.",
+                1 to "VLAN hopping injects double 802.1Q tags on trunk ports.",
+                2 to "Evil Twin spoofs wireless SSIDs.",
+                3 to "BGP hijacking manipulates autonomous system routing tables."
+            ),
+            citation = SourceCitation(
+                title = "EC-Council CEH v12 & MITRE ATT&CK",
+                sectionOrPage = "Module 06: System Hacking – Pass-the-Hash (T1550.002)",
+                standardOrFramework = "EC-Council CEH v12 Official Guide"
+            ),
+            difficulty = QuestionDifficulty.HARD
         )
     )
 

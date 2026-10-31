@@ -108,7 +108,9 @@ export function matchesExamId(idA: string | undefined | null, idB: string | unde
 }
 
 /**
- * Certifications with full verified question banks, study guides, audio briefings, and flashcards bundled locally.
+ * Certifications with verified sample question banks, study guides, audio briefings, and flashcards bundled locally.
+ * Note: Under Phase 7 objective content classification criteria, these 6 certifications have 5–8 questions each
+ * and are classified as SAMPLE_CONTENT_AVAILABLE (not FULL_PREPARATION_AVAILABLE, which requires >= 100 questions).
  */
 export const FULL_PREP_EXAM_IDS: ReadonlySet<string> = new Set([
   'cissp',
@@ -119,8 +121,156 @@ export const FULL_PREP_EXAM_IDS: ReadonlySet<string> = new Set([
   'ceh',
 ]);
 
-export function getExamContentStatus(examId: string): 'FULL_PREP' | 'CATALOG_PREVIEW' {
-  return FULL_PREP_EXAM_IDS.has(normalizeExamId(examId)) ? 'FULL_PREP' : 'CATALOG_PREVIEW';
+export const SAMPLE_CONTENT_EXAM_IDS: ReadonlySet<string> = FULL_PREP_EXAM_IDS;
+
+export interface ExamBundledContentAudit {
+  examId: string;
+  questionCount: number;
+  studyGuideCount: number;
+  flashcardCount: number;
+  audioBriefingCount: number;
+  domainCount: number;
+  simulatorAvailable: boolean;
+  androidParity: boolean;
+}
+
+export const ACTUAL_BUNDLED_CONTENT_COUNTS: Readonly<Record<string, ExamBundledContentAudit>> = {
+  cissp: {
+    examId: 'cissp',
+    questionCount: 8,
+    studyGuideCount: 4,
+    flashcardCount: 8,
+    audioBriefingCount: 3,
+    domainCount: 8,
+    simulatorAvailable: true,
+    androidParity: true,
+  },
+  'aws-saa': {
+    examId: 'aws-saa',
+    questionCount: 5,
+    studyGuideCount: 1,
+    flashcardCount: 3,
+    audioBriefingCount: 1,
+    domainCount: 4,
+    simulatorAvailable: true,
+    androidParity: true,
+  },
+  'sec-plus': {
+    examId: 'sec-plus',
+    questionCount: 5,
+    studyGuideCount: 1,
+    flashcardCount: 2,
+    audioBriefingCount: 1,
+    domainCount: 5,
+    simulatorAvailable: true,
+    androidParity: true,
+  },
+  pmp: {
+    examId: 'pmp',
+    questionCount: 3,
+    studyGuideCount: 1,
+    flashcardCount: 1,
+    audioBriefingCount: 1,
+    domainCount: 3,
+    simulatorAvailable: true,
+    androidParity: true,
+  },
+  cism: {
+    examId: 'cism',
+    questionCount: 3,
+    studyGuideCount: 1,
+    flashcardCount: 1,
+    audioBriefingCount: 1,
+    domainCount: 4,
+    simulatorAvailable: true,
+    androidParity: true,
+  },
+  ceh: {
+    examId: 'ceh',
+    questionCount: 3,
+    studyGuideCount: 1,
+    flashcardCount: 1,
+    audioBriefingCount: 1,
+    domainCount: 4,
+    simulatorAvailable: true,
+    androidParity: true,
+  },
+};
+
+export type EvidenceBasedContentStatus =
+  | 'FULL_PREPARATION_AVAILABLE'
+  | 'LIMITED_PREPARATION'
+  | 'SAMPLE_CONTENT_AVAILABLE'
+  | 'CATALOG_PREVIEW'
+  | 'CONTENT_COMING_SOON';
+
+/**
+ * Objective, evidence-based content classification criteria (Phase 7 Section 8):
+ * 1. FULL_PREPARATION_AVAILABLE: >= 100 practice questions, >= 4 study guides, >= 20 flashcards, >= 1 audio briefing
+ * 2. LIMITED_PREPARATION: >= 25 practice questions, >= 2 study guides, >= 8 flashcards
+ * 3. SAMPLE_CONTENT_AVAILABLE: >= 3 practice questions, >= 1 study guide, >= 1 flashcard
+ * 4. CATALOG_PREVIEW: < 3 practice questions, > 0 domain blueprint definitions
+ * 5. CONTENT_COMING_SOON: 0 practice questions and 0 domain blueprint definitions
+ */
+export function classifyExamContentAvailability(params: {
+  questionCount: number;
+  studyGuideCount: number;
+  flashcardCount: number;
+  audioBriefingCount: number;
+  domainCount: number;
+}): EvidenceBasedContentStatus {
+  const { questionCount, studyGuideCount, flashcardCount, audioBriefingCount, domainCount } = params;
+  if (
+    questionCount >= 100 &&
+    studyGuideCount >= 4 &&
+    flashcardCount >= 20 &&
+    audioBriefingCount >= 1
+  ) {
+    return 'FULL_PREPARATION_AVAILABLE';
+  }
+  if (questionCount >= 25 && studyGuideCount >= 2 && flashcardCount >= 8) {
+    return 'LIMITED_PREPARATION';
+  }
+  if (questionCount >= 3 && studyGuideCount >= 1 && flashcardCount >= 1) {
+    return 'SAMPLE_CONTENT_AVAILABLE';
+  }
+  if (domainCount > 0) {
+    return 'CATALOG_PREVIEW';
+  }
+  return 'CONTENT_COMING_SOON';
+}
+
+export function getExamBundledContentAudit(
+  examId: string,
+  domainCountFallback: number = 4
+): ExamBundledContentAudit {
+  const canonical = normalizeExamId(examId);
+  const existing = ACTUAL_BUNDLED_CONTENT_COUNTS[canonical];
+  if (existing) return existing;
+  return {
+    examId: canonical,
+    questionCount: 0,
+    studyGuideCount: 0,
+    flashcardCount: 0,
+    audioBriefingCount: 0,
+    domainCount: domainCountFallback,
+    simulatorAvailable: false,
+    androidParity: false,
+  };
+}
+
+export function getExamContentStatus(examId: string): EvidenceBasedContentStatus {
+  const audit = getExamBundledContentAudit(examId, 4);
+  return classifyExamContentAvailability(audit);
+}
+
+export function hasBundledInteractiveContent(examId: string): boolean {
+  const status = getExamContentStatus(examId);
+  return (
+    status === 'FULL_PREPARATION_AVAILABLE' ||
+    status === 'LIMITED_PREPARATION' ||
+    status === 'SAMPLE_CONTENT_AVAILABLE'
+  );
 }
 
 export interface BehavioralClassificationResult {
@@ -939,6 +1089,8 @@ export function migrateLegacyFlashcard(
   const lastReviewedEpoch =
     typeof raw.lastReviewedEpoch === 'number'
       ? raw.lastReviewedEpoch
+      : typeof raw.lastReviewedEpochMillis === 'number'
+      ? raw.lastReviewedEpochMillis
       : raw.updatedAt && typeof raw.updatedAt === 'string'
       ? new Date(raw.updatedAt).getTime() || nowMillis
       : nowMillis;

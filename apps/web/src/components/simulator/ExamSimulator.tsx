@@ -377,21 +377,21 @@ export const ExamSimulator: React.FC = () => {
                 </button>
               </div>
 
-              {/* Mode 3: Full Timed Mock Exam */}
+              {/* Mode 3: Timed Mock Simulation (Sample Bank) */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-5 dark:border-slate-800 dark:bg-slate-950/40 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
                     <span className="flex items-center gap-1.5">
                       <Award className="h-4 w-4" />
-                      <span>Full Timed Mock Examination</span>
+                      <span>Timed Mock Simulation ({certQuestions.length} Sample Qs)</span>
                     </span>
-                    <span className="font-mono">{activeBank.durationMinutes} Mins</span>
+                    <span className="font-mono">{certQuestions.length} Qs · {activeBank.durationMinutes}m</span>
                   </div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {activeBank.code} Enterprise Simulation
+                    {activeBank.code} Timed Sample Bank Simulation
                   </h3>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Full examination conditions with urgency timer, matrix review drawer, and Pass Guarantee qualification tracking.
+                    Fixed-bank timed simulation ({certQuestions.length} verified sample questions) with urgency timer, matrix review drawer, and Readiness tracking.
                   </p>
                 </div>
                 <button
@@ -406,7 +406,7 @@ export const ExamSimulator: React.FC = () => {
                   className="mt-4 w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm"
                 >
                   <Play className="h-3.5 w-3.5 fill-current" />
-                  <span>Launch Full Timed Mock ({activeBank.durationMinutes}m)</span>
+                  <span>Launch Timed Simulation ({certQuestions.length} Qs)</span>
                 </button>
               </div>
 

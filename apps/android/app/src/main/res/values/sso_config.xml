@@ -1,5 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="default_web_client_id" translatable="false">certmaster-sso-production.apps.googleusercontent.com</string>
-    <string name="certmaster_firebase_project_id" translatable="false">certmaster-unified-prod</string>
-    <string name="certmaster_web_portal_url" translatable="false">https://ais-dev-c43kxdgpgcs6kaaoha4sx7-109050751533.us-west2.run.app</string>
+    <!--
+        Authoritative Google OAuth 2.0 Web Client ID & Firebase Project Configuration
+        Shared between the CertMaster Web Platform (gen-lang-client-0788513176) and CertMaster Android App.
+    -->
+    <string name="default_web_client_id" translatable="false">814967786900-9idd4t0m0qikfs4g739to1s2fda2mefu.apps.googleusercontent.com</string>
+    <string name="firebase_project_id" translatable="false">gen-lang-client-0788513176</string>
+    <string name="firestore_database_id" translatable="false">ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001</string>
+    <string name="firebase_application_id" translatable="false">1:814967786900:web:800232a0bc3a2cb90cd381</string>
+    <string name="firebase_api_key" translatable="false">AIzaSyDOh5r6vbXc_WVJkrPfHt-ymaa9HMOBtsg</string>
+    <string name="firebase_storage_bucket" translatable="false">gen-lang-client-0788513176.firebasestorage.app</string>
 </resources>

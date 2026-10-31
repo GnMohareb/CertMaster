@@ -136,8 +136,12 @@ test('3. Shared Identity & SSO Configuration matches across Web AuthContext and 
   assert.ok(androidProfileSrc.includes('usr_gnmohareb_cissp_001'));
   assert.ok(webAuthSrc.includes('gnmohareb@gmail.com'));
   assert.ok(androidProfileSrc.includes('gnmohareb@gmail.com'));
-  assert.ok(webAuthSrc.includes('certmaster-sso-production.apps.googleusercontent.com'));
-  assert.ok(ssoConfigXml.includes('certmaster-sso-production.apps.googleusercontent.com'));
+  assert.ok(
+    androidProfileSrc.includes('814967786900-9idd4t0m0qikfs4g739to1s2fda2mefu.apps.googleusercontent.com')
+  );
+  assert.ok(
+    ssoConfigXml.includes('814967786900-9idd4t0m0qikfs4g739to1s2fda2mefu.apps.googleusercontent.com')
+  );
 
   assert.ok(androidAuthSrc.includes('GetSignInWithGoogleOption'));
   assert.ok(androidAuthSrc.includes('GetGoogleIdOption'));

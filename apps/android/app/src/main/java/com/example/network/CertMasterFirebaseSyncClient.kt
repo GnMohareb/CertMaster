@@ -43,12 +43,11 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
     var customDeliveryHandler: (suspend (SyncQueueEntity) -> Boolean)? = null
 
     fun isFirestoreAvailable(): Boolean {
-        val ctx = context ?: return false
-        return try {
-            FirebaseApp.getApps(ctx).isNotEmpty()
-        } catch (_: Exception) {
-            false
+        val initialized = com.example.auth.SharedAuthManager.ensureFirebaseAppInitialized(context)
+        if (android.os.Build.FINGERPRINT.equals("robolectric", ignoreCase = true)) {
+            return false
         }
+        return initialized
     }
 
     /**

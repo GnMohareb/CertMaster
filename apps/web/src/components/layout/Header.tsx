@@ -142,14 +142,14 @@ export const Header: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95 transition-colors">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         {/* Zone 1: Brand Wordmark + Active Certification Switcher */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={() => navigateTo('dashboard', 'overview')}
-            className="flex items-center gap-2.5 text-left text-lg font-bold tracking-tight text-slate-900 dark:text-white hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 text-left text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white hover:opacity-90 transition-opacity"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <span className="font-extrabold tracking-tight">CertMaster</span>
@@ -162,10 +162,11 @@ export const Header: React.FC = () => {
             </label>
             <select
               id="active-cert-select"
+              aria-label="Active certification track"
               value={selectedCertId}
               onChange={(e) => setSelectedCertId(e.target.value)}
               title="Switch active certification study track"
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-blue-600 hover:bg-slate-100 focus:border-blue-500 focus:outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-blue-400"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-blue-600 hover:bg-slate-100 focus:border-blue-500 focus:outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-blue-400"
             >
               {fullPrepBanks.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -179,7 +180,7 @@ export const Header: React.FC = () => {
         {/* Zone 2: Learner-Centered Primary Navigation (7 Clear Sections) */}
         <nav
           aria-label="Primary Learner Navigation"
-          className="hidden lg:flex items-center gap-4 xl:gap-5 text-xs xl:text-sm font-medium text-slate-600 dark:text-slate-300"
+          className="hidden lg:flex items-center gap-2.5 xl:gap-4 text-xs font-medium text-slate-600 dark:text-slate-300"
         >
           {NAV_ITEMS.map((item) => {
             const isActive = activeSection === item.id;
@@ -279,6 +280,7 @@ export const Header: React.FC = () => {
         <div
           id="mobile-learner-drawer"
           role="dialog"
+          aria-modal="true"
           aria-label="Mobile Navigation Drawer"
           className="lg:hidden border-t border-slate-200 bg-white px-4 py-4 shadow-xl dark:border-slate-800 dark:bg-slate-950"
         >

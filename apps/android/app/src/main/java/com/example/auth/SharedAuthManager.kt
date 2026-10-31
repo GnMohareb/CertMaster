@@ -14,6 +14,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,16 +33,51 @@ class SharedAuthManager(private val context: Context? = null) {
     private val _ssoSession = MutableStateFlow(SsoSessionInfo())
     val ssoSession: StateFlow<SsoSessionInfo> = _ssoSession.asStateFlow()
 
+    companion object {
+        const val FIREBASE_PROJECT_ID = "gen-lang-client-0788513176"
+        const val FIRESTORE_DATABASE_ID = "ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001"
+        const val FIREBASE_APP_ID = "1:814967786900:web:800232a0bc3a2cb90cd381"
+        const val FIREBASE_API_KEY = "AIzaSyDOh5r6vbXc_WVJkrPfHt-ymaa9HMOBtsg"
+        const val FIREBASE_STORAGE_BUCKET = "gen-lang-client-0788513176.firebasestorage.app"
+        const val GOOGLE_WEB_OAUTH_CLIENT_ID = "814967786900-9idd4t0m0qikfs4g739to1s2fda2mefu.apps.googleusercontent.com"
+
+        fun buildSharedFirebaseOptions(): FirebaseOptions {
+            return FirebaseOptions.Builder()
+                .setProjectId(FIREBASE_PROJECT_ID)
+                .setApplicationId(FIREBASE_APP_ID)
+                .setApiKey(FIREBASE_API_KEY)
+                .setStorageBucket(FIREBASE_STORAGE_BUCKET)
+                .build()
+        }
+
+        /**
+         * Ensures FirebaseApp is initialized against gen-lang-client-0788513176 even when google-services.json
+         * has not yet been placed in apps/android/app/.
+         * Skips background Play Services thread initialization when running inside local JVM Robolectric unit tests.
+         */
+        fun ensureFirebaseAppInitialized(ctx: Context?): Boolean {
+            if (ctx == null) return false
+            if (android.os.Build.FINGERPRINT.equals("robolectric", ignoreCase = true)) {
+                return false
+            }
+            return try {
+                if (FirebaseApp.getApps(ctx).isNotEmpty()) {
+                    true
+                } else {
+                    FirebaseApp.initializeApp(ctx, buildSharedFirebaseOptions())
+                    FirebaseApp.getApps(ctx).isNotEmpty()
+                }
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
     /**
      * Checks if FirebaseApp is initialized in the current runtime environment.
      */
     fun isFirebaseInitialized(): Boolean {
-        val ctx = context ?: return false
-        return try {
-            FirebaseApp.getApps(ctx).isNotEmpty()
-        } catch (e: Exception) {
-            false
-        }
+        return ensureFirebaseAppInitialized(context)
     }
 
     /**

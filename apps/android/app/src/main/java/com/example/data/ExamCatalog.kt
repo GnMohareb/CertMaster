@@ -12,8 +12,8 @@ object ExamCatalog {
         issuer = "(ISC)² Cybersecurity Leadership",
         description = "The gold standard certification for information security leaders, covering governance, architecture, risk, and operations.",
         passingScorePercent = 70,
-        defaultSimulationCount = 50,
-        totalBankQuestions = 180,
+        defaultSimulationCount = 8,
+        totalBankQuestions = 8,
         durationMinutes = 180,
         primaryColorHex = 0xFF1D4ED8, // Sapphire Navy
         iconName = "Security",
@@ -36,8 +36,8 @@ object ExamCatalog {
         issuer = "Amazon Web Services",
         description = "Validates the ability to design high-performing, cost-optimized, secure, and resilient cloud architectures.",
         passingScorePercent = 72,
-        defaultSimulationCount = 65,
-        totalBankQuestions = 150,
+        defaultSimulationCount = 5,
+        totalBankQuestions = 5,
         durationMinutes = 130,
         primaryColorHex = 0xFFD97706, // Cloud Amber
         iconName = "Cloud",
@@ -56,8 +56,8 @@ object ExamCatalog {
         issuer = "CompTIA",
         description = "Baseline cybersecurity certification assessing core technical skills across baseline enterprise security.",
         passingScorePercent = 75,
-        defaultSimulationCount = 50,
-        totalBankQuestions = 140,
+        defaultSimulationCount = 5,
+        totalBankQuestions = 5,
         durationMinutes = 90,
         primaryColorHex = 0xFFDC2626, // Crimson Alert
         iconName = "AdminPanelSettings",
@@ -77,8 +77,8 @@ object ExamCatalog {
         issuer = "Project Management Institute (PMI)",
         description = "Gold-standard project leadership certification encompassing predictive, agile, and hybrid methodologies.",
         passingScorePercent = 72,
-        defaultSimulationCount = 50,
-        totalBankQuestions = 135,
+        defaultSimulationCount = 3,
+        totalBankQuestions = 3,
         durationMinutes = 180,
         primaryColorHex = 0xFF059669, // Emerald Leadership
         iconName = "AccountTree",
@@ -96,8 +96,8 @@ object ExamCatalog {
         issuer = "ISACA",
         description = "Management-focused certification validating information security governance, risk management, program development, and incident management.",
         passingScorePercent = 70,
-        defaultSimulationCount = 50,
-        totalBankQuestions = 150,
+        defaultSimulationCount = 3,
+        totalBankQuestions = 3,
         durationMinutes = 240,
         primaryColorHex = 0xFF0284C7,
         iconName = "Security",
@@ -116,8 +116,8 @@ object ExamCatalog {
         issuer = "EC-Council",
         description = "Comprehensive ethical hacking and penetration testing methodology covering reconnaissance, exploitation, web apps, and cloud security.",
         passingScorePercent = 70,
-        defaultSimulationCount = 50,
-        totalBankQuestions = 125,
+        defaultSimulationCount = 3,
+        totalBankQuestions = 3,
         durationMinutes = 240,
         primaryColorHex = 0xFF7C3AED,
         iconName = "BugReport",
@@ -131,13 +131,13 @@ object ExamCatalog {
 
     val GENERIC_TEMPLATE = ExamConfig(
         id = "custom-112",
-        title = "Custom Exam Bank Engine (Bank #1 to #120+)",
-        shortCode = "BANK-SYNC",
-        issuer = "CertMaster Cloud Backend Engine",
-        description = "Dynamic certification harness synchronized with the 120+ exam banks on the CertMaster Web Platform.",
+        title = "Catalog Preview Blueprint (106 Additional Certifications)",
+        shortCode = "CATALOG-PREVIEW",
+        issuer = "CertMaster Cloud Blueprint Registry",
+        description = "Domain blueprint preview synchronized with the 112-exam catalog on the CertMaster Web Platform (0 bundled practice questions).",
         passingScorePercent = 70,
-        defaultSimulationCount = 50,
-        totalBankQuestions = 150,
+        defaultSimulationCount = 0,
+        totalBankQuestions = 0,
         durationMinutes = 120,
         primaryColorHex = 0xFF7C3AED, // Royal Violet
         iconName = "AutoAwesome",
@@ -179,12 +179,46 @@ object ExamCatalog {
     }
 
     /**
-     * Returns canonical content availability status ("FULL_PREP" vs "CATALOG_PREVIEW").
+     * Objective, evidence-based content classification criteria (Phase 7 Section 8):
+     * - FULL_PREPARATION_AVAILABLE: >= 100 questions, >= 4 study guides, >= 20 flashcards, >= 1 audio briefing
+     * - LIMITED_PREPARATION: >= 25 questions, >= 2 study guides, >= 8 flashcards
+     * - SAMPLE_CONTENT_AVAILABLE: >= 3 questions, >= 1 study guide, >= 1 flashcard
+     * - CATALOG_PREVIEW: < 3 questions, > 0 domain blueprint definitions
+     * - CONTENT_COMING_SOON: 0 questions and 0 domain blueprint definitions
+     */
+    fun classifyExamContentAvailability(
+        questionCount: Int,
+        studyGuideCount: Int,
+        flashcardCount: Int,
+        audioBriefingCount: Int,
+        domainCount: Int
+    ): String {
+        return when {
+            questionCount >= 100 && studyGuideCount >= 4 && flashcardCount >= 20 && audioBriefingCount >= 1 ->
+                "FULL_PREPARATION_AVAILABLE"
+            questionCount >= 25 && studyGuideCount >= 2 && flashcardCount >= 8 ->
+                "LIMITED_PREPARATION"
+            questionCount >= 3 && studyGuideCount >= 1 && flashcardCount >= 1 ->
+                "SAMPLE_CONTENT_AVAILABLE"
+            domainCount > 0 ->
+                "CATALOG_PREVIEW"
+            else ->
+                "CONTENT_COMING_SOON"
+        }
+    }
+
+    /**
+     * Returns evidence-based content availability status ("SAMPLE_CONTENT_AVAILABLE" vs "CATALOG_PREVIEW").
      */
     fun getExamContentStatus(examId: String): String {
         return when (normalizeExamId(examId)) {
-            "cissp", "aws-saa", "sec-plus", "pmp", "cism", "ceh" -> "FULL_PREP"
-            else -> "CATALOG_PREVIEW"
+            "cissp" -> classifyExamContentAvailability(8, 4, 8, 3, 8)
+            "aws-saa" -> classifyExamContentAvailability(5, 1, 3, 1, 4)
+            "sec-plus" -> classifyExamContentAvailability(5, 1, 2, 1, 5)
+            "pmp" -> classifyExamContentAvailability(3, 1, 1, 1, 3)
+            "cism" -> classifyExamContentAvailability(3, 1, 1, 1, 4)
+            "ceh" -> classifyExamContentAvailability(3, 1, 1, 1, 4)
+            else -> classifyExamContentAvailability(0, 0, 0, 0, 4)
         }
     }
 
@@ -194,7 +228,7 @@ object ExamCatalog {
     }
 
     /**
-     * Returns the full 120-certification catalog synchronized with CertMaster Web Platform.
+     * Returns the full 112-certification catalog synchronized with CertMaster Web Platform.
      */
-    fun getFullSynchronizedCatalogCount(): Int = 120
+    fun getFullSynchronizedCatalogCount(): Int = 112
 }

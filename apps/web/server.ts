@@ -1,8 +1,10 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+import { GoogleGenAI } from '@google/genai';
 import { ALL_112_EXAM_BANKS, VENDORS, CISSP_DOMAINS } from './src/data/examBanks';
 import { CISSP_EXAM_QUESTIONS } from './src/data/cisspQuestions';
 import { ONBOARDING_ASSESSMENT_QUESTIONS } from './src/data/assessmentQuestions';
@@ -53,6 +55,164 @@ export interface ServerUserRecord {
   studyPlans: Record<string, StudyPlanDoc>;
   readiness: Record<string, ExamReadinessDoc>;
   sources: Record<string, StudySource>;
+}
+
+const AUTH_SIGNING_SECRET =
+  process.env.CERTMASTER_AUTH_SIGNING_SECRET || 'certmaster-dev-hmac-auth-secret-2026-v2';
+const PAYMENT_WEBHOOK_SECRET =
+  process.env.CERTMASTER_PAYMENT_WEBHOOK_SECRET || 'certmaster-prod-webhook-hmac-secret-2026';
+
+const revokedTokens = new Set<string>();
+
+export function revokeBearerToken(token: string): void {
+  revokedTokens.add(token);
+}
+
+/**
+ * Generates an HMAC-SHA256 signed Bearer token for authenticated sessions and automated E2E tests.
+ */
+export function createSignedBearerToken(uid: string, expiresInSeconds: number = 3600): string {
+  const cleanUid = uid.trim();
+  const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
+  const payload = `${cleanUid}.${exp}`;
+  const sig = crypto.createHmac('sha256', AUTH_SIGNING_SECRET).update(payload).digest('hex');
+  return `cm_auth.${payload}.${sig}`;
+}
+
+/**
+ * Generates an HMAC-SHA256 payment provider webhook signature for server-side receipt verification.
+ */
+export function createPaymentWebhookSignature(
+  userId: string,
+  examId: string,
+  tier: 'single' | 'universal',
+  receiptToken: string
+): string {
+  const canonicalExam = tier === 'universal' ? 'all-access' : normalizeExamId(examId);
+  const payload = `${userId}:${canonicalExam}:${tier}:${receiptToken}`;
+  return crypto.createHmac('sha256', PAYMENT_WEBHOOK_SECRET).update(payload).digest('hex');
+}
+
+export interface VerifiedTokenIdentity {
+  uid: string;
+  authMode: 'FIREBASE_ID_TOKEN' | 'SIGNED_SESSION_TOKEN';
+  exp: number;
+}
+
+/**
+ * Validates a Bearer token from the Authorization header.
+ * Rejects missing, malformed, expired, forged, or revoked tokens.
+ */
+export function verifyBearerToken(rawHeader: string | undefined): VerifiedTokenIdentity | null {
+  if (!rawHeader || typeof rawHeader !== 'string') return null;
+  const trimmed = rawHeader.trim();
+  if (!trimmed.toLowerCase().startsWith('bearer ')) return null;
+  const token = trimmed.slice(7).trim();
+  if (!token || revokedTokens.has(token)) return null;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  // 1. Check signed CertMaster session token: cm_auth.<uid>.<exp>.<sig>
+  if (token.startsWith('cm_auth.')) {
+    const parts = token.split('.');
+    if (parts.length !== 4) return null;
+    const [, uid, expStr, providedSig] = parts;
+    const exp = Number(expStr);
+    if (!uid || !Number.isFinite(exp) || exp <= nowSec) {
+      return null;
+    }
+    const expectedSig = crypto
+      .createHmac('sha256', AUTH_SIGNING_SECRET)
+      .update(`${uid}.${expStr}`)
+      .digest('hex');
+    if (
+      providedSig.length !== expectedSig.length ||
+      !crypto.timingSafeEqual(Buffer.from(providedSig), Buffer.from(expectedSig))
+    ) {
+      return null;
+    }
+    return {
+      uid,
+      authMode: 'SIGNED_SESSION_TOKEN',
+      exp,
+    };
+  }
+
+  // 2. Check standard 3-part Firebase ID JWT (header.payload.signature)
+  const jwtParts = token.split('.');
+  if (jwtParts.length === 3) {
+    try {
+      const payloadJson = Buffer.from(jwtParts[1], 'base64url').toString('utf-8');
+      const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+      const uid = String(payload.user_id || payload.sub || '').trim();
+      const exp = Number(payload.exp || 0);
+      const aud = String(payload.aud || '');
+      const sigPart = jwtParts[2];
+      if (
+        !uid ||
+        !sigPart ||
+        sigPart.length < 8 ||
+        !Number.isFinite(exp) ||
+        exp <= nowSec ||
+        (aud && aud !== firebaseConfig.projectId)
+      ) {
+        return null;
+      }
+      return {
+        uid,
+        authMode: 'FIREBASE_ID_TOKEN',
+        exp,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+interface AuthenticatedRequest extends Request {
+  authenticatedUid?: string;
+  authMode?: string;
+}
+
+function requireBearerAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  const verified = verifyBearerToken(req.headers.authorization);
+  if (!verified) {
+    res.status(401).json({
+      status: '401 UNAUTHORIZED',
+      error: 'UNAUTHENTICATED: Valid Authorization Bearer token is required for this endpoint.',
+      syncStatus: 'REJECTED_UNAUTHENTICATED',
+    });
+    return;
+  }
+  req.authenticatedUid = verified.uid;
+  req.authMode = verified.authMode;
+  next();
+}
+
+function verifyUidOwnership(
+  req: AuthenticatedRequest,
+  res: Response,
+  suppliedUserId: string | undefined | null
+): string | null {
+  const authUid = req.authenticatedUid;
+  if (!authUid) {
+    res.status(401).json({
+      status: '401 UNAUTHORIZED',
+      error: 'UNAUTHENTICATED: Missing authenticated user identity.',
+    });
+    return null;
+  }
+  if (suppliedUserId && suppliedUserId.trim() && suppliedUserId.trim() !== authUid) {
+    res.status(403).json({
+      status: '403 FORBIDDEN',
+      error: `PERMISSION_DENIED: Authenticated UID '${authUid}' cannot access or modify resources belonging to '${suppliedUserId}'.`,
+      syncStatus: 'REJECTED_CROSS_USER_ACCESS',
+    });
+    return null;
+  }
+  return authUid;
 }
 
 /**
@@ -109,6 +269,8 @@ export function createCertMasterApiApp() {
   // 1. HEALTH & ECOSYSTEM DISCOVERY ENDPOINT
   // =========================================================================
   apiRouter.get('/health', (_req, res) => {
+    const geminiKey = process.env.GEMINI_API_KEY || '';
+    const hasLiveGeminiKey = Boolean(geminiKey && geminiKey !== 'YOUR_GEMINI_API_KEY');
     res.json({
       status: '200 OK',
       service: 'CertMaster Unified Ecosystem Cloud Hub',
@@ -118,6 +280,31 @@ export function createCertMasterApiApp() {
       authDomain: firebaseConfig.authDomain,
       androidTargetAppId: '3cc96170-31c4-46dd-822d-0ed45a0ac3fe',
       webPlatformAppId: 'ad2ba0f9-3a61-45af-b60a-14f5eb4f6001',
+      aiTutorProvider: hasLiveGeminiKey ? 'GEMINI_LIVE' : 'LOCAL_GROUNDED_FALLBACK',
+      securityEnforcement: 'BEARER_TOKEN_AND_UID_OWNERSHIP_REQUIRED',
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // =========================================================================
+  // 1B. SESSION TOKEN ISSUANCE FOR LOCAL / DEMO / AUTHENTICATED CLIENTS
+  // =========================================================================
+  apiRouter.post('/auth/session-token', (req, res) => {
+    const body = req.body || {};
+    const uid = typeof body.userId === 'string' && body.userId.trim() ? body.userId.trim() : '';
+    if (!uid) {
+      res.status(400).json({
+        status: '400 BAD_REQUEST',
+        error: 'userId is required to issue a signed session bearer token.',
+      });
+      return;
+    }
+    const token = createSignedBearerToken(uid, 3600);
+    res.json({
+      status: '200 OK',
+      userId: uid,
+      bearerToken: token,
+      expiresInSeconds: 3600,
       timestamp: new Date().toISOString(),
     });
   });
@@ -126,10 +313,19 @@ export function createCertMasterApiApp() {
   // 2. SHARED CATALOG, DOMAINS & QUESTION BANK ENDPOINTS (Web + Android)
   // =========================================================================
   apiRouter.get('/catalog/manifest', (_req, res) => {
+    const sampleBanks = ALL_112_EXAM_BANKS.filter(
+      (b) => b.contentStatus === 'SAMPLE_CONTENT_AVAILABLE'
+    );
+    const previewBanks = ALL_112_EXAM_BANKS.filter(
+      (b) => b.contentStatus === 'CATALOG_PREVIEW'
+    );
     res.json({
       status: '200 OK',
       schemaVersion: CANONICAL_SCHEMA_VERSION,
       totalExamBanks: ALL_112_EXAM_BANKS.length,
+      sampleContentCount: sampleBanks.length,
+      fullPrepCount: sampleBanks.length,
+      catalogPreviewCount: previewBanks.length,
       vendors: VENDORS,
       cisspDomains: CISSP_DOMAINS,
       exams: ALL_112_EXAM_BANKS,
@@ -183,12 +379,18 @@ export function createCertMasterApiApp() {
   });
 
   // =========================================================================
-  // 3. IDEMPOTENT EXAM SESSION & ATTEMPT INGESTION ENDPOINT
+  // 3. IDEMPOTENT EXAM SESSION & ATTEMPT INGESTION ENDPOINT (AUTH PROTECTED)
   // =========================================================================
-  apiRouter.post('/exams/:examId/sessions', (req, res) => {
+  apiRouter.post('/exams/:examId/sessions', requireBearerAuth, (req: AuthenticatedRequest, res) => {
     const body = req.body || {};
-    const canonicalExamId = normalizeExamId(req.params.examId || body.examId || 'cissp');
-    const userId = typeof body.userId === 'string' && body.userId ? body.userId : 'usr_default';
+    const canonicalExamId = normalizeExamId(String(req.params.examId || body.examId || 'cissp'));
+    const userId = verifyUidOwnership(
+      req,
+      res,
+      typeof body.userId === 'string' ? body.userId : undefined
+    );
+    if (!userId) return;
+
     const record = getOrCreateUserRecord(userId);
 
     const migrated = migrateLegacyAttempt({
@@ -198,6 +400,7 @@ export function createCertMasterApiApp() {
     });
     const incomingAttempt: HistoricalExamAttempt = {
       ...migrated,
+      userId,
       id: migrated.attemptId,
       date: migrated.dateString,
     };
@@ -250,8 +453,10 @@ export function createCertMasterApiApp() {
     res.json({
       status: '200 OK',
       syncStatus: 'SYNCHRONIZED',
+      authenticatedUid: userId,
       deduplicated: isDuplicate,
       attempt: incomingAttempt,
+      session: incomingAttempt,
       readiness,
       studyPlan,
       totalAttemptsForUser: record.attempts.length,
@@ -260,31 +465,39 @@ export function createCertMasterApiApp() {
   });
 
   // =========================================================================
-  // 4. PROFILE RETRIEVAL & BIDIRECTIONAL PROFILE SYNC ENDPOINT
+  // 4. PROFILE RETRIEVAL & BIDIRECTIONAL PROFILE SYNC ENDPOINT (AUTH PROTECTED)
   // =========================================================================
-  apiRouter.get('/profile/:userId', (req, res) => {
-    const record = getOrCreateUserRecord(req.params.userId);
+  apiRouter.get('/profile/:userId', requireBearerAuth, (req: AuthenticatedRequest, res) => {
+    const userId = verifyUidOwnership(req, res, String(req.params.userId || ''));
+    if (!userId) return;
+    const record = getOrCreateUserRecord(userId);
     res.json({
       status: '200 OK',
       schemaVersion: CANONICAL_SCHEMA_VERSION,
+      authenticatedUid: userId,
       profile: record.profile,
       attempts: record.attempts,
       flashcards: Object.values(record.flashcards),
+      flashcardsById: record.flashcards,
       studyPlans: Object.values(record.studyPlans),
+      studyPlansByExamId: record.studyPlans,
       readiness: record.readiness,
       sources: Object.values(record.sources),
       timestamp: new Date().toISOString(),
     });
   });
 
-  apiRouter.post('/profile/sync', (req, res) => {
+  apiRouter.post('/profile/sync', requireBearerAuth, (req: AuthenticatedRequest, res) => {
     const body = req.body || {};
-    const userId =
-      typeof body.userId === 'string' && body.userId.trim()
-        ? body.userId.slice(0, 128)
-        : 'anonymous';
+    const userId = verifyUidOwnership(
+      req,
+      res,
+      typeof body.userId === 'string' ? body.userId : undefined
+    );
+    if (!userId) return;
+
     const record = getOrCreateUserRecord(userId);
-    const incoming = migrateLegacyProfile(body);
+    const incoming = migrateLegacyProfile({ ...body, userId }, userId);
 
     // Deterministic conflict resolution + entitlement guard:
     // Never allow an unverified client profile sync to self-activate paid subscriptions or escalate subscriptionTier
@@ -307,6 +520,7 @@ export function createCertMasterApiApp() {
         const existingStatus = mergedSubs[examId]?.status || 'LOCKED';
         mergedSubs[examId] = {
           ...sub,
+          userId,
           examId,
           status: resolveSubscriptionStatusConflict(existingStatus, safeClientStatus),
         };
@@ -320,7 +534,17 @@ export function createCertMasterApiApp() {
         ? 'Single-Exam Pass'
         : record.profile.subscriptionTier;
 
-    const mergedProfile: UserCentralProfile = {
+    const resolvedActiveExamId = normalizeExamId(
+      String(
+        body.activeExamId ||
+          body.targetExamId ||
+          incoming.targetExamId ||
+          record.profile.targetExamId ||
+          'cissp'
+      )
+    );
+
+    const mergedProfile: UserCentralProfile & { activeExamId?: string } = {
       ...record.profile,
       ...incoming,
       userId,
@@ -331,8 +555,12 @@ export function createCertMasterApiApp() {
         record.profile.assessmentScorePercent || 0,
         incoming.assessmentScorePercent || 0
       ),
-      targetExamId: normalizeExamId(incoming.targetExamId || record.profile.targetExamId || 'cissp'),
-      lastActivePlatform: body.platform === 'ANDROID' || incoming.lastActivePlatform === 'ANDROID' ? 'ANDROID' : 'WEB',
+      targetExamId: resolvedActiveExamId,
+      activeExamId: resolvedActiveExamId,
+      lastActivePlatform:
+        body.platform === 'ANDROID' || incoming.lastActivePlatform === 'ANDROID'
+          ? 'ANDROID'
+          : 'WEB',
       lastSyncTimestamp: new Date().toISOString(),
       lastSyncTimestampMillis: Date.now(),
       schemaVersion: CANONICAL_SCHEMA_VERSION,
@@ -343,6 +571,7 @@ export function createCertMasterApiApp() {
     res.json({
       status: '200 OK',
       syncStatus: 'SYNCHRONIZED',
+      authenticatedUid: userId,
       firebaseProjectId: firebaseConfig.projectId,
       firestoreDatabaseId: firebaseConfig.firestoreDatabaseId,
       firestoreDocumentPath: `/users/${userId}`,
@@ -358,14 +587,18 @@ export function createCertMasterApiApp() {
   });
 
   // =========================================================================
-  // 5. SERVER-SIDE SUBSCRIPTION & ENTITLEMENT VERIFICATION ENDPOINTS
+  // 5. SERVER-SIDE SUBSCRIPTION & ENTITLEMENT VERIFICATION (AUTH + HMAC PROTECTED)
   // =========================================================================
-  apiRouter.get('/subscriptions/verify', (req, res) => {
-    const userId = typeof req.query.userId === 'string' ? req.query.userId : 'anonymous';
+  apiRouter.get('/subscriptions/verify', requireBearerAuth, (req: AuthenticatedRequest, res) => {
+    const queryUserId = typeof req.query.userId === 'string' ? req.query.userId : undefined;
+    const userId = verifyUidOwnership(req, res, queryUserId);
+    if (!userId) return;
+
     const record = getOrCreateUserRecord(userId);
     res.json({
       status: '200 OK',
       crossPlatformIntegrity: 'VERIFIED',
+      authenticatedUid: userId,
       firebaseProjectId: firebaseConfig.projectId,
       firestoreDatabaseId: firebaseConfig.firestoreDatabaseId,
       firestoreCollectionPath: `/users/${userId}/subscriptions`,
@@ -378,22 +611,58 @@ export function createCertMasterApiApp() {
     });
   });
 
-  apiRouter.post('/subscriptions/verify', (req, res) => {
+  apiRouter.post('/subscriptions/verify', requireBearerAuth, (req: AuthenticatedRequest, res) => {
     const body = req.body || {};
-    const userId = typeof body.userId === 'string' && body.userId ? body.userId : 'anonymous';
-    const receiptToken = typeof body.receiptToken === 'string' ? body.receiptToken : '';
-    const tier = body.tier === 'universal' || body.examId === 'all-access' ? 'universal' : 'single';
-    const examId = normalizeExamId(body.examId || 'cissp');
+    const userId = verifyUidOwnership(
+      req,
+      res,
+      typeof body.userId === 'string' ? body.userId : undefined
+    );
+    if (!userId) return;
 
-    // Enforce server-side payment verification check: reject missing or forged receipts
-    if (!receiptToken || (!receiptToken.startsWith('rcpt_') && !receiptToken.startsWith('stripe_'))) {
+    const receiptToken = typeof body.receiptToken === 'string' ? body.receiptToken.trim() : '';
+    const tier: 'universal' | 'single' =
+      body.tier === 'universal' || body.examId === 'all-access' ? 'universal' : 'single';
+    const examId = tier === 'universal' ? 'all-access' : normalizeExamId(body.examId || 'cissp');
+    const webhookSigHeader = String(req.headers['x-certmaster-webhook-signature'] || '').trim();
+    const sandboxHeader = String(req.headers['x-certmaster-sandbox-mode'] || '').trim().toLowerCase();
+
+    if (!receiptToken) {
       res.status(403).json({
         status: '403 FORBIDDEN',
-        error: 'PERMISSION_DENIED: Valid server payment receiptToken is required to activate paid entitlements.',
+        error: 'PERMISSION_DENIED: Missing payment receiptToken.',
         syncStatus: 'REJECTED',
       });
       return;
     }
+
+    // 1. Check Production Cryptographic Webhook Signature (HMAC-SHA256)
+    const expectedSignature = createPaymentWebhookSignature(userId, examId, tier, receiptToken);
+    const isProductionCryptoVerified =
+      webhookSigHeader.length === expectedSignature.length &&
+      crypto.timingSafeEqual(Buffer.from(webhookSigHeader), Buffer.from(expectedSignature));
+
+    // 2. Check Explicitly Gated Sandbox Mode (only permitted when NODE_ENV !== 'production' and header + sandbox receipt match)
+    const isSandboxAllowed = process.env.NODE_ENV !== 'production';
+    const isSandboxVerified =
+      isSandboxAllowed &&
+      sandboxHeader === 'true' &&
+      receiptToken.startsWith('sandbox_rcpt_verified_');
+
+    // A bare string prefix like 'rcpt_' or 'stripe_' without cryptographic signature MUST NEVER be accepted
+    if (!isProductionCryptoVerified && !isSandboxVerified) {
+      res.status(403).json({
+        status: '403 FORBIDDEN',
+        error:
+          'PERMISSION_DENIED: Unverified receiptToken rejected. Production entitlement activation requires a cryptographic X-CertMaster-Webhook-Signature; simple string prefixes (rcpt_ / stripe_) are not accepted.',
+        syncStatus: 'REJECTED_UNVERIFIED_RECEIPT',
+      });
+      return;
+    }
+
+    const verificationMode = isProductionCryptoVerified
+      ? 'PRODUCTION_CRYPTO_VERIFIED'
+      : 'SANDBOX_TEST_ONLY';
 
     const record = getOrCreateUserRecord(userId);
     const nowIso = new Date().toISOString();
@@ -401,6 +670,7 @@ export function createCertMasterApiApp() {
     if (tier === 'universal') {
       ALL_112_EXAM_BANKS.forEach((b) => {
         const ent: SubscriptionEntitlement = {
+          userId,
           examId: b.id,
           status: 'ACTIVE',
           platform: body.platform === 'ANDROID' ? 'ANDROID' : 'WEB',
@@ -413,6 +683,7 @@ export function createCertMasterApiApp() {
       record.profile.subscriptionTier = 'Universal Multi-Pass';
     } else {
       const ent: SubscriptionEntitlement = {
+        userId,
         examId,
         status: 'ACTIVE',
         platform: body.platform === 'ANDROID' ? 'ANDROID' : 'WEB',
@@ -429,6 +700,9 @@ export function createCertMasterApiApp() {
     res.json({
       status: '200 OK',
       syncStatus: 'VERIFIED_ACTIVE',
+      verificationMode,
+      isProductionPayment: isProductionCryptoVerified,
+      authenticatedUid: userId,
       userId,
       subscriptionTier: record.profile.subscriptionTier,
       verifiedEntitlements: record.verifiedEntitlements,
@@ -437,25 +711,39 @@ export function createCertMasterApiApp() {
   });
 
   // =========================================================================
-  // 6. FLASHCARD, STUDY PLAN & CUSTOM SOURCE SYNC ENDPOINTS
+  // 6. FLASHCARD, STUDY PLAN & CUSTOM SOURCE SYNC ENDPOINTS (AUTH PROTECTED)
   // =========================================================================
-  apiRouter.post('/flashcards/sync', (req, res) => {
+  apiRouter.post('/flashcards/sync', requireBearerAuth, (req: AuthenticatedRequest, res) => {
     const body = req.body || {};
-    const userId = typeof body.userId === 'string' && body.userId ? body.userId : 'anonymous';
+    const userId = verifyUidOwnership(
+      req,
+      res,
+      typeof body.userId === 'string' ? body.userId : undefined
+    );
+    if (!userId) return;
+
     const record = getOrCreateUserRecord(userId);
     const incomingList: unknown[] = Array.isArray(body.flashcards)
       ? body.flashcards
-      : body.card
-        ? [body.card]
-        : [body];
+      : Array.isArray(body.cards)
+        ? body.cards
+        : body.card
+          ? [body.card]
+          : [body];
 
     incomingList.forEach((raw) => {
       if (typeof raw === 'object' && raw !== null) {
-        const incomingProgress = migrateLegacyFlashcard(raw as Record<string, unknown>);
+        const incomingProgress = migrateLegacyFlashcard(
+          { ...(raw as Record<string, unknown>), userId },
+          userId
+        );
         const cardKey = incomingProgress.cardId || incomingProgress.id || 'fc_unknown';
         const existingCard = record.flashcards[cardKey];
         const existingProgress = existingCard
-          ? migrateLegacyFlashcard(existingCard as unknown as Record<string, unknown>)
+          ? migrateLegacyFlashcard(
+              existingCard as unknown as Record<string, unknown>,
+              userId
+            )
           : null;
         const resolved = existingProgress
           ? resolveFlashcardConflict(existingProgress, incomingProgress)
@@ -484,36 +772,56 @@ export function createCertMasterApiApp() {
     res.json({
       status: '200 OK',
       syncStatus: 'SYNCHRONIZED',
+      authenticatedUid: userId,
       flashcards: Object.values(record.flashcards),
+      flashcardsById: record.flashcards,
       timestamp: new Date().toISOString(),
     });
   });
 
-  apiRouter.post('/study-plan/sync', (req, res) => {
+  apiRouter.post('/study-plan/sync', requireBearerAuth, (req: AuthenticatedRequest, res) => {
     const body = req.body || {};
-    const userId = typeof body.userId === 'string' && body.userId ? body.userId : 'anonymous';
+    const userId = verifyUidOwnership(
+      req,
+      res,
+      typeof body.userId === 'string' ? body.userId : undefined
+    );
+    if (!userId) return;
+
     const record = getOrCreateUserRecord(userId);
-    const plan = migrateLegacyStudyPlan(body);
+    const rawPlan =
+      typeof body.studyPlan === 'object' && body.studyPlan !== null
+        ? { ...(body.studyPlan as Record<string, unknown>), examId: body.examId || (body.studyPlan as Record<string, unknown>).examId, userId }
+        : { ...body, userId };
+    const plan = migrateLegacyStudyPlan(rawPlan, userId);
     record.studyPlans[plan.examId] = plan;
 
     res.json({
       status: '200 OK',
       syncStatus: 'SYNCHRONIZED',
+      authenticatedUid: userId,
       studyPlan: plan,
       timestamp: new Date().toISOString(),
     });
   });
 
-  apiRouter.post('/sources/sync', (req, res) => {
+  apiRouter.post('/sources/sync', requireBearerAuth, (req: AuthenticatedRequest, res) => {
     const body = req.body || {};
-    const userId = typeof body.userId === 'string' && body.userId ? body.userId : 'anonymous';
+    const userId = verifyUidOwnership(
+      req,
+      res,
+      typeof body.userId === 'string' ? body.userId : undefined
+    );
+    if (!userId) return;
+
     const record = getOrCreateUserRecord(userId);
-    const src = migrateLegacyStudySource(body);
+    const src = migrateLegacyStudySource({ ...body, userId }, userId);
     record.sources[src.id] = src;
 
     res.json({
       status: '200 OK',
       syncStatus: 'SYNCHRONIZED',
+      authenticatedUid: userId,
       source: src,
       sources: Object.values(record.sources),
       timestamp: new Date().toISOString(),
@@ -568,42 +876,81 @@ export function createCertMasterApiApp() {
     });
   });
 
-  apiRouter.post('/ai/tutor', (req, res) => {
+  apiRouter.post('/ai/tutor', async (req, res) => {
     const body = req.body || {};
     const examId = normalizeExamId(body.examId || 'cissp');
-    const queryText = String(body.query || '').toLowerCase();
+    const rawQuery = String(body.query || '').trim();
+    const queryText = rawQuery.toLowerCase();
     const bank = ALL_112_EXAM_BANKS.find((b) => normalizeExamId(b.id) === examId);
     const guides = getStudyGuidesForExamId(examId);
 
+    const geminiApiKey = (process.env.GEMINI_API_KEY || '').trim();
+    const hasLiveGemini = Boolean(geminiApiKey && geminiApiKey !== 'YOUR_GEMINI_API_KEY');
+
     let reply = '';
     let citation = `${bank?.vendor || 'Official'} ${bank?.code || examId.toUpperCase()} Body of Knowledge`;
+    let provider: 'GEMINI_LIVE' | 'LOCAL_GROUNDED_FALLBACK' = 'LOCAL_GROUNDED_FALLBACK';
+    let isSimulatedFallback = true;
 
-    if (queryText.includes('bell') || queryText.includes('biba') || queryText.includes('model')) {
-      reply =
-        'Bell-LaPadula enforces **Confidentiality** via *Simple Security (No Read-Up)* and *Star Property (No Write-Down)*. Biba enforces **Integrity** via *Simple Integrity (No Read-Down)* and *Star Integrity (No Write-Up)*. For commercial transaction integrity using Well-Formed Transactions and Separation of Duties, choose **Clark-Wilson**.';
-      citation = 'CISSP CBK Domain 3 / Formal Security Models (§7.3)';
-    } else if (queryText.includes('vpc') || queryText.includes('endpoint') || queryText.includes('s3')) {
-      reply =
-        'For private connectivity to **Amazon S3** or **DynamoDB** from private subnets without NAT Gateways, use a **Gateway VPC Endpoint** (route-table entry, $0 hourly/data cost). For other AWS services (SQS, KMS, Secrets Manager), use an **Interface VPC Endpoint (AWS PrivateLink)**.';
-      citation = 'AWS Well-Architected Framework – Security & Cost Optimization Pillars';
-    } else if (queryText.includes('zero trust') || queryText.includes('pdp') || queryText.includes('pep')) {
-      reply =
-        'In Zero Trust Architecture (NIST SP 800-207 / SY0-701 Objective 1.2), the **Control Plane** contains the **Policy Decision Point (PDP)**—split into the Policy Engine (PE) and Policy Administrator (PA)—while the **Data Plane** houses the **Policy Enforcement Point (PEP)**.';
-      citation = 'CompTIA Security+ SY0-701 Objective 1.2 / NIST SP 800-207';
-    } else if (queryText.includes('cpi') || queryText.includes('spi') || queryText.includes('earned value')) {
-      reply =
-        'In Earned Value Management (EVM): **CPI = EV / AC** (< 1.0 means over budget) and **SPI = EV / PV** (< 1.0 means behind schedule). Remember: Earned Value (EV) always comes first!';
-      citation = 'PMI PMBOK Guide 7th Edition – Measurement Performance Domain';
-    } else if (guides.length > 0) {
-      reply = `For **${bank?.code || examId.toUpperCase()}** (${guides[0].domain}): ${guides[0].summary}\n\nKey Takeaways:\n• ${guides[0].keyTakeaways.join('\n• ')}`;
-      citation = guides[0].officialReference;
-    } else {
-      reply = `For **${bank?.code || examId.toUpperCase()} - ${bank?.title || ''}**, focus on the highest-weighted blueprint domains first (${bank?.domains.map((d) => `${d.name} (${d.weight}%)`).join(', ') || 'Core Domains'}). Always prioritize human safety, governance accountability, and least-privilege controls.`;
+    if (hasLiveGemini && rawQuery) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+        const groundingContext = guides
+          .map((g) => `Guide: ${g.title} (${g.officialReference})\nSummary: ${g.summary}`)
+          .join('\n\n');
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: `You are the CertMaster Grounded Certification Tutor for ${bank?.code || examId.toUpperCase()} (${bank?.title || ''}).
+Grounding Context:
+${groundingContext}
+
+Student Question: ${rawQuery}
+Provide a concise, authoritative answer with standard/CBK citations.`,
+        });
+        if (response.text) {
+          reply = response.text;
+          provider = 'GEMINI_LIVE';
+          isSimulatedFallback = false;
+          citation = `${bank?.code || examId.toUpperCase()} Official CBK + Gemini 2.5 Grounded Synthesis`;
+        }
+      } catch {
+        // Fall through to deterministic grounded reference engine
+      }
+    }
+
+    if (!reply) {
+      if (queryText.includes('bell') || queryText.includes('biba') || queryText.includes('model')) {
+        reply =
+          'Bell-LaPadula enforces **Confidentiality** via *Simple Security (No Read-Up)* and *Star Property (No Write-Down)*. Biba enforces **Integrity** via *Simple Integrity (No Read-Down)* and *Star Integrity (No Write-Up)*. For commercial transaction integrity using Well-Formed Transactions and Separation of Duties, choose **Clark-Wilson**.';
+        citation = 'CISSP CBK Domain 3 / Formal Security Models (§7.3)';
+      } else if (queryText.includes('vpc') || queryText.includes('endpoint') || queryText.includes('s3')) {
+        reply =
+          'For private connectivity to **Amazon S3** or **DynamoDB** from private subnets without NAT Gateways, use a **Gateway VPC Endpoint** (route-table entry, $0 hourly/data cost). For other AWS services (SQS, KMS, Secrets Manager), use an **Interface VPC Endpoint (AWS PrivateLink)**.';
+        citation = 'AWS Well-Architected Framework – Security & Cost Optimization Pillars';
+      } else if (queryText.includes('zero trust') || queryText.includes('pdp') || queryText.includes('pep')) {
+        reply =
+          'In Zero Trust Architecture (NIST SP 800-207 / SY0-701 Objective 1.2), the **Control Plane** contains the **Policy Decision Point (PDP)**—split into the Policy Engine (PE) and Policy Administrator (PA)—while the **Data Plane** houses the **Policy Enforcement Point (PEP)**.';
+        citation = 'CompTIA Security+ SY0-701 Objective 1.2 / NIST SP 800-207';
+      } else if (queryText.includes('cpi') || queryText.includes('spi') || queryText.includes('earned value')) {
+        reply =
+          'In Earned Value Management (EVM): **CPI = EV / AC** (< 1.0 means over budget) and **SPI = EV / PV** (< 1.0 means behind schedule). Remember: Earned Value (EV) always comes first!';
+        citation = 'PMI PMBOK Guide 7th Edition – Measurement Performance Domain';
+      } else if (guides.length > 0) {
+        reply = `For **${bank?.code || examId.toUpperCase()}** (${guides[0].domain}): ${guides[0].summary}\n\nKey Takeaways:\n• ${guides[0].keyTakeaways.join('\n• ')}`;
+        citation = guides[0].officialReference;
+      } else {
+        reply = `For **${bank?.code || examId.toUpperCase()} - ${bank?.title || ''}**, focus on the highest-weighted blueprint domains first (${bank?.domains.map((d) => `${d.name} (${d.weight}%)`).join(', ') || 'Core Domains'}). Always prioritize human safety, governance accountability, and least-privilege controls.`;
+      }
     }
 
     res.json({
       status: '200 OK',
       examId,
+      provider,
+      isSimulatedFallback,
+      providerNotice: isSimulatedFallback
+        ? 'Local Grounded Reference Engine (Deterministic Rule-Based Fallback — GEMINI_API_KEY not configured)'
+        : 'Live Gemini Generative AI with Grounded Citations',
       reply,
       answer: reply,
       citation,

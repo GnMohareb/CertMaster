@@ -41,7 +41,7 @@ data class SsoSessionInfo(
     val isAuthenticated: Boolean = true,
     val provider: String = "Google Identity Services (OIDC)",
     val issuer: String = "https://accounts.google.com",
-    val clientId: String = "certmaster-sso-production.apps.googleusercontent.com",
+    val clientId: String = "814967786900-9idd4t0m0qikfs4g739to1s2fda2mefu.apps.googleusercontent.com",
     val ssoSubjectId: String = "usr_gnmohareb_cissp_001",
     val email: String = "gnmohareb@gmail.com",
     val displayName: String = "GN Mohareb",
@@ -57,7 +57,7 @@ data class SsoSessionInfo(
     val tokenExpiresAt: Long = System.currentTimeMillis() + 79200_000L,
     val jwtTokenPreview: String = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjRiMWY5YSIsInR5cCI6IkpXVCJ9...",
     val androidDeviceId: String = "pixel8pro_android_gnm_77a9",
-    val syncStatus: String = "SYNCHRONIZED"
+    val syncStatus: String = "LOCAL_DEMO_MODE"
 )
 
 data class ExamSubscription(

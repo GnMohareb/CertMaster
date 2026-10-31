@@ -1,5 +1,8 @@
 import { ExamBank, VendorType } from '../types/certmaster';
-import { getExamContentStatus } from '../lib/canonicalContract';
+import {
+  classifyExamContentAvailability,
+  getExamBundledContentAudit,
+} from '../lib/canonicalContract';
 
 export const CISSP_DOMAINS = [
   { id: 'd1', name: 'Security & Risk Management', weight: 15 },
@@ -2155,7 +2158,15 @@ const RAW_112_EXAM_BANKS: ExamBank[] = [
   },
 ];
 
-export const ALL_112_EXAM_BANKS: ExamBank[] = RAW_112_EXAM_BANKS.map((bank) => ({
-  ...bank,
-  contentStatus: getExamContentStatus(bank.id),
-}));
+export const ALL_112_EXAM_BANKS: ExamBank[] = RAW_112_EXAM_BANKS.map((bank) => {
+  const audit = getExamBundledContentAudit(bank.id, bank.domains.length);
+  return {
+    ...bank,
+    officialBlueprintQuestionsCount: bank.questionsCount,
+    questionsCount: audit.questionCount,
+    studyGuidesCount: audit.studyGuideCount,
+    flashcardsCount: audit.flashcardCount,
+    audioBriefingsCount: audit.audioBriefingCount,
+    contentStatus: classifyExamContentAvailability(audit),
+  };
+});

@@ -214,7 +214,7 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen w-full overflow-x-hidden flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors">
       <Header />
 
       {/* Global Toast Notification */}
@@ -297,7 +297,7 @@ const MainContent: React.FC = () => {
               </span>
             </span>
             <span>·</span>
-            <span>6 Full-Prep Suites · 112 Catalog Blueprints</span>
+            <span>6 Sample-Content Tracks (27 Verified Qs) · 112 Catalog Blueprints</span>
             <span>·</span>
             <span>Canonical Schema v2</span>
           </div>
