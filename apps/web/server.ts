@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
@@ -57,10 +58,25 @@ export interface ServerUserRecord {
   sources: Record<string, StudySource>;
 }
 
-const AUTH_SIGNING_SECRET =
-  process.env.CERTMASTER_AUTH_SIGNING_SECRET || 'certmaster-dev-hmac-auth-secret-2026-v2';
-const PAYMENT_WEBHOOK_SECRET =
-  process.env.CERTMASTER_PAYMENT_WEBHOOK_SECRET || 'certmaster-prod-webhook-hmac-secret-2026';
+/**
+ * Secrets are read ONLY from the environment (never from source code, never defaulted).
+ * A secret shorter than 32 chars is treated as "not configured" and the dependent feature is disabled (fail closed).
+ */
+function readSecret(name: string): string | null {
+  const v = (process.env[name] || '').trim();
+  return v.length >= 32 ? v : null;
+}
+const getAuthSigningSecret = () => readSecret('CERTMASTER_AUTH_SIGNING_SECRET');
+const getPaymentWebhookSecret = () => readSecret('CERTMASTER_PAYMENT_WEBHOOK_SECRET');
+
+// Firebase ID tokens are verified cryptographically (RS256) against Google's published public keys.
+let firebaseJwks: JWTVerifyGetKey = createRemoteJWKSet(
+  new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com')
+);
+/** Test hook: inject a local JWKS so signature verification can be tested without network access. */
+export function setFirebaseJwksForTesting(jwks: JWTVerifyGetKey): void {
+  firebaseJwks = jwks;
+}
 
 const revokedTokens = new Set<string>();
 
@@ -72,10 +88,12 @@ export function revokeBearerToken(token: string): void {
  * Generates an HMAC-SHA256 signed Bearer token for authenticated sessions and automated E2E tests.
  */
 export function createSignedBearerToken(uid: string, expiresInSeconds: number = 3600): string {
+  const secret = getAuthSigningSecret();
+  if (!secret) throw new Error('CERTMASTER_AUTH_SIGNING_SECRET (>=32 chars) is not configured.');
   const cleanUid = uid.trim();
   const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
   const payload = `${cleanUid}.${exp}`;
-  const sig = crypto.createHmac('sha256', AUTH_SIGNING_SECRET).update(payload).digest('hex');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
   return `cm_auth.${payload}.${sig}`;
 }
 
@@ -89,8 +107,10 @@ export function createPaymentWebhookSignature(
   receiptToken: string
 ): string {
   const canonicalExam = tier === 'universal' ? 'all-access' : normalizeExamId(examId);
+  const secret = getPaymentWebhookSecret();
+  if (!secret) throw new Error('CERTMASTER_PAYMENT_WEBHOOK_SECRET (>=32 chars) is not configured.');
   const payload = `${userId}:${canonicalExam}:${tier}:${receiptToken}`;
-  return crypto.createHmac('sha256', PAYMENT_WEBHOOK_SECRET).update(payload).digest('hex');
+  return crypto.createHmac('sha256', secret).update(payload).digest('hex');
 }
 
 export interface VerifiedTokenIdentity {
@@ -103,7 +123,9 @@ export interface VerifiedTokenIdentity {
  * Validates a Bearer token from the Authorization header.
  * Rejects missing, malformed, expired, forged, or revoked tokens.
  */
-export function verifyBearerToken(rawHeader: string | undefined): VerifiedTokenIdentity | null {
+export async function verifyBearerToken(
+  rawHeader: string | undefined
+): Promise<VerifiedTokenIdentity | null> {
   if (!rawHeader || typeof rawHeader !== 'string') return null;
   const trimmed = rawHeader.trim();
   if (!trimmed.toLowerCase().startsWith('bearer ')) return null;
@@ -112,57 +134,36 @@ export function verifyBearerToken(rawHeader: string | undefined): VerifiedTokenI
 
   const nowSec = Math.floor(Date.now() / 1000);
 
-  // 1. Check signed CertMaster session token: cm_auth.<uid>.<exp>.<sig>
+  // 1. Operator-minted signed session token (cm_auth.<uid>.<exp>.<sig>). Disabled unless a secret is configured.
   if (token.startsWith('cm_auth.')) {
+    const secret = getAuthSigningSecret();
+    if (!secret) return null;
     const parts = token.split('.');
     if (parts.length !== 4) return null;
     const [, uid, expStr, providedSig] = parts;
     const exp = Number(expStr);
-    if (!uid || !Number.isFinite(exp) || exp <= nowSec) {
-      return null;
-    }
-    const expectedSig = crypto
-      .createHmac('sha256', AUTH_SIGNING_SECRET)
-      .update(`${uid}.${expStr}`)
-      .digest('hex');
+    if (!uid || !Number.isFinite(exp) || exp <= nowSec) return null;
+    const expectedSig = crypto.createHmac('sha256', secret).update(`${uid}.${expStr}`).digest('hex');
     if (
       providedSig.length !== expectedSig.length ||
       !crypto.timingSafeEqual(Buffer.from(providedSig), Buffer.from(expectedSig))
     ) {
       return null;
     }
-    return {
-      uid,
-      authMode: 'SIGNED_SESSION_TOKEN',
-      exp,
-    };
+    return { uid, authMode: 'SIGNED_SESSION_TOKEN', exp };
   }
 
-  // 2. Check standard 3-part Firebase ID JWT (header.payload.signature)
-  const jwtParts = token.split('.');
-  if (jwtParts.length === 3) {
+  // 2. Firebase ID token: full RS256 signature, issuer, audience and expiry verification.
+  if (token.split('.').length === 3) {
     try {
-      const payloadJson = Buffer.from(jwtParts[1], 'base64url').toString('utf-8');
-      const payload = JSON.parse(payloadJson) as Record<string, unknown>;
-      const uid = String(payload.user_id || payload.sub || '').trim();
-      const exp = Number(payload.exp || 0);
-      const aud = String(payload.aud || '');
-      const sigPart = jwtParts[2];
-      if (
-        !uid ||
-        !sigPart ||
-        sigPart.length < 8 ||
-        !Number.isFinite(exp) ||
-        exp <= nowSec ||
-        (aud && aud !== firebaseConfig.projectId)
-      ) {
-        return null;
-      }
-      return {
-        uid,
-        authMode: 'FIREBASE_ID_TOKEN',
-        exp,
-      };
+      const { payload } = await jwtVerify(token, firebaseJwks, {
+        issuer: `https://securetoken.google.com/${firebaseConfig.projectId}`,
+        audience: firebaseConfig.projectId,
+        algorithms: ['RS256'],
+      });
+      const uid = String(payload.sub || '').trim();
+      if (!uid || uid.length > 128) return null;
+      return { uid, authMode: 'FIREBASE_ID_TOKEN', exp: Number(payload.exp || 0) };
     } catch {
       return null;
     }
@@ -176,8 +177,12 @@ interface AuthenticatedRequest extends Request {
   authMode?: string;
 }
 
-function requireBearerAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  const verified = verifyBearerToken(req.headers.authorization);
+async function requireBearerAuth(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const verified = await verifyBearerToken(req.headers.authorization);
   if (!verified) {
     res.status(401).json({
       status: '401 UNAUTHORIZED',
@@ -286,29 +291,9 @@ export function createCertMasterApiApp() {
     });
   });
 
+  // NOTE: There is intentionally NO endpoint that issues bearer tokens. Clients authenticate with a
+  // Firebase ID token (verified cryptographically in verifyBearerToken).
   // =========================================================================
-  // 1B. SESSION TOKEN ISSUANCE FOR LOCAL / DEMO / AUTHENTICATED CLIENTS
-  // =========================================================================
-  apiRouter.post('/auth/session-token', (req, res) => {
-    const body = req.body || {};
-    const uid = typeof body.userId === 'string' && body.userId.trim() ? body.userId.trim() : '';
-    if (!uid) {
-      res.status(400).json({
-        status: '400 BAD_REQUEST',
-        error: 'userId is required to issue a signed session bearer token.',
-      });
-      return;
-    }
-    const token = createSignedBearerToken(uid, 3600);
-    res.json({
-      status: '200 OK',
-      userId: uid,
-      bearerToken: token,
-      expiresInSeconds: 3600,
-      timestamp: new Date().toISOString(),
-    });
-  });
-
   // =========================================================================
   // 2. SHARED CATALOG, DOMAINS & QUESTION BANK ENDPOINTS (Web + Android)
   // =========================================================================
@@ -637,13 +622,19 @@ export function createCertMasterApiApp() {
     }
 
     // 1. Check Production Cryptographic Webhook Signature (HMAC-SHA256)
-    const expectedSignature = createPaymentWebhookSignature(userId, examId, tier, receiptToken);
+    const webhookSecretConfigured = getPaymentWebhookSecret() !== null;
+    const expectedSignature = webhookSecretConfigured
+      ? createPaymentWebhookSignature(userId, examId, tier, receiptToken)
+      : '';
     const isProductionCryptoVerified =
+      webhookSecretConfigured &&
       webhookSigHeader.length === expectedSignature.length &&
       crypto.timingSafeEqual(Buffer.from(webhookSigHeader), Buffer.from(expectedSignature));
 
     // 2. Check Explicitly Gated Sandbox Mode (only permitted when NODE_ENV !== 'production' and header + sandbox receipt match)
-    const isSandboxAllowed = process.env.NODE_ENV !== 'production';
+    // Fail closed: sandbox grants require an explicit opt-in flag AND a non-production environment.
+    const isSandboxAllowed =
+      process.env.NODE_ENV !== 'production' && process.env.CERTMASTER_ALLOW_SANDBOX_PAYMENTS === 'true';
     const isSandboxVerified =
       isSandboxAllowed &&
       sandboxHeader === 'true' &&

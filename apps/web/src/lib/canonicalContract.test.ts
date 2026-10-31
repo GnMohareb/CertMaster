@@ -41,7 +41,15 @@ import {
   createSignedBearerToken,
   revokeBearerToken,
   createPaymentWebhookSignature,
+  verifyBearerToken,
+  setFirebaseJwksForTesting,
 } from '../../server';
+import { generateKeyPair, SignJWT, exportJWK, createLocalJWKSet } from 'jose';
+
+// Test-only secrets, generated per run. Production secrets come only from the deployment environment.
+process.env.CERTMASTER_AUTH_SIGNING_SECRET = 'test-' + crypto.randomUUID() + crypto.randomUUID();
+process.env.CERTMASTER_PAYMENT_WEBHOOK_SECRET = 'test-' + crypto.randomUUID() + crypto.randomUUID();
+process.env.CERTMASTER_ALLOW_SANDBOX_PAYMENTS = 'true';
 
 test('1. Canonical Schema Version & Shared Firebase Identifiers', () => {
   assert.equal(CANONICAL_SCHEMA_VERSION, 2);
@@ -898,5 +906,81 @@ test('11. End-to-End Cross-Platform Synchronization Suite (Scenarios A, B, C, an
     assert.equal(conflictRes.flashcardsById['fc-sec-2'].state, 'known');
   } finally {
     server.close();
+  }
+});
+
+test('12. Firebase ID token verification is cryptographic; no unauthenticated token issuer; secrets fail closed', async () => {
+  const projectId = FIREBASE_PROJECT_ID;
+  const good = await generateKeyPair('RS256');
+  const attacker = await generateKeyPair('RS256');
+  const jwk = { ...(await exportJWK(good.publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' };
+  setFirebaseJwksForTesting(createLocalJWKSet({ keys: [jwk] }));
+
+  const mint = (key: CryptoKey, over: { aud?: string; iss?: string; exp?: string; sub?: string } = {}) =>
+    new SignJWT({})
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setSubject(over.sub ?? 'firebaseUidAlice')
+      .setAudience(over.aud ?? projectId)
+      .setIssuer(over.iss ?? `https://securetoken.google.com/${projectId}`)
+      .setIssuedAt()
+      .setExpirationTime(over.exp ?? '10m')
+      .sign(key);
+
+  const ok = await verifyBearerToken(`Bearer ${await mint(good.privateKey)}`);
+  assert.equal(ok?.uid, 'firebaseUidAlice');
+  assert.equal(ok?.authMode, 'FIREBASE_ID_TOKEN');
+
+  // Forged: valid-looking claims signed with an attacker key must be rejected.
+  assert.equal(await verifyBearerToken(`Bearer ${await mint(attacker.privateKey)}`), null);
+  // Unsigned/garbage "JWT" with arbitrary uid (the previous bypass) must be rejected.
+  const fakePayload = Buffer.from(JSON.stringify({ sub: 'victim', aud: projectId, exp: 9999999999 })).toString('base64url');
+  assert.equal(await verifyBearerToken(`Bearer eyJhbGciOiJub25lIn0.${fakePayload}.AAAAAAAAAAAA`), null);
+  // Wrong audience / issuer / expired must be rejected.
+  assert.equal(await verifyBearerToken(`Bearer ${await mint(good.privateKey, { aud: 'other-project' })}`), null);
+  assert.equal(await verifyBearerToken(`Bearer ${await mint(good.privateKey, { iss: 'https://evil.example' })}`), null);
+  assert.equal(await verifyBearerToken(`Bearer ${await mint(good.privateKey, { exp: '-1m' })}`), null);
+
+  // The old unauthenticated session-token issuer must no longer exist.
+  const app = createCertMasterApiApp();
+  const server = app.listen(0);
+  const address = server.address();
+  const port = typeof address === 'object' && address ? address.port : 0;
+  try {
+    const issuer = await fetch(`http://127.0.0.1:${port}/api/auth/session-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: 'victim' }),
+    });
+    assert.notEqual(issuer.status, 200);
+    const noToken = await issuer.json().catch(() => ({}));
+    assert.equal((noToken as Record<string, unknown>).bearerToken, undefined);
+
+    // A real Firebase-style token works end to end on a protected route.
+    const tok = await mint(good.privateKey);
+    const prof = await fetch(`http://127.0.0.1:${port}/api/profile/firebaseUidAlice`, {
+      headers: { Authorization: `Bearer ${tok}` },
+    });
+    assert.equal(prof.status, 200);
+    const forged = await fetch(`http://127.0.0.1:${port}/api/profile/firebaseUidAlice`, {
+      headers: { Authorization: `Bearer ${await mint(attacker.privateKey)}` },
+    });
+    assert.equal(forged.status, 401);
+  } finally {
+    server.close();
+  }
+
+  // Secrets fail closed: with no configured secret, signed tokens and webhook signatures cannot be produced/accepted.
+  const savedAuth = process.env.CERTMASTER_AUTH_SIGNING_SECRET;
+  const savedHook = process.env.CERTMASTER_PAYMENT_WEBHOOK_SECRET;
+  const legacyDefault = 'cm_auth.victim.9999999999.' + 'a'.repeat(64);
+  try {
+    delete process.env.CERTMASTER_AUTH_SIGNING_SECRET;
+    delete process.env.CERTMASTER_PAYMENT_WEBHOOK_SECRET;
+    assert.throws(() => createSignedBearerToken('x'));
+    assert.throws(() => createPaymentWebhookSignature('x', 'cissp', 'single', 'r'));
+    assert.equal(await verifyBearerToken(`Bearer ${legacyDefault}`), null);
+  } finally {
+    process.env.CERTMASTER_AUTH_SIGNING_SECRET = savedAuth;
+    process.env.CERTMASTER_PAYMENT_WEBHOOK_SECRET = savedHook;
   }
 });
