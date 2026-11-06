@@ -8,29 +8,19 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
 object ApiClient {
 
-    private const val AUTH_SIGNING_SECRET = "certmaster-dev-hmac-auth-secret-2026-v2"
-
+    /**
+     * Supplies a fresh Firebase ID token for the currently signed-in user, or null when signed out.
+     * Set by the app after real Firebase sign-in. There is NO embedded secret and NO fallback identity:
+     * requests made while signed out carry no Authorization header and are rejected (401) by the backend.
+     */
     @Volatile
-    var activeUserId: String = "usr_gnmohareb_cissp_001"
+    var tokenProvider: (() -> String?)? = null
 
     @Volatile
     var explicitBearerToken: String? = null
-
-    fun createSignedBearerToken(uid: String, expiresInSeconds: Long = 3600L): String {
-        val cleanUid = uid.trim().ifEmpty { "usr_gnmohareb_cissp_001" }
-        val exp = (System.currentTimeMillis() / 1000L) + expiresInSeconds
-        val payload = "$cleanUid.$exp"
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(AUTH_SIGNING_SECRET.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-        val sigBytes = mac.doFinal(payload.toByteArray(Charsets.UTF_8))
-        val sigHex = sigBytes.joinToString("") { "%02x".format(it) }
-        return "cm_auth.$payload.$sigHex"
-    }
 
     private val moshi = Moshi.Builder()
         .addLast(KotlinJsonAdapterFactory())
@@ -46,11 +36,12 @@ object ApiClient {
             if (original.header("Authorization") != null) {
                 chain.proceed(original)
             } else {
-                val token = explicitBearerToken ?: createSignedBearerToken(activeUserId)
-                val authed = original.newBuilder()
-                    .header("Authorization", "Bearer $token")
-                    .build()
-                chain.proceed(authed)
+                val token = explicitBearerToken ?: runCatching { tokenProvider?.invoke() }.getOrNull()
+                if (token.isNullOrBlank()) {
+                    chain.proceed(original)
+                } else {
+                    chain.proceed(original.newBuilder().header("Authorization", "Bearer $token").build())
+                }
             }
         }
 

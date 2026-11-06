@@ -406,7 +406,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun subscribeToExam(examId: String) {
         repository.subscribeToSubject(examId)
         val exam = ExamCatalog.getExamById(examId)
-        _statusMessage.value = "Subscribed to ${exam.shortCode}! Universal access unlocked across Web & Mobile."
+        _statusMessage.value = "Paid access for ${exam.shortCode} is activated only after payment is verified by the CertMaster server. Complete checkout on the web platform; your access will appear here after sync."
     }
 
     fun syncCentralProfile() {
@@ -427,9 +427,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
                 repository.syncCentralProfileWithCloud()
                 _statusMessage.value = "Google SSO Verified & Synchronized with CertMaster Web Platform"
             } else {
-                repository.authManager.refreshSsoSession()
-                repository.syncCentralProfileWithCloud()
-                _statusMessage.value = "SSO Session Token Refreshed & Synchronized with CertMaster Cloud"
+                _statusMessage.value = "Google sign-in failed: " + (res.exceptionOrNull()?.message ?: "unknown error") + ". You are not signed in; progress stays on this device only."
             }
         }
     }

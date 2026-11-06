@@ -73,7 +73,7 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
                 return@executeWithRetry true
             }
 
-            if (isFirestoreAvailable() && userId.isNotBlank() && userId != "usr_gnmohareb_cissp_001") {
+            if (isFirestoreAvailable() && userId.isNotBlank()) {
                 val db = getNamedFirestoreInstance()
                 val userRef = db.collection("users").document(userId)
                 when (op.domainType) {
@@ -236,28 +236,28 @@ class CertMasterFirebaseSyncClient(private val context: Context? = null) {
 
         return UserCentralProfile(
             schemaVersion = obj.optInt("schemaVersion", 2),
-            userId = obj.optString("userId", "usr_gnmohareb_cissp_001"),
-            email = obj.optString("email", "gnmohareb@gmail.com"),
-            displayName = obj.optString("displayName", "GN Mohareb"),
+            userId = obj.optString("userId", ""),
+            email = obj.optString("email", ""),
+            displayName = obj.optString("displayName", ""),
             avatarUrl = obj.optString("avatarUrl", ""),
             preferredTheme = obj.optString("preferredTheme", "dark"),
             targetExamId = ExamCatalog.normalizeExamId(obj.optString("targetExamId", "cissp")),
             lastActivePlatform = obj.optString("lastActivePlatform", "WEB"),
-            subscriptionTier = obj.optString("subscriptionTier", "Universal Multi-Pass"),
-            assessmentCompleted = obj.optBoolean("assessmentCompleted", true),
-            assessmentScorePercent = obj.optInt("assessmentScorePercent", 74),
-            cognitiveStressBaseline = obj.optInt("cognitiveStressBaseline", 68),
-            behavioralArchetype = obj.optString("behavioralArchetype", "Analytical Hesitator"),
+            subscriptionTier = obj.optString("subscriptionTier", "Free Trial"),
+            assessmentCompleted = obj.optBoolean("assessmentCompleted", false),
+            assessmentScorePercent = obj.optInt("assessmentScorePercent", 0),
+            cognitiveStressBaseline = obj.optInt("cognitiveStressBaseline", 0),
+            behavioralArchetype = obj.optString("behavioralArchetype", ""),
             hesitationNotes = obj.optString("hesitationNotes", ""),
-            averageDwellTimeSec = obj.optInt("averageDwellTimeSec", 54),
-            distractorEliminationRate = obj.optDouble("distractorEliminationRate", 0.68),
-            optionSwitchCountAvg = obj.optDouble("optionSwitchCountAvg", 1.8),
-            lastSyncTimestampMillis = obj.optLong("lastSyncTimestampMillis", System.currentTimeMillis()),
-            deviceSyncedCount = obj.optInt("deviceSyncedCount", 2),
-            currentJourneyStage = obj.optInt("currentJourneyStage", 2),
-            completedSimulationsCount = obj.optInt("completedSimulationsCount", 5),
-            highestSimulationScore = obj.optInt("highestSimulationScore", 78),
-            examTargetDate = obj.optString("examTargetDate", "Nov 24, 2026"),
+            averageDwellTimeSec = obj.optInt("averageDwellTimeSec", 0),
+            distractorEliminationRate = obj.optDouble("distractorEliminationRate", 0.0),
+            optionSwitchCountAvg = obj.optDouble("optionSwitchCountAvg", 0.0),
+            lastSyncTimestampMillis = obj.optLong("lastSyncTimestampMillis", 0L),
+            deviceSyncedCount = obj.optInt("deviceSyncedCount", 0),
+            currentJourneyStage = obj.optInt("currentJourneyStage", 1),
+            completedSimulationsCount = obj.optInt("completedSimulationsCount", 0),
+            highestSimulationScore = obj.optInt("highestSimulationScore", 0),
+            examTargetDate = obj.optString("examTargetDate", ""),
             subscriptions = if (subsList.isNotEmpty()) subsList else UserCentralProfile().subscriptions
         )
     }

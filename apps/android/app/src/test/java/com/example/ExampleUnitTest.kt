@@ -68,8 +68,8 @@ class ExampleUnitTest {
         val readiness = repository.calculateReadinessScore()
         assertTrue("Readiness score must be between 10 and 100", readiness in 10..100)
 
-        val weakestDomain = repository.getWeakestDomain()
-        assertNotNull("Should detect weakest domain for AI targeted drill", weakestDomain)
+        // With no real attempts recorded, there is no fabricated "weakest domain".
+        repository.getWeakestDomain()
 
         // Test switching exam
         repository.switchExam("aws-saa")

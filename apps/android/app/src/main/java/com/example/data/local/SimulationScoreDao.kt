@@ -27,6 +27,9 @@ interface SimulationScoreDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertScores(scores: List<SimulationScoreEntity>)
 
+    @Query("DELETE FROM simulation_scores WHERE id LIKE 'sim_hist_%'")
+    suspend fun deleteSeededHistoricalScores()
+
     @Query("DELETE FROM simulation_scores WHERE examId = :examId")
     suspend fun deleteScoresByExam(examId: String)
 }

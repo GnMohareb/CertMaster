@@ -169,17 +169,15 @@ class RoomCacheRobolectricTest {
         val repo = ExamRepository(context = context, database = database)
         val initialProfile = repo.userProfile.value
         assertNotNull(initialProfile)
-        assertEquals("GN Mohareb", initialProfile.displayName)
+        // Signed out: no demo identity and no entitlements.
+        assertEquals("", initialProfile.userId)
+        assertEquals("", initialProfile.displayName)
+        assertTrue(initialProfile.subscriptions.isEmpty())
+        assertEquals("Free Trial", initialProfile.subscriptionTier)
 
-        // Subscribe to CompTIA Security+
+        // Client-side "subscribe" must never grant paid access.
         repo.subscribeToSubject("sec_plus")
-        val updatedProfile = repo.userProfile.value
-        val secPlusSub = updatedProfile.subscriptions.firstOrNull { it.examId == "sec_plus" }
-        assertNotNull(secPlusSub)
-        assertEquals(SubStatus.ACTIVE, secPlusSub?.status)
-
-        // Cloud sync
-        val syncResult = repo.syncCentralProfileWithCloud()
-        assertTrue(syncResult)
+        val secPlusSub = repo.userProfile.value.subscriptions.firstOrNull { it.examId == "sec_plus" }
+        assertTrue(secPlusSub == null || secPlusSub.status != SubStatus.ACTIVE)
     }
 }

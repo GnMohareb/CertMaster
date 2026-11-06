@@ -89,6 +89,7 @@ fun DashboardScreen(
     val sessions by viewModel.sessions.collectAsState()
     val simulationScores by viewModel.simulationScores.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val ssoSession by viewModel.ssoSession.collectAsState()
     val readinessReport by viewModel.readinessReport.collectAsState()
     val stressMetrics by viewModel.domainStressMetrics.collectAsState()
     val highestStress by viewModel.highestStressDomain.collectAsState()
@@ -140,7 +141,7 @@ fun DashboardScreen(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "${userProfile.displayName} • ${if (isExamSubscribed) "Universal Access Active" else "Trial / Unlocked on Web"}",
+                    text = if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -155,7 +156,7 @@ fun DashboardScreen(
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = if (isExamSubscribed) "SYNCED" else "MANAGE PASS",
+                        text = if (!ssoSession.isAuthenticated) "LOCAL ONLY" else if (isExamSubscribed) "ACTIVE" else "MANAGE PASS",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isExamSubscribed) SuccessGreen else WarningAmber

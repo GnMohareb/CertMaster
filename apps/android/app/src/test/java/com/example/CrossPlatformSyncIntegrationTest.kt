@@ -127,9 +127,9 @@ class CrossPlatformSyncIntegrationTest {
         // and updated their diagnostic score to 88% (Confident Master)
         val webPayloadJson = """
             {
-              "userId": "usr_gnmohareb_cissp_001",
-              "email": "gnmohareb@gmail.com",
-              "displayName": "GN Mohareb",
+              "userId": "firebase_uid_test_01",
+              "email": "student@example.com",
+              "displayName": "Test Student",
               "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
               "subscriptionTier": "Universal Multi-Pass",
               "assessmentCompleted": true,
@@ -183,23 +183,20 @@ class CrossPlatformSyncIntegrationTest {
         assertEquals("Confident Master", androidProfile.behavioralArchetype)
         assertEquals(86, androidProfile.highestSimulationScore)
 
-        // Verify CEH is now unlocked on Android AND existing Android entitlements (like AWS-SAA / Sec+) were preserved!
+        // Server-verified entitlements from the web payload are honoured; nothing else is fabricated on Android.
         assertTrue(repository.authManager.isAuthorizedForExam("ceh", androidProfile))
-        assertTrue(repository.authManager.isAuthorizedForExam("aws-saa", androidProfile))
-        assertTrue(repository.authManager.isAuthorizedForExam("aws_csa", androidProfile))
-        assertTrue(repository.authManager.isAuthorizedForExam("sec-plus", androidProfile))
-        assertTrue(repository.authManager.isAuthorizedForExam("sec_plus", androidProfile))
+        assertTrue(repository.authManager.isAuthorizedForExam("cissp", androidProfile))
+        assertFalse(androidProfile.subscriptions.any { ExamCatalog.matchesExamId(it.examId, "aws-saa") && it.status == SubStatus.ACTIVE })
         assertTrue(resolution.hadConflict)
 
         // Export back to Web JSON and verify schema compatibility with Web Platform
         val exportedWebJson = repository.exportWebProfileJson()
         val parsedExport = JSONObject(exportedWebJson)
-        assertEquals("usr_gnmohareb_cissp_001", parsedExport.getString("userId"))
+        assertEquals("firebase_uid_test_01", parsedExport.getString("userId"))
         assertEquals(88, parsedExport.getInt("assessmentScorePercent"))
         val subsObj = parsedExport.getJSONObject("subscriptions")
         assertEquals("ACTIVE", subsObj.getJSONObject("ceh").getString("status"))
-        assertEquals("ACTIVE", subsObj.getJSONObject("aws-saa").getString("status"))
-        assertEquals("ACTIVE", subsObj.getJSONObject("sec-plus").getString("status"))
+        assertFalse("No fabricated AWS entitlement", subsObj.has("aws-saa"))
     }
 
     @Test
@@ -239,8 +236,9 @@ class CrossPlatformSyncIntegrationTest {
         assertEquals(88, repository.userProfile.value.highestSimulationScore)
 
         val readiness = repository.readinessReport.value
-        // Authoritative 60/25/15 formula: round(70 * 0.60 + 74 * 0.25 + 14 * 0.15) = 63
-        assertEquals(63, readiness.readinessPercent)
+        // No seeded history any more: readiness is derived only from real recorded data.
+        assertTrue(readiness.readinessPercent in 1..100)
+        assertEquals(1, repository.simulationScores.value.size)
         assertEquals(5, repository.studyPlanMilestones.value.size)
     }
 
@@ -253,7 +251,9 @@ class CrossPlatformSyncIntegrationTest {
         assertFalse(repository.backendConfig.value.isOnline)
 
         // 2. Student unlocks CEH, updates a flashcard to Box 4 (KNOWN), and records a simulation attempt while offline
+        // Client cannot grant paid access, so subscribeToSubject must not create an ACTIVE entitlement.
         repository.subscribeToSubject("ceh")
+        assertFalse(repository.userProfile.value.subscriptions.any { it.examId == "ceh" && it.status == SubStatus.ACTIVE })
         val firstCardId = repository.flashcards.value.first().id
         repository.updateFlashcardBox(firstCardId, 4)
 
@@ -276,7 +276,7 @@ class CrossPlatformSyncIntegrationTest {
 
         // Verify operations were queued in Room pending_sync_queue
         val pendingCountOffline = database.userProfileDao().getPendingSyncCount()
-        assertTrue("Expected offline mutations to be queued in Room", pendingCountOffline >= 3)
+        assertTrue("Expected offline mutations to be queued in Room", pendingCountOffline >= 2)
 
         // Verify Flashcard status was updated to KNOWN (matching Web schema)
         val updatedCard = repository.flashcards.value.first { it.id == firstCardId }

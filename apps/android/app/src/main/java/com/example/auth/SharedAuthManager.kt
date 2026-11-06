@@ -33,10 +33,34 @@ class SharedAuthManager(private val context: Context? = null) {
     private val _ssoSession = MutableStateFlow(SsoSessionInfo())
     val ssoSession: StateFlow<SsoSessionInfo> = _ssoSession.asStateFlow()
 
+    init {
+        restorePersistedFirebaseSession()
+    }
+
+    /** If Firebase Auth already holds a real signed-in user, reflect it; otherwise stay SIGNED_OUT. */
+    private fun restorePersistedFirebaseSession() {
+        try {
+            if (!isFirebaseInitialized()) return
+            val u = FirebaseAuth.getInstance().currentUser ?: return
+            installTokenProvider()
+            _ssoSession.value = SsoSessionInfo(
+                isAuthenticated = true,
+                ssoSubjectId = u.uid,
+                email = u.email ?: "",
+                displayName = u.displayName ?: u.email ?: "",
+                emailVerified = u.isEmailVerified,
+                sessionStartedAt = System.currentTimeMillis(),
+                syncStatus = "LOCAL_ONLY"
+            )
+        } catch (_: Exception) {
+            // Stay signed out.
+        }
+    }
+
     companion object {
         const val FIREBASE_PROJECT_ID = "gen-lang-client-0788513176"
         const val FIRESTORE_DATABASE_ID = "ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001"
-        const val FIREBASE_APP_ID = "1:814967786900:web:800232a0bc3a2cb90cd381"
+        const val FIREBASE_APP_ID = "1:814967786900:android:5505a40d0c7200a00cd381"
         const val FIREBASE_API_KEY = "AIzaSyDOh5r6vbXc_WVJkrPfHt-ymaa9HMOBtsg"
         const val FIREBASE_STORAGE_BUCKET = "gen-lang-client-0788513176.firebasestorage.app"
         const val GOOGLE_WEB_OAUTH_CLIENT_ID = "814967786900-9idd4t0m0qikfs4g739to1s2fda2mefu.apps.googleusercontent.com"
@@ -82,8 +106,21 @@ class SharedAuthManager(private val context: Context? = null) {
 
     /**
      * Returns the currently authenticated Firebase UID if Firebase Auth is active,
-     * or the shared SSO subject ID ("usr_gnmohareb_cissp_001") so both apps address the same user document.
+     * or an empty string when signed out (never a hardcoded/demo identity).
      */
+    /** Makes API calls carry the signed-in user's Firebase ID token (no embedded secrets). */
+    fun installTokenProvider() {
+        com.example.network.ApiClient.tokenProvider = {
+            try {
+                val u = FirebaseAuth.getInstance().currentUser
+                if (u == null) null
+                else com.google.android.gms.tasks.Tasks.await(u.getIdToken(false)).token
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
     fun getActiveUserId(): String {
         if (isFirebaseInitialized()) {
             try {
@@ -122,13 +159,14 @@ class SharedAuthManager(private val context: Context? = null) {
                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                 val idToken = googleIdTokenCredential.idToken
 
-                val uid = if (isFirebaseInitialized()) {
-                    val firebaseCred = GoogleAuthProvider.getCredential(idToken, null)
-                    val authResult = FirebaseAuth.getInstance().signInWithCredential(firebaseCred).await()
-                    authResult.user?.uid ?: "usr_gnmohareb_cissp_001"
-                } else {
-                    "usr_gnmohareb_cissp_001"
+                if (!isFirebaseInitialized()) {
+                    return Result.failure(IllegalStateException("Firebase is not initialized; cannot complete sign-in."))
                 }
+                val firebaseCred = GoogleAuthProvider.getCredential(idToken, null)
+                val authResult = FirebaseAuth.getInstance().signInWithCredential(firebaseCred).await()
+                val uid = authResult.user?.uid
+                    ?: return Result.failure(IllegalStateException("Firebase sign-in returned no user."))
+                installTokenProvider()
 
                 val updatedSession = SsoSessionInfo(
                     isAuthenticated = true,
@@ -137,12 +175,12 @@ class SharedAuthManager(private val context: Context? = null) {
                     clientId = webClientId,
                     ssoSubjectId = uid,
                     email = googleIdTokenCredential.id,
-                    displayName = googleIdTokenCredential.displayName ?: "GN Mohareb",
-                    emailVerified = true,
+                    displayName = googleIdTokenCredential.displayName ?: googleIdTokenCredential.id,
+                    emailVerified = FirebaseAuth.getInstance().currentUser?.isEmailVerified == true,
                     sessionStartedAt = System.currentTimeMillis(),
                     tokenExpiresAt = System.currentTimeMillis() + 86_400_000L,
-                    jwtTokenPreview = idToken.take(48) + "...",
-                    syncStatus = "SYNCHRONIZED"
+                    jwtTokenPreview = "",
+                    syncStatus = "LOCAL_ONLY"
                 )
                 _ssoSession.value = updatedSession
                 Result.success(updatedSession)
@@ -180,18 +218,20 @@ class SharedAuthManager(private val context: Context? = null) {
                 val tokenCred = GoogleIdTokenCredential.createFrom(credential.data)
                 if (isFirebaseInitialized()) {
                     val firebaseCred = GoogleAuthProvider.getCredential(tokenCred.idToken, null)
-                    FirebaseAuth.getInstance().signInWithCredential(firebaseCred).await()
+                    val res = FirebaseAuth.getInstance().signInWithCredential(firebaseCred).await()
+                    installTokenProvider()
+                    _ssoSession.value = _ssoSession.value.copy(ssoSubjectId = res.user?.uid ?: "")
                 }
                 _ssoSession.value = _ssoSession.value.copy(
-                    isAuthenticated = true,
+                    isAuthenticated = _ssoSession.value.ssoSubjectId.isNotEmpty(),
                     email = tokenCred.id,
                     displayName = tokenCred.displayName ?: _ssoSession.value.displayName,
-                    syncStatus = "SYNCHRONIZED"
+                    syncStatus = "LOCAL_ONLY"
                 )
             }
             _ssoSession.value
         } catch (_: Exception) {
-            // Preserve valid cached SSO session if Play Services Credential Manager is unavailable
+            // Keep whatever real session state exists; never fabricate one.
             _ssoSession.value
         }
     }
@@ -211,25 +251,26 @@ class SharedAuthManager(private val context: Context? = null) {
         } catch (_: Exception) {
             // Ignore cleanup exceptions in non-Play environments
         }
-        _ssoSession.value = _ssoSession.value.copy(
-            isAuthenticated = false,
-            syncStatus = "DISCONNECTED"
-        )
+        com.example.network.ApiClient.tokenProvider = null
+        _ssoSession.value = SsoSessionInfo()
     }
 
     /**
      * Refreshes the SSO session handshake and synchronizes token expiration with Web Platform.
      */
     fun refreshSsoSession(email: String = _ssoSession.value.email, displayName: String = _ssoSession.value.displayName) {
-        val now = System.currentTimeMillis()
+        // Never creates a session: only updates display fields of a REAL, already-authenticated session.
+        if (!_ssoSession.value.isAuthenticated) return
         _ssoSession.value = _ssoSession.value.copy(
-            isAuthenticated = true,
-            email = email,
-            displayName = displayName,
-            sessionStartedAt = now,
-            tokenExpiresAt = now + 86_400_000L,
-            syncStatus = "SYNCHRONIZED"
+            email = email.ifEmpty { _ssoSession.value.email },
+            displayName = displayName.ifEmpty { _ssoSession.value.displayName }
         )
+    }
+
+    /** Records the outcome of a real sync attempt: SYNCHRONIZED, SYNC_PENDING or SYNC_FAILED. */
+    fun markSyncStatus(status: String) {
+        if (!_ssoSession.value.isAuthenticated) return
+        _ssoSession.value = _ssoSession.value.copy(syncStatus = status)
     }
 
     /**

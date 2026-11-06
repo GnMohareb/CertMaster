@@ -125,28 +125,7 @@ class ExamRepository(
     private val _pendingSyncCount = MutableStateFlow(0)
     val pendingSyncCount: StateFlow<Int> = _pendingSyncCount.asStateFlow()
 
-    private val _syncLogs = MutableStateFlow<List<SyncLogEntry>>(
-        listOf(
-            SyncLogEntry(
-                id = "log_init_01",
-                timestamp = System.currentTimeMillis() - 1800_000L,
-                source = "ANDROID",
-                direction = "UPSTREAM_PUSH",
-                status = "SUCCESS",
-                message = "Sync completed from CertMaster Android v2.4 (Pixel 8 Pro)",
-                payloadSummary = "Score telemetry synced (78% CISSP), 6 flashcards marked known"
-            ),
-            SyncLogEntry(
-                id = "log_init_02",
-                timestamp = System.currentTimeMillis() - 720_000L,
-                source = "WEB",
-                direction = "DOWNSTREAM_PULL",
-                status = "SUCCESS",
-                message = "Subscribed to AWS Solutions Architect on Web Platform (Stripe)",
-                payloadSummary = "Universal entitlement granted: Web & Android synchronized"
-            )
-        )
-    )
+    private val _syncLogs = MutableStateFlow<List<SyncLogEntry>>(emptyList())
     val syncLogs: StateFlow<List<SyncLogEntry>> = _syncLogs.asStateFlow()
 
     private val _aiMessages = MutableStateFlow<List<AITutorMessage>>(
@@ -165,14 +144,14 @@ class ExamRepository(
         BackendConfig(
             baseUrl = "https://ais-dev-c43kxdgpgcs6kaaoha4sx7-109050751533.us-west2.run.app/api",
             apiKey = "",
-            isOnline = true,
-            lastSyncMillis = System.currentTimeMillis() - 3600_000L
+            isOnline = false,
+            isConnected = false,
+            lastSyncMillis = 0L
         )
     )
     val backendConfig: StateFlow<BackendConfig> = _backendConfig.asStateFlow()
 
     init {
-        seedInitialProgress()
         bindDatabaseForExam(_currentExam.value.id)
         recomputeReadinessAndStudyPlan()
     }
@@ -207,11 +186,8 @@ class ExamRepository(
                 db.flashcardDao().insertFlashcards(entities)
             }
 
-            // Seed realistic historical exam simulation runs if local database is empty
-            val scoreCount = db.simulationScoreDao().getScoreCount(canonicalExamId)
-            if (scoreCount == 0) {
-                seedHistoricalSimulationScores(db, canonicalExamId)
-            }
+            // Remove fabricated "historical" attempts that earlier builds seeded into this local database.
+            db.simulationScoreDao().deleteSeededHistoricalScores()
 
             _pendingSyncCount.value = db.userProfileDao().getPendingSyncCount()
 
@@ -245,145 +221,6 @@ class ExamRepository(
                 }
             }
         }
-    }
-
-    private suspend fun seedHistoricalSimulationScores(db: CertDatabase, examId: String) {
-        val now = System.currentTimeMillis()
-        val oneDay = 86_400_000L
-        val exam = ExamCatalog.getExamById(examId)
-
-        val attempts = listOf(
-            SimulationScoreEntity.createHistoricalAttempt(
-                id = "sim_hist_${examId}_01",
-                examId = examId,
-                timestampMillis = now - (12 * oneDay),
-                overallScore = 54,
-                isPassed = false,
-                timeSpentSeconds = 3400,
-                totalQuestions = 50,
-                attemptNumber = 1,
-                domainScores = listOf(
-                    DomainScoreRecord("d1", "Security & Risk Management", 60),
-                    DomainScoreRecord("d2", "Asset Security", 55),
-                    DomainScoreRecord("d3", "Security Architecture & Engineering", 42),
-                    DomainScoreRecord("d4", "Communication & Network Security", 50),
-                    DomainScoreRecord("d5", "Identity & Access Management", 64),
-                    DomainScoreRecord("d6", "Security Assessment & Testing", 46),
-                    DomainScoreRecord("d7", "Security Operations", 50),
-                    DomainScoreRecord("d8", "Software Development Security", 65)
-                )
-            ),
-            SimulationScoreEntity.createHistoricalAttempt(
-                id = "sim_hist_${examId}_02",
-                examId = examId,
-                timestampMillis = now - (9 * oneDay),
-                overallScore = 60,
-                isPassed = false,
-                timeSpentSeconds = 3100,
-                totalQuestions = 50,
-                attemptNumber = 2,
-                domainScores = listOf(
-                    DomainScoreRecord("d1", "Security & Risk Management", 66),
-                    DomainScoreRecord("d2", "Asset Security", 62),
-                    DomainScoreRecord("d3", "Security Architecture & Engineering", 48),
-                    DomainScoreRecord("d4", "Communication & Network Security", 58),
-                    DomainScoreRecord("d5", "Identity & Access Management", 70),
-                    DomainScoreRecord("d6", "Security Assessment & Testing", 52),
-                    DomainScoreRecord("d7", "Security Operations", 54),
-                    DomainScoreRecord("d8", "Software Development Security", 70)
-                )
-            ),
-            SimulationScoreEntity.createHistoricalAttempt(
-                id = "sim_hist_${examId}_03",
-                examId = examId,
-                timestampMillis = now - (6 * oneDay),
-                overallScore = 67,
-                isPassed = false,
-                timeSpentSeconds = 2900,
-                totalQuestions = 50,
-                attemptNumber = 3,
-                domainScores = listOf(
-                    DomainScoreRecord("d1", "Security & Risk Management", 74),
-                    DomainScoreRecord("d2", "Asset Security", 70),
-                    DomainScoreRecord("d3", "Security Architecture & Engineering", 56),
-                    DomainScoreRecord("d4", "Communication & Network Security", 66),
-                    DomainScoreRecord("d5", "Identity & Access Management", 76),
-                    DomainScoreRecord("d6", "Security Assessment & Testing", 60),
-                    DomainScoreRecord("d7", "Security Operations", 62),
-                    DomainScoreRecord("d8", "Software Development Security", 74)
-                )
-            ),
-            SimulationScoreEntity.createHistoricalAttempt(
-                id = "sim_hist_${examId}_04",
-                examId = examId,
-                timestampMillis = now - (3 * oneDay),
-                overallScore = 72,
-                isPassed = 72 >= exam.passingScorePercent,
-                timeSpentSeconds = 2750,
-                totalQuestions = 50,
-                attemptNumber = 4,
-                domainScores = listOf(
-                    DomainScoreRecord("d1", "Security & Risk Management", 80),
-                    DomainScoreRecord("d2", "Asset Security", 75),
-                    DomainScoreRecord("d3", "Security Architecture & Engineering", 64),
-                    DomainScoreRecord("d4", "Communication & Network Security", 72),
-                    DomainScoreRecord("d5", "Identity & Access Management", 82),
-                    DomainScoreRecord("d6", "Security Assessment & Testing", 66),
-                    DomainScoreRecord("d7", "Security Operations", 68),
-                    DomainScoreRecord("d8", "Software Development Security", 76)
-                )
-            ),
-            SimulationScoreEntity.createHistoricalAttempt(
-                id = "sim_hist_${examId}_05",
-                examId = examId,
-                timestampMillis = now - (1 * oneDay),
-                overallScore = 78,
-                isPassed = 78 >= exam.passingScorePercent,
-                timeSpentSeconds = 2600,
-                totalQuestions = 50,
-                attemptNumber = 5,
-                domainScores = listOf(
-                    DomainScoreRecord("d1", "Security & Risk Management", 88),
-                    DomainScoreRecord("d2", "Asset Security", 82),
-                    DomainScoreRecord("d3", "Security Architecture & Engineering", 72),
-                    DomainScoreRecord("d4", "Communication & Network Security", 78),
-                    DomainScoreRecord("d5", "Identity & Access Management", 86),
-                    DomainScoreRecord("d6", "Security Assessment & Testing", 70),
-                    DomainScoreRecord("d7", "Security Operations", 74),
-                    DomainScoreRecord("d8", "Software Development Security", 80)
-                )
-            )
-        )
-
-        db.simulationScoreDao().insertScores(attempts)
-        _simulationScores.value = attempts
-    }
-
-    private fun seedInitialProgress() {
-        val initialSession = ExamSession(
-            sessionId = "init_session_01",
-            examId = "cissp",
-            mode = ExamMode.FULL_SIMULATION,
-            startTimeMillis = System.currentTimeMillis() - 86400000,
-            durationSeconds = 2400,
-            totalQuestions = 8,
-            userAnswers = mapOf(0 to 1, 1 to 2, 2 to 1, 3 to 1, 4 to 0, 5 to 1, 6 to 1, 7 to 1),
-            flaggedIndices = setOf(1, 4),
-            completedTimeMillis = System.currentTimeMillis() - 84000000,
-            scorePercent = 75,
-            isPassed = true,
-            domainScores = listOf(
-                DomainScore("d1", "Security & Risk Management", 1, 1, 100),
-                DomainScore("d2", "Asset Security", 1, 1, 100),
-                DomainScore("d3", "Security Architecture & Engineering", 1, 1, 100),
-                DomainScore("d4", "Communication & Network Security", 1, 1, 100),
-                DomainScore("d5", "Identity & Access Management", 1, 1, 100),
-                DomainScore("d6", "Security Assessment & Testing", 0, 1, 0),
-                DomainScore("d7", "Security Operations", 0, 1, 0),
-                DomainScore("d8", "Software Development Security", 1, 1, 100)
-            )
-        )
-        _sessions.value = listOf(initialSession)
     }
 
     /**
@@ -589,51 +426,13 @@ class ExamRepository(
         recomputeReadinessAndStudyPlan()
     }
 
+    /**
+     * Client-side code can NEVER grant paid access. Paid entitlements are created only by the server after
+     * verified payment (written to /users/{uid}/subscriptions by a trusted backend). This intentionally does
+     * nothing locally; the caller should send the student to the web checkout.
+     */
     fun subscribeToSubject(examId: String) {
-        val current = _userProfile.value
-        var found = false
-        val updated = current.subscriptions.map { sub ->
-            if (ExamCatalog.matchesExamId(sub.examId, examId)) {
-                found = true
-                sub.copy(
-                    status = SubStatus.ACTIVE,
-                    validUntilDate = "Dec 31, 2027",
-                    subscribedPlatform = "Universal License (Unlocked)",
-                    platformOrigin = PlatformOrigin.UNIVERSAL_SYNC,
-                    universalAccess = true
-                )
-            } else sub
-        }.toMutableList()
-
-        if (!found) {
-            val exam = ExamCatalog.getExamById(examId)
-            updated.add(
-                com.example.model.ExamSubscription(
-                    examId = examId,
-                    examTitle = exam.title,
-                    shortCode = exam.shortCode,
-                    status = SubStatus.ACTIVE,
-                    subscribedPlatform = "Universal License (Unlocked)",
-                    validUntilDate = "Dec 31, 2027",
-                    priceFormatted = "$29.00/subject",
-                    universalAccess = true,
-                    vendor = exam.issuer,
-                    platformOrigin = PlatformOrigin.UNIVERSAL_SYNC
-                )
-            )
-        }
-
-        val newProfile = current.copy(
-            subscriptions = updated,
-            lastSyncTimestampMillis = System.currentTimeMillis()
-        )
-        _userProfile.value = newProfile
-        persistProfileLocally(newProfile)
-        enqueueOrSyncOperation(
-            domainType = "ENTITLEMENT",
-            entityId = ExamCatalog.normalizeExamId(examId),
-            payloadJson = firebaseSyncClient.toWebProfileJson(newProfile)
-        )
+        // no-op by design: see KDoc above.
     }
 
     private fun persistProfileLocally(profile: UserCentralProfile) {
