@@ -478,8 +478,17 @@ export const StudyNotebookHub: React.FC = () => {
           </div>
 
           <div
+            role="button"
+            tabIndex={0}
+            aria-label={`Flashcard: ${isCardFlipped ? 'Answer: ' + currentCard.back : 'Question: ' + currentCard.front}. Press Enter or Space to flip.`}
             onClick={() => setIsCardFlipped((f) => !f)}
-            className="cursor-pointer min-h-[280px] rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900 shadow-md transition-all flex flex-col justify-between hover:border-blue-500 select-none"
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                setIsCardFlipped((f) => !f);
+              }
+            }}
+            className="cursor-pointer min-h-[280px] rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900 shadow-md transition-all flex flex-col justify-between hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 select-none"
           >
             <div>
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800">

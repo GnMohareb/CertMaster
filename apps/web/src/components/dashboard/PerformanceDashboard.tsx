@@ -64,17 +64,12 @@ export const PerformanceDashboard: React.FC = () => {
   );
   const knownCardsCount = certFlashcards.filter((f) => f.state === 'known').length;
 
-  // Domains available for individual curve plotting
+  // Domains available for individual curve plotting (dynamic per active certification)
   const domainOptions = [
     'Overall Score',
-    'Security & Risk Management',
-    'Asset Security',
-    'Security Architecture & Engineering',
-    'Communication & Network Security',
-    'Identity & Access Management (IAM)',
-    'Security Assessment & Testing',
-    'Security Operations',
-    'Software Development Security',
+    ...(activeBank.domains && activeBank.domains.length > 0
+      ? activeBank.domains.map((d) => d.name)
+      : CISSP_DOMAINS.map((d) => d.name)),
   ];
 
   // Prepare chart coordinates (SVG 640 x 220)
@@ -125,8 +120,11 @@ export const PerformanceDashboard: React.FC = () => {
 
   const hoveredPoint = hoveredPointIndex !== null ? points[hoveredPointIndex] : null;
 
-  // Domain Stress Heatmap calculation
-  const domainStressData = CISSP_DOMAINS.map((domain) => {
+  // Domain Stress Heatmap calculation (reflects currently active certification)
+  const domainsToUse =
+    activeBank.domains && activeBank.domains.length > 0 ? activeBank.domains : CISSP_DOMAINS;
+
+  const domainStressData = domainsToUse.map((domain) => {
     const latestAttempt = historicalAttempts[historicalAttempts.length - 1];
     const score = latestAttempt ? latestAttempt.domainScores[domain.name] || 72 : 72;
     const domainStress = Math.round(100 - score + profile.cognitiveStressBaseline * 0.35);

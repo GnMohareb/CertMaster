@@ -397,7 +397,7 @@ export const SubjectCatalog: React.FC = () => {
                   : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
-              All 112 Exams
+              All Certifications ({ALL_112_EXAM_BANKS.length})
             </button>
             <button
               onClick={() => setStatusFilter('FULL_PREP')}
@@ -417,7 +417,7 @@ export const SubjectCatalog: React.FC = () => {
                   : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
-              Active Entitlements
+              My Unlocked Tracks
             </button>
             <button
               onClick={() => setStatusFilter('LOCKED')}
@@ -427,7 +427,7 @@ export const SubjectCatalog: React.FC = () => {
                   : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
-              Locked Banks
+              Catalog Previews (106)
             </button>
           </div>
 
