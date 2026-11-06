@@ -66,11 +66,16 @@ export const CheckoutModal: React.FC = () => {
                 <Shield className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Universal Entitlement Checkout
-                </h3>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Universal Entitlement Checkout
+                  </h3>
+                  <span className="rounded bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                    TEST / SANDBOX GATE
+                  </span>
+                </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                  Instant Cross-Platform Unlock: Web Hub + Android App
+                  Instant Omnichannel Cross-Platform Unlock: Web Portal + Dedicated Android App
                 </div>
               </div>
             </div>
@@ -137,11 +142,15 @@ export const CheckoutModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Simulated Stripe Payment Form */}
+            {/* Sandbox Payment Form */}
             <form onSubmit={handlePay} className="space-y-3.5">
+              <div className="rounded-lg bg-amber-500/10 p-3 text-[11px] text-amber-800 dark:text-amber-200 border border-amber-500/20">
+                <strong>Sandbox Test Checkout:</strong> No real card will be charged. This triggers the server-verified entitlement gate to provision your pass across both this Web Portal and your Android companion app.
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Card Details (Simulated Stripe Elements)
+                  Card Details (Sandbox Mode)
                 </label>
                 <div className="relative">
                   <input
