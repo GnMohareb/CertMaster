@@ -165,8 +165,38 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _statusMessage.value = message
     }
 
+    companion object {
+        const val FREE_ASSESSMENT_QUESTION_LIMIT = 50
+    }
+
+    private val _showUpgradePrompt = MutableStateFlow(false)
+    val showUpgradePrompt: StateFlow<Boolean> = _showUpgradePrompt.asStateFlow()
+
+    fun dismissUpgradePrompt() {
+        _showUpgradePrompt.value = false
+    }
+
+    fun openUpgradePrompt() {
+        _showUpgradePrompt.value = true
+    }
+
+    fun isCurrentExamSubscribed(): Boolean {
+        val sub = repository.userProfile.value.subscriptions.firstOrNull { it.examId == repository.currentExam.value.id }
+        return sub?.status == com.example.model.SubStatus.ACTIVE
+    }
+
     fun startSimulation(mode: ExamMode, domainFilterId: String? = null) {
-        _activeMode.value = mode
+        val isSubscribed = isCurrentExamSubscribed()
+
+        // If user is on Free Tier and requests Full Simulation, route to 50-Question Free Diagnostic Assessment
+        val effectiveMode = if (mode == ExamMode.FULL_SIMULATION && !isSubscribed) {
+            _statusMessage.value = "Starting 50-Question Free Assessment. Upgrade anytime to unlock all full simulations."
+            ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT
+        } else {
+            mode
+        }
+
+        _activeMode.value = effectiveMode
         val allQ = repository.questions.value
         val filtered = if (domainFilterId != null) {
             allQ.filter { it.domainId == domainFilterId }
@@ -174,17 +204,24 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             allQ
         }
 
-        _simulationQuestions.value = filtered
+        // Free tier or diagnostic assessment caps at 50 questions
+        val questionsToUse = if (effectiveMode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT || !isSubscribed) {
+            filtered.take(FREE_ASSESSMENT_QUESTION_LIMIT)
+        } else {
+            filtered
+        }
+
+        _simulationQuestions.value = questionsToUse
         _currentQuestionIndex.value = 0
         _userAnswers.value = emptyMap()
         _flaggedIndices.value = emptySet()
         _struckOptions.value = emptyMap()
         _optionSwitchCounts.value = emptyMap()
 
-        val timeLimit = if (mode == ExamMode.FULL_SIMULATION) {
+        val timeLimit = if (effectiveMode == ExamMode.FULL_SIMULATION && isSubscribed) {
             repository.currentExam.value.durationMinutes * 60
         } else {
-            filtered.size * 90 // 1.5 min per question
+            questionsToUse.size * 90 // 1.5 min per question (e.g. 75 min for 50 questions)
         }
         _remainingSeconds.value = timeLimit
         _isTimerPaused.value = false

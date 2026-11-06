@@ -22,6 +22,37 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  // Commercial App Distribution: Separate standalone apps per certification track,
+  // each offering the 50-question free assessment funnel and complete exam upgrade path.
+  flavorDimensions += "exam"
+
+  productFlavors {
+    create("full") {
+      dimension = "exam"
+      applicationId = "com.aistudio.examprep.kmwqxr"
+      buildConfigField("String", "TARGET_EXAM_ID", "\"all\"")
+      buildConfigField("int", "FREE_ASSESSMENT_LIMIT", "50")
+    }
+    create("cissp") {
+      dimension = "exam"
+      applicationId = "com.certmaster.cissp"
+      buildConfigField("String", "TARGET_EXAM_ID", "\"cissp\"")
+      buildConfigField("int", "FREE_ASSESSMENT_LIMIT", "50")
+    }
+    create("pmp") {
+      dimension = "exam"
+      applicationId = "com.certmaster.pmp"
+      buildConfigField("String", "TARGET_EXAM_ID", "\"pmp\"")
+      buildConfigField("int", "FREE_ASSESSMENT_LIMIT", "50")
+    }
+    create("awsSaa") {
+      dimension = "exam"
+      applicationId = "com.certmaster.awssaa"
+      buildConfigField("String", "TARGET_EXAM_ID", "\"aws-saa\"")
+      buildConfigField("int", "FREE_ASSESSMENT_LIMIT", "50")
+    }
+  }
+
   // Do not remove or modify these signingConfigs. They are necessary for building, installing,
   // and updating Android apps in AI Studio.
   signingConfigs {

@@ -71,6 +71,11 @@ fun ExamResultScreen(
     val session = viewModel.lastCompletedSession.collectAsState().value
     val currentExam by viewModel.currentExam.collectAsState()
     val questions by viewModel.simulationQuestions.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+
+    val isExamSubscribed = userProfile.subscriptions.any {
+        it.examId == currentExam.id && it.status == com.example.model.SubStatus.ACTIVE
+    }
 
     BackHandler {
         viewModel.navigateTo(AppScreen.DASHBOARD)
@@ -197,6 +202,71 @@ fun ExamResultScreen(
                                 Icon(Icons.Default.AutoAwesome, contentDescription = "Ask AI", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("AI Tutor Drill", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 50-Question Assessment Conversion / Upgrade Card for Free Tier
+            if (!isExamSubscribed) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("card_upgrade_prompt"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(GoldMastery.copy(alpha = 0.6f)))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(GoldMastery.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = GoldMastery, modifier = Modifier.size(20.dp))
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "50-Question Assessment Complete",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Ready to unlock the Complete ${currentExam.shortCode} Exam?",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "You have completed the free 50-question diagnostic benchmark. Upgrade to the Complete Exam Pass to unlock 1,000+ simulation questions, full timed mock exams, all study guides, and cross-platform synchronization with the CertMaster Web Platform.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 17.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Button(
+                                onClick = { viewModel.navigateTo(AppScreen.CENTRAL_PROFILE) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("btn_upgrade_complete_exam"),
+                                colors = ButtonDefaults.buttonColors(containerColor = GoldMastery)
+                            ) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Upgrade to Complete Exam Pass", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
                         }
                     }

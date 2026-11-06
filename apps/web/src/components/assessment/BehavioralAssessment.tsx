@@ -28,6 +28,7 @@ export const BehavioralAssessment: React.FC = () => {
     submitExamSession,
     cancelExamSession,
     setActiveTab,
+    setCheckoutExamId,
   } = useCertMaster();
 
   const [strikethroughMode, setStrikethroughMode] = useState(false);
@@ -176,14 +177,20 @@ export const BehavioralAssessment: React.FC = () => {
               className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             >
               <RotateCcw className="h-4 w-4" />
-              <span>Retake Calibration</span>
+              <span>Retake 50-Q Assessment</span>
+            </button>
+            <button
+              onClick={() => setCheckoutExamId('all-access')}
+              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm"
+            >
+              <span>Upgrade to Complete Exam Pass</span>
+              <ArrowRight className="h-4 w-4" />
             </button>
             <button
               onClick={() => setActiveTab('dashboard')}
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-sm"
             >
-              <span>View Multi-Domain Dashboard</span>
-              <ArrowRight className="h-4 w-4" />
+              <span>View Dashboard</span>
             </button>
           </div>
         </div>

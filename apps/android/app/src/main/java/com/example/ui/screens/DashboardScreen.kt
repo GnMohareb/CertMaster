@@ -324,13 +324,16 @@ fun DashboardScreen(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "Ready to Practice?",
+                                    text = if (isExamSubscribed) "Complete ${currentExam.shortCode} Prep Active" else "Free 50-Question Assessment",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Continue your ${currentExam.shortCode} preparation with timed mock questions or diagnostic assessments.",
+                                    text = if (isExamSubscribed)
+                                        "Unlimited simulation exams, full question bank, and AI tutor are fully unlocked."
+                                    else
+                                        "Diagnose your readiness across all ${currentExam.domains.size} domains. Take 50 questions free, then upgrade to unlock complete exams.",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -340,7 +343,10 @@ fun DashboardScreen(
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     Button(
-                                        onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
+                                        onClick = {
+                                            if (isExamSubscribed) viewModel.startSimulation(ExamMode.FULL_SIMULATION)
+                                            else viewModel.startAssessmentExam()
+                                        },
                                         modifier = Modifier
                                             .weight(1f)
                                             .testTag("btn_launch_simulation_chart"),
@@ -348,18 +354,25 @@ fun DashboardScreen(
                                     ) {
                                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Start Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (isExamSubscribed) "Start Exam" else "Free 50-Q Test", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
 
                                     OutlinedButton(
-                                        onClick = { viewModel.startAssessmentExam() },
+                                        onClick = {
+                                            if (isExamSubscribed) viewModel.startAssessmentExam()
+                                            else viewModel.navigateTo(AppScreen.CENTRAL_PROFILE)
+                                        },
                                         modifier = Modifier
                                             .weight(1f)
                                             .testTag("btn_launch_assessment_chart")
                                     ) {
-                                        Icon(Icons.Default.Psychology, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Icon(
+                                            if (isExamSubscribed) Icons.Default.Psychology else Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Diagnostic Drill", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (isExamSubscribed) "Diagnostic Drill" else "Upgrade Pass", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
