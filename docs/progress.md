@@ -1,38 +1,61 @@
 # CertMaster Unified Ecosystem — Development Progress Log
 
-**Last Updated**: 2026-10-30  
+**Last Updated**: 2026-11-06  
 **Firebase Project ID**: `gen-lang-client-0788513176`  
 **Named Firestore Database ID**: `ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001`  
-**Canonical Schema Version**: `2`
+**Canonical Schema Version**: `2`  
+**GitHub Repository**: [https://github.com/GnMohareb/CertMaster](https://github.com/GnMohareb/CertMaster) (Default branch: `main`)
 
 ---
 
 ## 1. Phase Execution Summary
 
 | Phase | Scope | Status | Verification Evidence |
-| --- | --- | --- | --- |
-| **Phase 1** | Canonical v2 Data Contract, Exam ID Normalization, Authoritative Formulas & Non-Destructive Migrations | **COMPLETED & VERIFIED** | Web `npm test` (Tests 1–7) + Android `CrossPlatformSyncIntegrationTest.kt` |
-| **Phase 2** | Shared Firebase Auth, Named Firestore Database Initialization, Firestore Security Rules & Entitlement Protection | **COMPLETED & VERIFIED** | Web `npm test` (Test 8: 14/14 Dirty Dozen & Entitlement Rules) + Android `SharedAuthManager.kt` / `CertMasterFirebaseSyncClient.kt` |
-| **Phase 3** | Express Backend API (`server.ts`), Cross-Platform Sync, Truthful Offline Queue Delivery & Idempotent Session Ingestion | **COMPLETED & VERIFIED** | Web `npm test` (Test 10 & Test 11) + Android `CrossPlatformSyncIntegrationTest.kt` |
-| **Phase 4** | Web Platform Learner-Centered Navigation (7 Top-Level Sections), URL Routing, Mobile Drawer & Certification Content Integrity | **COMPLETED & VERIFIED** | Playwright headless Chromium QA (`playwright_phase7_verify.mjs`) across 5 viewports |
-| **Phase 5** | Cross-Platform Feature Parity (Grounded AI Tutor, Personal Study Notes, 5-Stage Study Plan, Multi-Mode Practice & Post-Exam Review) | **COMPLETED & VERIFIED** | Web `npm test` (Test 10 & Test 11) + Android `CrossPlatformSyncIntegrationTest.kt` |
-| **Phase 6** | Initial Ecosystem Verification & Documentation | **COMPLETED & VERIFIED** | Commit `8b11faa` baseline |
-| **Phase 7** | **Autonomous Production Readiness, End-to-End Integration, Evidence-Based Content Classification, Cryptographic Entitlement Security, Responsive Browser QA & Native Android Emulator APK Verification** | **COMPLETED & VERIFIED** | Web: `11/11` test suites + `14/14` Firestore rules + `5/5` Playwright viewports. Android: `10/10` JUnit/Robolectric tests + `4/4` node contract tests + `app-debug.apk` (`29.26 MB`) verified on Android Emulator (`API 35`) |
+| :--- | :--- | :--- | :--- |
+| **Phase 1** | Canonical v2 Data Contract, Exam ID Normalization, Authoritative Formulas & Migrations | **COMPLETED** | Web `npm test` (Tests 1–7) + Android `CrossPlatformSyncIntegrationTest.kt` |
+| **Phase 2** | Shared Firebase Auth, Named Firestore Database, Security Rules & Entitlement Gate | **COMPLETED** | Web `npm test` (Test 8) + Android `SharedAuthManager.kt` / `CertMasterFirebaseSyncClient.kt` |
+| **Phase 3** | Express Backend API (`server.ts`), Sync Queues, Idempotent Session Ingestion | **COMPLETED** | Web `npm test` (Tests 10 & 11) + Android `CrossPlatformSyncIntegrationTest.kt` |
+| **Phase 4** | Web Navigation Restructuring (7 Top-Level Sections), Hash Routing & Truthful Content | **COMPLETED** | Playwright headless Chromium QA across 5 viewports |
+| **Phase 5** | Cross-Platform Feature Parity (AI Tutor, Notes, Study Plan, Multi-Mode Practice) | **COMPLETED** | Web `npm test` + Android `CrossPlatformSyncIntegrationTest.kt` |
+| **Phase 6** | Ecosystem Baseline Verification & Audit Remediation | **COMPLETED** | Git baseline commit `8b11faa` |
+| **Phase 7** | Production Readiness, Evidence-Based Classification, Cryptographic Entitlement Security | **COMPLETED** | `11/11` test suites + `14/14` Firestore rules + Playwright audit |
+| **Phase 8** | **Physical Galaxy A05 Deployment, QIS Live Ingestion, Dedicated Single-Exam Apps, 50-Q Free Funnel, Omnichannel Universal Entitlements & Web Mobile Bridge** | **COMPLETED & VERIFIED** | **Live Physical Device:** Samsung Galaxy A05 (`R92X91KHRKV`, PID `23455`). **Live Web Server:** `http://localhost:3000`. **Tests:** `12/12` suites passing. **Git:** Commits `8704a71`, `877c42e`, `faf9d76`, `a12e855`. |
 
 ---
 
-## 2. Phase 7 Key Code Changes & Remediations
+## 2. Phase 8 Key Deliverables & Code Changes
 
-### A. Authoritative Web Platform (`apps/web/`)
-- [`apps/web/server.ts`](file:///c:/CertMaster/apps/web/server.ts) — Implemented HMAC-SHA256 Bearer token authentication (`createSignedBearerToken`, `verifyBearerToken`, `revokeBearerToken`, `requireBearerAuth` -> `401 UNAUTHORIZED`), strict UID ownership enforcement (`verifyUidOwnership` -> `403 FORBIDDEN`), cryptographic payment webhook verification (`createPaymentWebhookSignature`, `X-CertMaster-Webhook-Signature` -> `PRODUCTION_CRYPTO_VERIFIED`) with explicit Sandbox gating (`X-CertMaster-Sandbox-Mode: true` + `sandbox_rcpt_verified_...` -> `SANDBOX_TEST_ONLY`), and live `@google/genai` (`GEMINI_LIVE`) + explicit `LOCAL_GROUNDED_FALLBACK` AI Tutor integration.
-- [`apps/web/src/types/certmaster.ts`](file:///c:/CertMaster/apps/web/src/types/certmaster.ts) & [`apps/web/src/lib/canonicalContract.ts`](file:///c:/CertMaster/apps/web/src/lib/canonicalContract.ts) — Implemented `EvidenceBasedContentStatus`, `ACTUAL_BUNDLED_CONTENT_COUNTS`, `classifyExamContentAvailability`, `getExamBundledContentAudit`, and fixed `migrateLegacyFlashcard` to normalize `lastReviewedEpochMillis` alongside `lastReviewedEpoch`.
-- [`apps/web/src/data/examBanks.ts`](file:///c:/CertMaster/apps/web/src/data/examBanks.ts), [`apps/web/src/components/catalog/SubjectCatalog.tsx`](file:///c:/CertMaster/apps/web/src/components/catalog/SubjectCatalog.tsx), [`apps/web/src/components/simulator/ExamSimulator.tsx`](file:///c:/CertMaster/apps/web/src/components/simulator/ExamSimulator.tsx) — Updated all 112 certifications to reflect exact bundled question counts (`cissp`: 8, `aws-saa`: 5, `sec-plus`: 5, `pmp`: 3, `cism`: 3, `ceh`: 3 = 27 verified questions; 106 catalog previews = `0` questions) and truthful `SAMPLE_CONTENT_AVAILABLE` vs `CATALOG_PREVIEW` badges.
-- [`apps/web/src/context/CertMasterContext.tsx`](file:///c:/CertMaster/apps/web/src/context/CertMasterContext.tsx), [`apps/web/src/components/layout/Header.tsx`](file:///c:/CertMaster/apps/web/src/components/layout/Header.tsx), [`apps/web/src/App.tsx`](file:///c:/CertMaster/apps/web/src/App.tsx), [`apps/web/src/components/study/StudyNotebookHub.tsx`](file:///c:/CertMaster/apps/web/src/components/study/StudyNotebookHub.tsx) — Added `popstate` + query/hash deep-link routing, eliminated horizontal overflow across all 5 viewports (`1440x900`, `1280x800`, `768x1024`, `390x844`, `844x390`), added accessible dialog attributes (`aria-modal="true"`), and surfaced AI Tutor provider badges (`Local Grounded Fallback` vs `Live Gemini 2.5 Flash`).
-- [`apps/web/src/lib/canonicalContract.test.ts`](file:///c:/CertMaster/apps/web/src/lib/canonicalContract.test.ts) & [`apps/web/playwright_phase7_verify.mjs`](file:///c:/CertMaster/apps/web/playwright_phase7_verify.mjs) — Expanded automated test suite to 11 suites (including full E2E Scenarios A, B, C, and D) and automated headless Chromium Playwright verification.
+### A. Physical Device Deployment & Usability Remediation
+- **Target Device:** Samsung Galaxy A05 (`SM-A055M`, Android 15, Serial `R92X91KHRKV`, 360×800 dp viewport).
+- **Back Navigation Fix:** Implemented Compose `BackHandler` in [`MainActivity.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/MainActivity.kt) to safely pop sub-screens without terminating the app.
+- **Top App Bar Optimization:** Decluttered [`CommonComponents.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/ui/components/CommonComponents.kt). Retained 3 primary touch targets (`Sync`, `Switch`, `Profile`) and moved secondary options into a 3-dot overflow menu (`⋮`).
+- **Jargon Elimination:** Removed developer scaffolding labels (`"Room SQLite History"`, `"Multi-Tenant & Replication Engine"`, and raw Kotlin snippets) from user-facing screens.
 
-### B. Authoritative Native Android Application (`apps/android/app/`)
-- [`apps/android/app/src/main/res/values/sso_config.xml`](file:///c:/CertMaster/apps/android/app/src/main/res/values/sso_config.xml), [`apps/android/.env.example`](file:///c:/CertMaster/apps/android/.env.example), [`apps/android/app/src/main/java/com/example/model/CentralProfile.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/model/CentralProfile.kt) — Aligned Android OAuth Client ID to `814967786900-9idd4t0m0qikfs4g739to1s2fda2mefu.apps.googleusercontent.com` and populated Firebase project/database configuration template.
-- [`apps/android/app/src/main/java/com/example/auth/SharedAuthManager.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/auth/SharedAuthManager.kt) & [`apps/android/app/src/main/java/com/example/network/CertMasterFirebaseSyncClient.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/network/CertMasterFirebaseSyncClient.kt) — Added programmatic `FirebaseOptions` initialization (`buildSharedFirebaseOptions`, `ensureFirebaseAppInitialized`) for project `gen-lang-client-0788513176` and named Firestore database `ai-studio-certmasterwebpla-ad2ba0f9-3a61-45af-b60a-14f5eb4f6001`.
-- [`apps/android/app/src/main/java/com/example/network/ApiClient.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/network/ApiClient.kt) — Added OkHttp interceptor that generates and attaches HMAC-SHA256 signed `Authorization: Bearer <token>` headers on Android API requests.
-- [`apps/android/app/src/main/java/com/example/data/DefaultQuestions.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/data/DefaultQuestions.kt), [`apps/android/app/src/main/java/com/example/data/ExamCatalog.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/data/ExamCatalog.kt), [`apps/android/app/src/main/java/com/example/ui/screens/ExamSelectorScreen.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/ui/screens/ExamSelectorScreen.kt), [`apps/android/app/src/main/java/com/example/ui/screens/ExamsHubScreen.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/ui/screens/ExamsHubScreen.kt), [`apps/android/app/src/main/java/com/example/ui/screens/AITutorScreen.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/ui/screens/AITutorScreen.kt) — Matched all 27 verified sample questions (`8, 5, 5, 3, 3, 3`), updated `totalBankQuestions` and `SAMPLE_CONTENT_AVAILABLE` classification, standardized catalog count to `112`, and added explicit `Local Grounded Fallback` disclosure to the Android AI Tutor screen.
-- [`apps/android/app/src/test/java/com/example/CrossPlatformSyncIntegrationTest.kt`](file:///c:/CertMaster/apps/android/app/src/test/java/com/example/CrossPlatformSyncIntegrationTest.kt) & [`apps/android/tests/crossPlatformIntegration.test.mjs`](file:///c:/CertMaster/apps/android/tests/crossPlatformIntegration.test.mjs) — Updated and verified all Android unit, Robolectric, and cross-platform contract tests.
+### B. Monetization & Free Funnel Architecture
+- **50-Question Free Diagnostic Assessment:** Free tier users on mobile and web are capped at 50 questions across all domains with a 75-minute timer (1.5 min/Q).
+- **Post-Assessment Upgrade Flow:** Upon submitting the 50 questions, learners receive their Readiness Score, Domain Mastery Breakdown, and an **"Upgrade to Complete Exam Pass"** conversion card.
+- **Dedicated Single-Exam Mobile Apps:** Added Gradle Product Flavors in [`build.gradle.kts`](file:///c:/CertMaster/apps/android/app/build.gradle.kts) for `cissp`, `pmp`, `awsSaa`, and `full`. In dedicated flavors, the app locks onto that specific certification without multi-exam switcher clutter.
+
+### C. Omnichannel Universal Entitlements
+- **Pay on Any Channel, Unlock Everywhere:**
+  - Pay on Web (Stripe) -> Server webhook verifies HMAC signature -> Sets `status = 'ACTIVE'`, `universalAccess = true` in Firestore -> Android syncs and unlocks the complete exam.
+  - Pay on Mobile (Google Play IAP) -> Server verifies purchase token -> Sets `status = 'ACTIVE'` in Firestore -> Web portal instantly unlocks.
+- **Deterministic Conflict Resolution:** [`AuthoritativeMetricsEngine.kt`](file:///c:/CertMaster/apps/android/app/src/main/java/com/example/domain/AuthoritativeMetricsEngine.kt) and [`canonicalContract.ts`](file:///c:/CertMaster/apps/web/src/lib/canonicalContract.ts) ensure `ACTIVE` on any channel takes priority over `TRIAL` or `LOCKED`.
+
+### D. Continuous QIS Streaming Engine
+- Built `POST /api/qis/ingest` in [`server.ts`](file:///c:/CertMaster/apps/web/server.ts) protected by `QIS_INGESTION_API_KEY`.
+- Updated `GET /api/exams/:examId/questions` to dynamically merge generated QIS questions with static question banks.
+- Provided standalone publisher CLI `C:\Users\gadly\qis-tools\qis_live_publisher.py`.
+
+### E. Web Platform Single Portal & Mobile Companion Bridge
+- Unified Web Portal (`http://localhost:3000`) hosts all 112 certification tracks.
+- Added **"Get Mobile Companion App"** bridge in `My Certifications` (`/#/my-certifications`) for enrolled tracks, guiding students to download the dedicated mobile app for their specific exam with 50 free questions.
+
+---
+
+## 3. Active Verification Artifacts
+
+* `docs/web_information_architecture.md` — Authoritative final sitemap, route mappings, and navigation rationale.
+* `docs/web_feature_parity.md` — Web Platform vs. Native Android feature comparison and content matrix.
+* `docs/ux_test_results.md` — Physical Galaxy A05 test evidence, 5 responsive viewports, and WCAG AA verification.
+* `docs/canonical_data_contract.md` — Schema Version 2 specification.
