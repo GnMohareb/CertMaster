@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: certmaster-web
+    env: node
+    rootDir: apps/web
+    buildCommand: npm ci --legacy-peer-deps && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CERTMASTER_AUTH_SIGNING_SECRET
+        generateValue: true
+      - key: CERTMASTER_PAYMENT_WEBHOOK_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false

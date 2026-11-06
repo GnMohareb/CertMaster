@@ -1,0 +1,8 @@
+# Docker ignore for CertMaster Web Platform
+node_modules
+dist
+.env
+.env.local
+.git
+*.log
+npm-debug.log*
