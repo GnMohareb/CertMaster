@@ -558,6 +558,45 @@ test('10. Backend Security Verification: Bearer Auth, UID Ownership, Cryptograph
     );
     assert.equal(typeof tutorRes.isSimulatedFallback, 'boolean');
     assert.ok(Array.isArray(tutorRes.citations) && tutorRes.citations.length > 0);
+
+    // 10. Continuous QIS Ingestion: Securely ingests dynamic questions and serves them dynamically
+    const qisIngestPayload = {
+      examId: 'aws_csa',
+      questions: [
+        {
+          id: 'qis-aws-dyn-001',
+          prompt: 'What is the most cost-effective storage class for rarely accessed objects that require millisecond retrieval?',
+          options: [
+            { id: 'opt_a', letter: 'A', text: 'S3 Standard' },
+            { id: 'opt_b', letter: 'B', text: 'S3 Standard-IA' },
+            { id: 'opt_c', letter: 'C', text: 'S3 Glacier Flexible' },
+            { id: 'opt_d', letter: 'D', text: 'S3 Glacier Deep Archive' }
+          ],
+          correctOptionId: 'opt_b',
+          domain: 'Design Cost-Optimized Architectures',
+          domainNumber: 3,
+          difficulty: 'Intermediate',
+          explanation: 'S3 Standard-IA is designed for data that is accessed less frequently, but requires rapid access when needed.',
+          source_evidence: 'AWS Storage Whitepaper'
+        }
+      ]
+    };
+
+    const ingestRes = await fetch(`${baseUrl}/qis/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(qisIngestPayload)
+    });
+    assert.equal(ingestRes.status, 200);
+    const ingestJson = await ingestRes.json();
+    assert.equal(ingestJson.status, '200 OK');
+    assert.equal(ingestJson.examId, 'aws-saa');
+    assert.equal(ingestJson.ingestedCount, 1);
+
+    // Verify dynamic questions appear in GET /api/exams/:examId/questions
+    const dynamicQuestions = await fetch(`${baseUrl}/exams/aws-saa/questions`).then(r => r.json());
+    assert.ok(dynamicQuestions.some((q: any) => q.id === 'qis-aws-dyn-001'));
+
   } finally {
     server.close();
   }

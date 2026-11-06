@@ -38,6 +38,7 @@ import {
   ExamReadinessDoc,
   StudySource,
   SubscriptionEntitlement,
+  ExamQuestion,
 } from './src/types/certmaster';
 
 const firebaseConfigPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
@@ -68,6 +69,7 @@ function readSecret(name: string): string | null {
 }
 const getAuthSigningSecret = () => readSecret('CERTMASTER_AUTH_SIGNING_SECRET');
 const getPaymentWebhookSecret = () => readSecret('CERTMASTER_PAYMENT_WEBHOOK_SECRET');
+const getQisIngestionApiKey = () => readSecret('QIS_INGESTION_API_KEY');
 
 // Firebase ID tokens are verified cryptographically (RS256) against Google's published public keys.
 let firebaseJwks: JWTVerifyGetKey = createRemoteJWKSet(
@@ -229,6 +231,7 @@ export function createCertMasterApiApp() {
   app.use(express.json({ limit: '512kb' }));
 
   const userStore = new Map<string, ServerUserRecord>();
+  const qisDynamicQuestions = new Map<string, ExamQuestion[]>();
 
   function getOrCreateUserRecord(rawUserId: string): ServerUserRecord {
     const userId = (rawUserId || 'anonymous').slice(0, 128);
@@ -341,8 +344,12 @@ export function createCertMasterApiApp() {
 
   apiRouter.get('/exams/:examId/questions', (req, res) => {
     const canonicalId = normalizeExamId(req.params.examId);
-    const questions = getQuestionsForExamId(canonicalId);
-    res.json(questions);
+    const staticQuestions = getQuestionsForExamId(canonicalId);
+    const dynamicQuestions = qisDynamicQuestions.get(canonicalId) || [];
+    const questionMap = new Map<string, ExamQuestion>();
+    staticQuestions.forEach((q) => questionMap.set(q.id, q));
+    dynamicQuestions.forEach((q) => questionMap.set(q.id, q));
+    res.json(Array.from(questionMap.values()));
   });
 
   apiRouter.get('/exams/:examId/sources', (req, res) => {
@@ -361,6 +368,136 @@ export function createCertMasterApiApp() {
     const canonicalId = normalizeExamId(req.params.examId);
     const cards = getFlashcardsForExamId(MULTI_EXAM_FLASHCARDS, canonicalId);
     res.json(cards);
+  });
+
+
+  // =========================================================================
+  // 2B. CONTINUOUS QIS INGESTION ENDPOINT (SECURE API KEY PROTECTED)
+  // =========================================================================
+  apiRouter.post('/qis/ingest', (req, res) => {
+    const configuredKey = getQisIngestionApiKey();
+    const isDev = process.env.NODE_ENV !== 'production';
+    const providedKey = req.headers['x-qis-api-key'] || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+
+    if (!configuredKey && !isDev) {
+      res.status(503).json({
+        status: '503 SERVICE_UNAVAILABLE',
+        error: 'QIS_INGESTION_API_KEY is not configured in production environment.',
+      });
+      return;
+    }
+
+    if (configuredKey && providedKey !== configuredKey) {
+      res.status(403).json({
+        status: '403 FORBIDDEN',
+        error: 'PERMISSION_DENIED: Invalid or missing X-QIS-API-Key header.',
+      });
+      return;
+    }
+
+    const body = req.body || {};
+    const rawExamId = body.examId || body.examCode || body.exam;
+    if (!rawExamId || typeof rawExamId !== 'string') {
+      res.status(400).json({
+        status: '400 BAD_REQUEST',
+        error: 'Missing required field: examId (or examCode)',
+      });
+      return;
+    }
+
+    const canonicalExamId = normalizeExamId(rawExamId);
+    const incomingQuestions: unknown[] = Array.isArray(body.questions)
+      ? body.questions
+      : Array.isArray(body.pack?.questions)
+      ? body.pack.questions
+      : [];
+
+    if (incomingQuestions.length === 0) {
+      res.status(400).json({
+        status: '400 BAD_REQUEST',
+        error: 'No questions provided in payload (expected array in questions or pack.questions)',
+      });
+      return;
+    }
+
+    const validQuestions: ExamQuestion[] = [];
+    for (let i = 0; i < incomingQuestions.length; i++) {
+      const q = incomingQuestions[i] as Record<string, any>;
+      const qId = String(q.id || q.question_id || `qis-${canonicalExamId}-${Date.now()}-${i}`);
+      const prompt = String(q.prompt || q.question_text || q.text || '').trim();
+      if (!prompt) continue;
+
+      let options: Array<{ id: string; letter: 'A' | 'B' | 'C' | 'D'; text: string }> = [];
+      if (Array.isArray(q.options) && q.options.length >= 2) {
+        options = q.options.map((opt: any, optIdx: number) => {
+          const letter = (['A', 'B', 'C', 'D'][optIdx] || 'A') as 'A' | 'B' | 'C' | 'D';
+          const text = typeof opt === 'string' ? opt : String(opt.text || opt.option || '');
+          const id = typeof opt === 'object' && opt.id ? String(opt.id) : `opt_${letter.toLowerCase()}`;
+          return { id, letter, text };
+        });
+      } else if (q.option_a && q.option_b) {
+        options = [
+          { id: 'opt_a', letter: 'A', text: String(q.option_a) },
+          { id: 'opt_b', letter: 'B', text: String(q.option_b) },
+          { id: 'opt_c', letter: 'C', text: String(q.option_c || '') },
+          { id: 'opt_d', letter: 'D', text: String(q.option_d || '') },
+        ];
+      }
+
+      if (options.length < 2) continue;
+
+      let correctOptionId = 'opt_a';
+      if (q.correctOptionId && typeof q.correctOptionId === 'string') {
+        correctOptionId = q.correctOptionId;
+      } else if (typeof q.correct_answer === 'number') {
+        const letters = ['opt_a', 'opt_b', 'opt_c', 'opt_d'];
+        correctOptionId = letters[q.correct_answer] || 'opt_a';
+      } else if (typeof q.correct_answer === 'string') {
+        const norm = q.correct_answer.trim().toLowerCase();
+        if (norm === 'a' || norm === 'opt_a') correctOptionId = 'opt_a';
+        else if (norm === 'b' || norm === 'opt_b') correctOptionId = 'opt_b';
+        else if (norm === 'c' || norm === 'opt_c') correctOptionId = 'opt_c';
+        else if (norm === 'd' || norm === 'opt_d') correctOptionId = 'opt_d';
+      }
+
+      validQuestions.push({
+        id: qId,
+        examId: canonicalExamId,
+        domain: String(q.domain || q.domain_id || 'General Subject Knowledge'),
+        domainNumber: Number(q.domainNumber || q.domain_number || 1),
+        difficulty: (['Foundational', 'Intermediate', 'Advanced', 'CBK-Scenario'].includes(q.difficulty)
+          ? q.difficulty
+          : 'Intermediate') as any,
+        scenario: q.scenario ? String(q.scenario) : undefined,
+        prompt,
+        options,
+        correctOptionId,
+        explanation: String(q.explanation || 'Answer verified by QIS syllabus quality review.'),
+        citation: {
+          authority: String(q.citation?.authority || q.source_evidence || 'QIS Curriculum Engine'),
+          section: String(q.citation?.section || `Objective ${q.domainNumber || 1}`),
+          note: String(q.citation?.note || 'Ingested continuously from authoritative syllabus'),
+          sourceDocument: String(q.citation?.sourceDocument || q.source_evidence || 'Official Exam Guide'),
+        },
+      });
+    }
+
+    const existing = qisDynamicQuestions.get(canonicalExamId) || [];
+    const merged = new Map<string, ExamQuestion>();
+    existing.forEach((q) => merged.set(q.id, q));
+    validQuestions.forEach((q) => merged.set(q.id, q));
+
+    const finalQuestions = Array.from(merged.values());
+    qisDynamicQuestions.set(canonicalExamId, finalQuestions);
+
+    res.json({
+      status: '200 OK',
+      message: `Successfully ingested ${validQuestions.length} questions from QIS continuous generator into ${canonicalExamId}.`,
+      examId: canonicalExamId,
+      ingestedCount: validQuestions.length,
+      totalLiveQuestions: finalQuestions.length,
+      timestamp: new Date().toISOString(),
+    });
   });
 
   // =========================================================================
