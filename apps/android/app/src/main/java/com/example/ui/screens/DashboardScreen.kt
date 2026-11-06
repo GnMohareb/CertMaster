@@ -313,41 +313,63 @@ fun DashboardScreen(
                         }
                     }
 
-                    // Simulation Action CTAs
+                    // Simulation Action CTAs (Hero Practice Actions)
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("card_quick_study_actions"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         ) {
-                            Button(
-                                onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("btn_launch_simulation_chart"),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("New Simulation", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Ready to Practice?",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Continue your ${currentExam.shortCode} preparation with timed mock questions or diagnostic assessments.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Button(
+                                        onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("btn_launch_simulation_chart"),
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Start Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
 
-                            OutlinedButton(
-                                onClick = { viewModel.startAssessmentExam() },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("btn_launch_assessment_chart")
-                            ) {
-                                Icon(Icons.Default.Psychology, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Assessment Drill", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    OutlinedButton(
+                                        onClick = { viewModel.startAssessmentExam() },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("btn_launch_assessment_chart")
+                                    ) {
+                                        Icon(Icons.Default.Psychology, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Diagnostic Drill", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                         }
                     }
 
-                    // Historical Simulation Attempt Log (Room SQLite)
+                    // Historical Simulation Attempt Log
                     item {
                         Text(
-                            text = "Room SQLite Simulation History (${simulationScores.size} Attempts)",
+                            text = if (simulationScores.isEmpty()) "Recent Simulation History (0 Attempts Recorded)" else "Recent Simulation History (${simulationScores.size} Attempts)",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground

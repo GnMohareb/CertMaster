@@ -2,6 +2,7 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -65,6 +66,11 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
             snackbarHostState.showSnackbar(it)
             viewModel.clearStatusMessage()
         }
+    }
+
+    // Comprehensive Android Back Navigation Handler
+    BackHandler(enabled = currentScreen != AppScreen.DASHBOARD) {
+        viewModel.navigateBack()
     }
 
     // Screens that show the root top and bottom navigation bars

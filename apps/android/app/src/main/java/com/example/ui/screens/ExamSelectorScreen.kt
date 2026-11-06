@@ -80,8 +80,8 @@ fun ExamSelectorScreen(
         TopAppBar(
             title = {
                 Column {
-                    Text("112 Exam Bank Matrix", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("Multi-Tenant & Replication Engine", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Select Certification Track", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Switch your active study and practice context", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             navigationIcon = {
@@ -99,7 +99,7 @@ fun ExamSelectorScreen(
             contentPadding = PaddingValues(top = 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Replication Blueprint Card for the 111 replicas
+            // Learner-facing info card for certifications
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -115,11 +115,11 @@ fun ExamSelectorScreen(
                                     .background(MaterialTheme.colorScheme.primary),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Code, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "111 Replicas Blueprint",
+                                text = "Verified Study & Practice Tracks",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -129,32 +129,11 @@ fun ExamSelectorScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "To replicate this application for any of your 111 other exam banks:",
+                            text = "Select any track below to set your active certification. All study notes, flashcards, diagnostic assessments, and practice questions will align with your chosen certification.",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 17.sp
                         )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .padding(10.dp)
-                        ) {
-                            Text(
-                                text = "// 1. Change active ID in ExamRepository:\n" +
-                                       "val _currentExam = MutableStateFlow(ExamCatalog.YOUR_EXAM)\n\n" +
-                                       "// 2. Or configure remote sync endpoint in Backend Settings:\n" +
-                                       "https://api.yourbackend.com/v1/exams/{examId}\n\n" +
-                                       "// 3. Update applicationId & app_name in gradle/strings.xml",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.primary,
-                                lineHeight = 16.sp
-                            )
-                        }
                     }
                 }
             }
