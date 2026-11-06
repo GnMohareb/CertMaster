@@ -62,10 +62,15 @@ class ExamRepository(
     private var scoresCollectJob: Job? = null
 
     // 1. Active Certification Catalog & Question Bank
-    private val _currentExam = MutableStateFlow(ExamCatalog.CISSP)
+    private val initialExam = if (com.example.BuildConfig.TARGET_EXAM_ID != "all") {
+        ExamCatalog.getExamById(com.example.BuildConfig.TARGET_EXAM_ID)
+    } else {
+        ExamCatalog.CISSP
+    }
+    private val _currentExam = MutableStateFlow(initialExam)
     val currentExam: StateFlow<ExamConfig> = _currentExam.asStateFlow()
 
-    private val _questions = MutableStateFlow<List<Question>>(DefaultQuestions.CISSP_QUESTIONS)
+    private val _questions = MutableStateFlow<List<Question>>(DefaultQuestions.getQuestionsForExam(initialExam.id))
     val questions: StateFlow<List<Question>> = _questions.asStateFlow()
 
     // 2. AI-Generated Learning Content (NotebookLM Sources & Audio Briefings)

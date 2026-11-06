@@ -20,6 +20,8 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "TARGET_EXAM_ID", "\"all\"")
+    buildConfigField("int", "FREE_ASSESSMENT_LIMIT", "50")
   }
 
   // Commercial App Distribution: Separate standalone apps per certification track,

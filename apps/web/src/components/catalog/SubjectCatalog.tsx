@@ -21,6 +21,8 @@ import {
   Eye,
   Award,
   ArrowRight,
+  Smartphone,
+  Download,
 } from 'lucide-react';
 
 export const SubjectCatalog: React.FC = () => {
@@ -286,6 +288,51 @@ export const SubjectCatalog: React.FC = () => {
                 Pass Probability: {certReadiness.passProbability}%
               </p>
             </button>
+          </div>
+
+          {/* Dedicated Mobile Companion App Funnel */}
+          <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-white p-5 dark:border-blue-900/50 dark:from-blue-950/30 dark:via-slate-900 dark:to-slate-900">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shrink-0 shadow-sm">
+                  <Smartphone className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                      Dedicated Mobile Companion App
+                    </span>
+                    <span className="rounded bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                      50 FREE ASSESSMENT QUESTIONS
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                    CertMaster {activeBank.code} for Android
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl">
+                    Practice on your phone with the dedicated {activeBank.code} mobile app. Includes 50 free diagnostic assessment questions. Sign in with your registered account ({profile.email}) to sync test results, readiness scores, and study plans seamlessly between this Web Portal and your phone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    showToast(`Starting download: CertMaster ${activeBank.code} Android App`);
+                  }}
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-700 shadow-sm"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Get {activeBank.code} Mobile App</span>
+                </button>
+                <button
+                  onClick={() => setCheckoutExamId(activeBank.id)}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  <span>Upgrade to Complete Pass</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
