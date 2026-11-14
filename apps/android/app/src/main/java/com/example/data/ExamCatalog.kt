@@ -149,7 +149,23 @@ object ExamCatalog {
         )
     )
 
-    val ALL_PRESETS = listOf(CISSP, AWS_SAA, SECURITY_PLUS, PMP, CISM, CEH, GENERIC_TEMPLATE)
+    // Offline CSC Part 1 release profile. Question counts are supplied by the embedded bank.
+    val CSC_PART_1 = ExamConfig(
+        id = "csc-part-1",
+        title = "Canadian Securities Course — Part 1",
+        shortCode = "CSC Part 1",
+        issuer = "Canadian Securities Institute",
+        description = "Offline practice for CSC Part 1. Independent study application.",
+        passingScorePercent = 60,
+        defaultSimulationCount = 0,
+        totalBankQuestions = 0,
+        durationMinutes = 120,
+        primaryColorHex = 0xFF1D4ED8,
+        iconName = "School",
+        domains = emptyList()
+    )
+
+    val ALL_PRESETS = listOf(CSC_PART_1, CISSP, AWS_SAA, SECURITY_PLUS, PMP, CISM, CEH, GENERIC_TEMPLATE)
 
     /**
      * Normalizes exam IDs between Web ("aws-saa", "sec-plus") and Android ("aws_csa", "sec_plus")
@@ -224,7 +240,7 @@ object ExamCatalog {
 
     fun getExamById(id: String): ExamConfig {
         val canonical = normalizeExamId(id)
-        return ALL_PRESETS.firstOrNull { normalizeExamId(it.id) == canonical } ?: CISSP
+        return ALL_PRESETS.firstOrNull { normalizeExamId(it.id) == canonical } ?: if (canonical == "csc-part-1") CSC_PART_1 else CISSP
     }
 
     /**
