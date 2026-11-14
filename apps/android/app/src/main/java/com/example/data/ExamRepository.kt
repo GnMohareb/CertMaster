@@ -70,7 +70,17 @@ class ExamRepository(
     private val _currentExam = MutableStateFlow(initialExam)
     val currentExam: StateFlow<ExamConfig> = _currentExam.asStateFlow()
 
-    private val _questions = MutableStateFlow<List<Question>>(DefaultQuestions.getQuestionsForExam(initialExam.id))
+    // CSC standalone builds must never display unrelated certification sample questions.
+    // A missing or invalid embedded bank fails closed instead of substituting CISSP.
+    private fun loadQuestions(examId: String): List<Question> =
+        if (examId == "csc-part-1") {
+            requireNotNull(context) { "CSC offline bank requires Android assets" }
+            EmbeddedExamBank.load(context, examId)
+        } else {
+            DefaultQuestions.getQuestionsForExam(examId)
+        }
+
+    private val _questions = MutableStateFlow<List<Question>>(loadQuestions(initialExam.id))
     val questions: StateFlow<List<Question>> = _questions.asStateFlow()
 
     // 2. AI-Generated Learning Content (NotebookLM Sources & Audio Briefings)
@@ -304,7 +314,7 @@ class ExamRepository(
     fun switchExam(examId: String) {
         val exam = ExamCatalog.getExamById(examId)
         _currentExam.value = exam
-        _questions.value = DefaultQuestions.getQuestionsForExam(exam.id)
+        _questions.value = loadQuestions(exam.id)
         _backendConfig.value = _backendConfig.value.copy(activeExamId = exam.id)
         bindDatabaseForExam(exam.id)
         recomputeReadinessAndStudyPlan()
