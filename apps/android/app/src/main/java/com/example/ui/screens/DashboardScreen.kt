@@ -142,7 +142,7 @@ fun DashboardScreen(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isOfflineCsc) "CSC Part 1 • Offline study" else if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
+                    text = if (isOfflineCsc) "${currentExam.shortCode} • Offline study" else if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -309,6 +309,40 @@ fun DashboardScreen(
                                     Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Open Live Web Portal", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    // Standalone CSC has no paid access or network requirement.
+                    // Keep the action visible without implying questions are installed.
+                    if (isOfflineCsc) item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().testTag("card_offline_exam_status"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "${currentExam.shortCode} Offline Practice",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Exam features are being prepared. Practice questions are not installed yet.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
+                                    modifier = Modifier.fillMaxWidth().testTag("btn_offline_exam"),
+                                    enabled = false
+                                ) {
+                                    Text("Practice exam unavailable")
                                 }
                             }
                         }
