@@ -88,7 +88,8 @@ fun CertTopAppBar(
     onSwitchExam: () -> Unit,
     onOpenWebPortal: () -> Unit = {},
     onOpenSettings: () -> Unit,
-    onOpenProfile: () -> Unit = {}
+    onOpenProfile: () -> Unit = {},
+    offlineMode: Boolean = false
 ) {
     var showOverflowMenu by remember { mutableStateOf(false) }
 
@@ -97,7 +98,7 @@ fun CertTopAppBar(
             Column(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { onSwitchExam() }
+                    .clickable(enabled = !offlineMode) { onSwitchExam() }
                     .padding(vertical = 2.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -123,7 +124,7 @@ fun CertTopAppBar(
                     }
                 }
                 Text(
-                    text = "${currentExam.issuer} • Tap to switch",
+                    text = if (offlineMode) "${currentExam.issuer} • Offline edition" else "${currentExam.issuer} • Tap to switch",
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -136,7 +137,7 @@ fun CertTopAppBar(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isOnline) SuccessGreen.copy(alpha = 0.15f) else Slate400.copy(alpha = 0.15f))
-                    .clickable { onOpenProfile() }
+                    .clickable(enabled = !offlineMode) { onOpenProfile() }
                     .padding(horizontal = 7.dp, vertical = 4.dp)
             ) {
                 Icon(
@@ -155,7 +156,7 @@ fun CertTopAppBar(
             }
 
             // Switch Exam Bank
-            IconButton(
+            if (!offlineMode) IconButton(
                 onClick = onSwitchExam,
                 modifier = Modifier.testTag("switch_exam_button")
             ) {
@@ -167,7 +168,7 @@ fun CertTopAppBar(
             }
 
             // Central Profile
-            IconButton(
+            if (!offlineMode) IconButton(
                 onClick = onOpenProfile,
                 modifier = Modifier.testTag("open_profile_button")
             ) {
@@ -178,8 +179,8 @@ fun CertTopAppBar(
                 )
             }
 
-            // Overflow Menu for Web Hub & Settings (prevents narrow screen button collision)
-            Box {
+            // Hide cloud-only menu for standalone offline CSC.
+            if (!offlineMode) Box {
                 IconButton(
                     onClick = { showOverflowMenu = true }
                 ) {
@@ -235,7 +236,8 @@ fun CertTopAppBar(
 @Composable
 fun CertBottomNav(
     currentScreen: AppScreen,
-    onNavigate: (AppScreen) -> Unit
+    onNavigate: (AppScreen) -> Unit,
+    offlineMode: Boolean = false
 ) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -261,15 +263,13 @@ fun CertBottomNav(
             selected = currentScreen == AppScreen.NOTEBOOK_SOURCES || currentScreen == AppScreen.AUDIO_OVERVIEW || currentScreen == AppScreen.FLASHCARDS,
             onClick = { onNavigate(AppScreen.NOTEBOOK_SOURCES) },
             icon = {
-                BadgedBox(badge = { Badge { Text("AI") } }) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = "Study Notes & Flashcards")
-                }
+                Icon(Icons.Default.MenuBook, contentDescription = "Study Notes & Flashcards")
             },
             label = { Text("Study", fontSize = 11.sp, maxLines = 1) },
             alwaysShowLabel = true,
             modifier = Modifier.testTag("nav_notebook")
         )
-        NavigationBarItem(
+        if (!offlineMode) NavigationBarItem(
             selected = currentScreen == AppScreen.WEB_PORTAL,
             onClick = { onNavigate(AppScreen.WEB_PORTAL) },
             icon = {
@@ -281,7 +281,7 @@ fun CertBottomNav(
             alwaysShowLabel = true,
             modifier = Modifier.testTag("nav_web_hub")
         )
-        NavigationBarItem(
+        if (!offlineMode) NavigationBarItem(
             selected = currentScreen == AppScreen.AI_TUTOR,
             onClick = { onNavigate(AppScreen.AI_TUTOR) },
             icon = { Icon(Icons.Default.Psychology, contentDescription = "AI Tutor") },
