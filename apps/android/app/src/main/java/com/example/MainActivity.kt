@@ -59,6 +59,7 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
     val backendConfig by viewModel.backendConfig.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
 
+    // The standalone CSC application must never report backend connectivity as available.
     val isOfflineCsc = currentExam.shortCode.contains("CSC", ignoreCase = true)
     val blockedOfflineScreens = setOf(
         AppScreen.AI_TUTOR, AppScreen.WEB_PORTAL, AppScreen.BACKEND_SETTINGS,
@@ -80,7 +81,11 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
 
     // Comprehensive Android Back Navigation Handler
     BackHandler(enabled = visibleScreen != AppScreen.DASHBOARD) {
-        viewModel.navigateBack()
+        if (isOfflineCsc && currentScreen in blockedOfflineScreens) {
+            viewModel.navigateTo(AppScreen.DASHBOARD)
+        } else {
+            viewModel.navigateBack()
+        }
     }
 
     // Screens that show the root top and bottom navigation bars
