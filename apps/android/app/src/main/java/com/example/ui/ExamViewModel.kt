@@ -117,10 +117,9 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private var timerJob: Job? = null
     private var simulationStartedAtMillis: Long = 0L
-    private var simulationTimeLimitSeconds: Int = 0
 
     private fun isStandaloneCsc(): Boolean =
-        repository.currentExam.value.shortCode.contains("CSC", ignoreCase = true)
+        com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
 
     // Last completed session
     private val _lastCompletedSession = MutableStateFlow<ExamSession?>(null)
@@ -210,10 +209,10 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // Free tier or diagnostic assessment caps at 50 questions
-        val questionsToUse = if (effectiveMode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT || !isSubscribed) {
-            filtered.take(FREE_ASSESSMENT_QUESTION_LIMIT)
+        val questionsToUse = if (effectiveMode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT) {
+            filtered.shuffled().take(FREE_ASSESSMENT_QUESTION_LIMIT)
         } else {
-            filtered
+            filtered.shuffled()
         }
 
         if (questionsToUse.isEmpty()) {
@@ -228,13 +227,12 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _struckOptions.value = emptyMap()
         _optionSwitchCounts.value = emptyMap()
 
-        val timeLimit = if (effectiveMode == ExamMode.FULL_SIMULATION && isSubscribed) {
+        val timeLimit = if (effectiveMode == ExamMode.FULL_SIMULATION) {
             repository.currentExam.value.durationMinutes * 60
         } else {
             questionsToUse.size * 90 // 1.5 min per question (e.g. 75 min for 50 questions)
         }
         _remainingSeconds.value = timeLimit
-        simulationTimeLimitSeconds = timeLimit
         simulationStartedAtMillis = System.currentTimeMillis()
         _isTimerPaused.value = false
 
