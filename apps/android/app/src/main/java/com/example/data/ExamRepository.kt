@@ -75,7 +75,13 @@ class ExamRepository(
     private fun loadQuestions(examId: String): List<Question> =
         if (examId == "csc-part-1") {
             requireNotNull(context) { "CSC offline bank requires Android assets" }
-            EmbeddedExamBank.load(context, examId)
+            // Feature-validation build: CSC content will be added only after UI and workflows pass QA.
+            // No unrelated questions and no startup crash when the future asset is absent.
+            try {
+                EmbeddedExamBank.load(context, examId)
+            } catch (_: IllegalStateException) {
+                emptyList()
+            }
         } else {
             DefaultQuestions.getQuestionsForExam(examId)
         }
