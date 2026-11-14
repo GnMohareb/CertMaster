@@ -319,6 +319,10 @@ class ExamRepository(
         val exam = ExamCatalog.getExamById(examId)
         _currentExam.value = exam
         _questions.value = loadQuestions(exam.id)
+        _sources.value = if (exam.id == "cissp") DefaultNotebookSources.CISSP_SOURCES else emptyList()
+        _flashcards.value = if (exam.id == "cissp") DefaultNotebookSources.CISSP_FLASHCARDS else emptyList()
+        _audioOverviews.value = if (exam.id == "cissp") DefaultNotebookSources.AUDIO_OVERVIEWS else emptyList()
+        _simulationScores.value = emptyList()
         _backendConfig.value = _backendConfig.value.copy(activeExamId = exam.id)
         bindDatabaseForExam(exam.id)
         recomputeReadinessAndStudyPlan()
