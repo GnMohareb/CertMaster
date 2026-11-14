@@ -114,7 +114,8 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
                     onSwitchExam = { navigateOfflineSafe(AppScreen.EXAM_SELECTOR) },
                     onOpenWebPortal = { navigateOfflineSafe(AppScreen.WEB_PORTAL) },
                     onOpenSettings = { navigateOfflineSafe(AppScreen.BACKEND_SETTINGS) },
-                    onOpenProfile = { navigateOfflineSafe(AppScreen.CENTRAL_PROFILE) }
+                    onOpenProfile = { navigateOfflineSafe(AppScreen.CENTRAL_PROFILE) },
+                    offlineMode = isOfflineCsc
                 )
             }
         },
@@ -122,7 +123,8 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
             if (isRootScreen) {
                 CertBottomNav(
                     currentScreen = visibleScreen,
-                    onNavigate = { screen -> navigateOfflineSafe(screen) }
+                    onNavigate = { screen -> navigateOfflineSafe(screen) },
+                    offlineMode = isOfflineCsc
                 )
             }
         },
