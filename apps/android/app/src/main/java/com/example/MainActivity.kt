@@ -60,7 +60,7 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
     val statusMessage by viewModel.statusMessage.collectAsState()
 
     // The standalone CSC application must never report backend connectivity as available.
-    val isOfflineCsc = currentExam.shortCode.contains("CSC", ignoreCase = true)
+    val isOfflineCsc = BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
     val blockedOfflineScreens = setOf(
         AppScreen.AI_TUTOR, AppScreen.WEB_PORTAL, AppScreen.BACKEND_SETTINGS,
         AppScreen.CENTRAL_PROFILE, AppScreen.EXAM_SELECTOR
