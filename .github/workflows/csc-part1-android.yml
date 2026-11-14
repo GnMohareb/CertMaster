@@ -38,6 +38,15 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
+      - name: Prepare CI debug signing key
+        working-directory: apps/android
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -noprompt -keystore debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          fi
+
       - name: Run CSC Part 1 Android unit tests
         working-directory: apps/android
         run: gradle :app:testCscPart1DebugUnitTest --stacktrace --no-daemon --max-workers=2
