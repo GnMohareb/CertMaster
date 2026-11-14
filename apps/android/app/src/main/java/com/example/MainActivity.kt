@@ -67,7 +67,16 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
     )
     val visibleScreen = if (isOfflineCsc && currentScreen in blockedOfflineScreens) AppScreen.DASHBOARD else currentScreen
     val navigateOfflineSafe: (AppScreen) -> Unit = { target ->
-        if (!isOfflineCsc || target !in blockedOfflineScreens) viewModel.navigateTo(target)
+        if (!isOfflineCsc || target !in blockedOfflineScreens) {
+            viewModel.navigateTo(target)
+        }
+    }
+
+    // Restore a valid route if saved navigation state points at a cloud-only screen.
+    LaunchedEffect(isOfflineCsc, currentScreen) {
+        if (isOfflineCsc && currentScreen in blockedOfflineScreens) {
+            viewModel.navigateTo(AppScreen.DASHBOARD)
+        }
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -80,7 +89,7 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
     }
 
     // Comprehensive Android Back Navigation Handler
-    BackHandler(enabled = visibleScreen != AppScreen.DASHBOARD) {
+    BackHandler(enabled = currentScreen != AppScreen.DASHBOARD) {
         if (isOfflineCsc && currentScreen in blockedOfflineScreens) {
             viewModel.navigateTo(AppScreen.DASHBOARD)
         } else {
