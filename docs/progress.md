@@ -59,3 +59,19 @@
 * `docs/web_feature_parity.md` — Web Platform vs. Native Android feature comparison and content matrix.
 * `docs/ux_test_results.md` — Physical Galaxy A05 test evidence, 5 responsive viewports, and WCAG AA verification.
 * `docs/canonical_data_contract.md` — Schema Version 2 specification.
+
+
+## CSC Part 1 offline Android recovery — 2026-11-14
+
+Recovered the 35 Android source changes from AI Studio export commit 4bf38733a5b092e206278fc75933fe08e9a3c753 and committed equivalent contents as ea5c9dd0b6c0174270ea4ffc939e40f0b1949fcc on feature/standalone-android-offline-exams. Six renames were preserved. apps/web and main were not changed.
+
+Executable CI found and resolved two issues: ExamRepository must retain its constructor context as a private property for embedded-bank loading; offline Robolectric test setup, teardown and coroutine test bodies must execute Room operations on Dispatchers.IO. The workflow now generates the missing standard debug keystore on the runner without committing signing keys.
+
+Verified on commit ce31d0cab14a110efbcd91695aa62495d87219b9:
+- :app:testCscPart1DebugUnitTest — PASS (BUILD SUCCESSFUL).
+- :app:assembleCscPart1Debug — PASS (BUILD SUCCESSFUL).
+- APK upload — PASS, artifact CSC-Part1-Offline-Debug-APK.
+- Run: https://github.com/GnMohareb/CertMaster/actions/runs/43632287764
+- Download: https://github.com/GnMohareb/CertMaster/actions/runs/43632287764/artifacts/14128328065
+
+Limits: this verifies compilation, JVM/Robolectric unit tests and debug packaging. No physical-device/emulator install or interactive QA was performed in this session. This is a debug build, not a Play Store release. No QIS question bank was imported. AI Studio's source still needs reconciliation with the follow-up GitHub fixes before future exports overwrite this branch.
