@@ -116,6 +116,11 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     val isTimerPaused: StateFlow<Boolean> = _isTimerPaused.asStateFlow()
 
     private var timerJob: Job? = null
+    private var simulationStartedAtMillis: Long = 0L
+    private var simulationTimeLimitSeconds: Int = 0
+
+    private fun isStandaloneCsc(): Boolean =
+        repository.currentExam.value.shortCode.contains("CSC", ignoreCase = true)
 
     // Last completed session
     private val _lastCompletedSession = MutableStateFlow<ExamSession?>(null)
@@ -186,7 +191,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startSimulation(mode: ExamMode, domainFilterId: String? = null) {
-        val isSubscribed = isCurrentExamSubscribed()
+        val isSubscribed = isStandaloneCsc() || isCurrentExamSubscribed()
 
         // If user is on Free Tier and requests Full Simulation, route to 50-Question Free Diagnostic Assessment
         val effectiveMode = if (mode == ExamMode.FULL_SIMULATION && !isSubscribed) {
@@ -229,6 +234,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             questionsToUse.size * 90 // 1.5 min per question (e.g. 75 min for 50 questions)
         }
         _remainingSeconds.value = timeLimit
+        simulationTimeLimitSeconds = timeLimit
+        simulationStartedAtMillis = System.currentTimeMillis()
         _isTimerPaused.value = false
 
         startTimer()
@@ -348,13 +355,15 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val totalSwitches = _optionSwitchCounts.value.values.sum()
+        val elapsedSeconds = ((System.currentTimeMillis() - simulationStartedAtMillis) / 1000L)
+            .coerceAtLeast(1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
         val session = ExamSession(
             sessionId = UUID.randomUUID().toString(),
             examId = repository.currentExam.value.id,
             mode = _activeMode.value,
-            startTimeMillis = System.currentTimeMillis() - ((repository.currentExam.value.durationMinutes * 60) - _remainingSeconds.value) * 1000L,
-            durationSeconds = ((repository.currentExam.value.durationMinutes * 60) - _remainingSeconds.value).coerceAtLeast(1),
+            startTimeMillis = simulationStartedAtMillis,
+            durationSeconds = elapsedSeconds,
             totalQuestions = total,
             userAnswers = answers,
             flaggedIndices = _flaggedIndices.value,
@@ -394,6 +403,10 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sendAIPrompt(prompt: String) {
+        if (isStandaloneCsc()) {
+            _statusMessage.value = "AI tutor requires internet and is unavailable in this edition."
+            return
+        }
         repository.sendAIMessage(prompt)
     }
 
@@ -431,6 +444,10 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectExam(examId: String) {
+        if (isStandaloneCsc()) {
+            _statusMessage.value = "This offline edition contains one certification."
+            return
+        }
         repository.switchExam(examId)
         refreshStressMetrics()
         _statusMessage.value = "Switched to ${repository.currentExam.value.shortCode}"
@@ -438,6 +455,10 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveBackendSettings(url: String, key: String) {
+        if (isStandaloneCsc()) {
+            _statusMessage.value = "Backend settings are unavailable in the offline edition."
+            return
+        }
         repository.updateBackendConfig(url, key)
         viewModelScope.launch {
             val success = repository.syncWithBackend()
@@ -446,12 +467,14 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun subscribeToExam(examId: String) {
+        if (isStandaloneCsc()) return
         repository.subscribeToSubject(examId)
         val exam = ExamCatalog.getExamById(examId)
         _statusMessage.value = "Paid access for ${exam.shortCode} is activated only after payment is verified by the CertMaster server. Complete checkout on the web platform; your access will appear here after sync."
     }
 
     fun syncCentralProfile() {
+        if (isStandaloneCsc()) return
         viewModelScope.launch {
             val ok = repository.syncCentralProfileWithCloud()
             _statusMessage.value = if (ok) {
@@ -463,6 +486,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun authenticateWithGoogleSso(activityContext: Context) {
+        if (isStandaloneCsc()) return
         viewModelScope.launch {
             val res = repository.authManager.signInWithGoogle(activityContext)
             if (res.isSuccess) {
