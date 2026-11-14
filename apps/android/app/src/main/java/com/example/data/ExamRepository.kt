@@ -51,7 +51,7 @@ import java.util.Locale
 import java.util.UUID
 
 class ExamRepository(
-    context: Context? = null,
+    private val context: Context? = null,
     val database: CertDatabase? = context?.let { CertDatabase.getInstance(it) },
     val authManager: SharedAuthManager = SharedAuthManager(context),
     val firebaseSyncClient: CertMasterFirebaseSyncClient = CertMasterFirebaseSyncClient(context)
