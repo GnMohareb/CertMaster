@@ -17,6 +17,7 @@ import com.example.model.SourceCitation
 import com.example.network.CertMasterFirebaseSyncClient
 import com.example.ui.AppScreen
 import com.example.ui.ExamViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -40,14 +41,14 @@ class CscPart1OfflineTest {
     private lateinit var context: Context
 
     @Before
-    fun setup() {
+    fun setup() = runBlocking(Dispatchers.IO) {
         application = ApplicationProvider.getApplicationContext()
         context = application
         CertDatabase.getInstance(context).clearAllTables()
     }
 
     @After
-    fun tearDown() {
+    fun tearDown() = runBlocking(Dispatchers.IO) {
         CertDatabase.getInstance(context).clearAllTables()
     }
 
@@ -123,7 +124,7 @@ class CscPart1OfflineTest {
     )
 
     @Test
-    fun offlineBuild_hasZeroFirebaseOrCloudConfig() = runBlocking {
+    fun offlineBuild_hasZeroFirebaseOrCloudConfig() = runBlocking(Dispatchers.IO) {
         assertEquals("csc-part-1", BuildConfig.TARGET_EXAM_ID)
         assertEquals("", SharedAuthManager.FIREBASE_PROJECT_ID)
         assertEquals("", SharedAuthManager.FIRESTORE_DATABASE_ID)
@@ -140,7 +141,7 @@ class CscPart1OfflineTest {
     }
 
     @Test
-    fun repository_failsClosedWithNoCrossExamLeakageWhenQuestionBankAbsent() = runBlocking {
+    fun repository_failsClosedWithNoCrossExamLeakageWhenQuestionBankAbsent() = runBlocking(Dispatchers.IO) {
         val db = Room.inMemoryDatabaseBuilder(context, CertDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -232,7 +233,7 @@ class CscPart1OfflineTest {
     }
 
     @Test
-    fun simulationScoringTimingAndDomainBreakdown_workCompletelyOffline() = runBlocking {
+    fun simulationScoringTimingAndDomainBreakdown_workCompletelyOffline() = runBlocking(Dispatchers.IO) {
         val viewModel = ExamViewModel(application)
         try {
             val testQuestions = buildSyntheticCscQuestions()
@@ -287,7 +288,7 @@ class CscPart1OfflineTest {
     }
 
     @Test
-    fun inProgressAttemptCompletedSessionFlashcardsAndNotes_surviveAppRestart() = runBlocking {
+    fun inProgressAttemptCompletedSessionFlashcardsAndNotes_surviveAppRestart() = runBlocking(Dispatchers.IO) {
         val testQuestions = buildSyntheticCscQuestions()
 
         // Launch 1: Create study note, create & rate flashcard, start simulation, pause & exit to dashboard
@@ -390,7 +391,7 @@ class CscPart1OfflineTest {
     }
 
     @Test
-    fun abandonSimulation_clearsSavedActiveAttemptFromRoom() = runBlocking {
+    fun abandonSimulation_clearsSavedActiveAttemptFromRoom() = runBlocking(Dispatchers.IO) {
         val viewModel = ExamViewModel(application)
         try {
             viewModel.repositoryForTesting().setQuestionsForTesting(buildSyntheticCscQuestions())
