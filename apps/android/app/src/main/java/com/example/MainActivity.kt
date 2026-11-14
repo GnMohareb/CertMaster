@@ -59,6 +59,16 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
     val backendConfig by viewModel.backendConfig.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
 
+    val isOfflineCsc = currentExam.shortCode.contains("CSC", ignoreCase = true)
+    val blockedOfflineScreens = setOf(
+        AppScreen.AI_TUTOR, AppScreen.WEB_PORTAL, AppScreen.BACKEND_SETTINGS,
+        AppScreen.CENTRAL_PROFILE, AppScreen.EXAM_SELECTOR
+    )
+    val visibleScreen = if (isOfflineCsc && currentScreen in blockedOfflineScreens) AppScreen.DASHBOARD else currentScreen
+    val navigateOfflineSafe: (AppScreen) -> Unit = { target ->
+        if (!isOfflineCsc || target !in blockedOfflineScreens) viewModel.navigateTo(target)
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(statusMessage) {
@@ -69,16 +79,16 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
     }
 
     // Comprehensive Android Back Navigation Handler
-    BackHandler(enabled = currentScreen != AppScreen.DASHBOARD) {
+    BackHandler(enabled = visibleScreen != AppScreen.DASHBOARD) {
         viewModel.navigateBack()
     }
 
     // Screens that show the root top and bottom navigation bars
-    val isRootScreen = currentScreen == AppScreen.DASHBOARD ||
-            currentScreen == AppScreen.EXAM_HUB ||
-            currentScreen == AppScreen.NOTEBOOK_SOURCES ||
-            currentScreen == AppScreen.AI_TUTOR ||
-            currentScreen == AppScreen.WEB_PORTAL
+    val isRootScreen = visibleScreen == AppScreen.DASHBOARD ||
+            visibleScreen == AppScreen.EXAM_HUB ||
+            visibleScreen == AppScreen.NOTEBOOK_SOURCES ||
+            visibleScreen == AppScreen.AI_TUTOR ||
+            visibleScreen == AppScreen.WEB_PORTAL
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -86,19 +96,19 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
             if (isRootScreen) {
                 CertTopAppBar(
                     currentExam = currentExam,
-                    isOnline = backendConfig.isConnected,
-                    onSwitchExam = { viewModel.navigateTo(AppScreen.EXAM_SELECTOR) },
-                    onOpenWebPortal = { viewModel.navigateTo(AppScreen.WEB_PORTAL) },
-                    onOpenSettings = { viewModel.navigateTo(AppScreen.BACKEND_SETTINGS) },
-                    onOpenProfile = { viewModel.navigateTo(AppScreen.CENTRAL_PROFILE) }
+                    isOnline = !isOfflineCsc && backendConfig.isConnected,
+                    onSwitchExam = { navigateOfflineSafe(AppScreen.EXAM_SELECTOR) },
+                    onOpenWebPortal = { navigateOfflineSafe(AppScreen.WEB_PORTAL) },
+                    onOpenSettings = { navigateOfflineSafe(AppScreen.BACKEND_SETTINGS) },
+                    onOpenProfile = { navigateOfflineSafe(AppScreen.CENTRAL_PROFILE) }
                 )
             }
         },
         bottomBar = {
             if (isRootScreen) {
                 CertBottomNav(
-                    currentScreen = currentScreen,
-                    onNavigate = { screen -> viewModel.navigateTo(screen) }
+                    currentScreen = visibleScreen,
+                    onNavigate = { screen -> navigateOfflineSafe(screen) }
                 )
             }
         },
@@ -110,7 +120,7 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
                 .padding(innerPadding)
         ) {
             AnimatedContent(
-                targetState = currentScreen,
+                targetState = visibleScreen,
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
                 label = "screen_transition"
             ) { screen ->
