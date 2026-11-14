@@ -80,6 +80,17 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                viewModel.onAppBackgrounded()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(statusMessage) {
         statusMessage?.let {

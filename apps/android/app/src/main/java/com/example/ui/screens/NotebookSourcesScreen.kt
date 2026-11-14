@@ -93,9 +93,12 @@ fun NotebookSourcesScreen(
     val flashcards by viewModel.flashcards.collectAsState()
     val selectedSource by viewModel.selectedSource.collectAsState()
 
-    // 0: Study Notes, 1: Flashcards, 2: Audio Deep Dives
+    val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
+
+    // 0: Study Notes, 1: Flashcards, 2: Audio Briefings
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAddSourceDialog by remember { mutableStateOf(false) }
+    var showAddFlashcardDialog by remember { mutableStateOf(false) }
 
     // Flashcards state
     val cardIndex by viewModel.currentCardIndex.collectAsState()
@@ -107,14 +110,23 @@ fun NotebookSourcesScreen(
 
     Scaffold(
         floatingActionButton = {
-            if (selectedTab == 0) {
+            if (selectedTab == 0 || selectedTab == 1) {
                 FloatingActionButton(
-                    onClick = { showAddSourceDialog = true },
+                    onClick = {
+                        if (selectedTab == 0) {
+                            showAddSourceDialog = true
+                        } else {
+                            showAddFlashcardDialog = true
+                        }
+                    },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
-                    modifier = Modifier.testTag("fab_add_source")
+                    modifier = Modifier.testTag(if (selectedTab == 0) "fab_add_source" else "fab_add_flashcard")
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Notes")
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = if (selectedTab == 0) "Add Notes" else "Add Flashcard"
+                    )
                 }
             }
         }
@@ -213,6 +225,40 @@ fun NotebookSourcesScreen(
                                     fontWeight = FontWeight.SemiBold,
                                     color = SuccessGreen
                                 )
+                            }
+                        }
+
+                        if (sources.isEmpty()) {
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(20.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "No Study Guides Installed Yet",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Add your own chapter notes and key takeaways to store them locally for offline study.",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Button(onClick = { showAddSourceDialog = true }) {
+                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Add Study Notes")
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -322,11 +368,45 @@ fun NotebookSourcesScreen(
                 // TAB 1: FLASHCARDS DECK (Active Recall & Leitner Spaced Repetition)
                 1 -> {
                     if (flashcards.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No flashcards loaded.")
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "No Flashcards Installed Yet",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Create custom flashcards to practice with offline Leitner spaced repetition.",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Button(onClick = { showAddFlashcardDialog = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Add Flashcard")
+                                    }
+                                }
+                            }
                         }
                     } else {
-                        val currentCard = flashcards.getOrNull(cardIndex) ?: flashcards.first()
+                        val safeCardIndex = cardIndex.coerceIn(0, flashcards.lastIndex)
+                        val currentCard = flashcards[safeCardIndex]
                         val rotation by animateFloatAsState(
                             targetValue = if (isFlipped) 180f else 0f,
                             animationSpec = tween(400),
@@ -348,7 +428,7 @@ fun NotebookSourcesScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Card ${cardIndex + 1} of ${flashcards.size}",
+                                        text = "Card ${safeCardIndex + 1} of ${flashcards.size}",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -370,7 +450,7 @@ fun NotebookSourcesScreen(
                                 Spacer(modifier = Modifier.height(6.dp))
 
                                 LinearProgressIndicator(
-                                    progress = { ((cardIndex + 1).toFloat() / flashcards.size).coerceIn(0f, 1f) },
+                                    progress = { ((safeCardIndex + 1).toFloat() / flashcards.size).coerceIn(0f, 1f) },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(4.dp)
@@ -613,7 +693,7 @@ fun NotebookSourcesScreen(
                     }
                 }
 
-                // TAB 2: AUDIO BRIEFINGS (NotebookLM 2-Host Deep Dives)
+                // TAB 2: AUDIO BRIEFINGS (Offline Text-to-Speech Briefings)
                 2 -> {
                     LazyColumn(
                         modifier = Modifier
@@ -624,16 +704,41 @@ fun NotebookSourcesScreen(
                     ) {
                         item {
                             Text(
-                                text = "AI Audio Deep Dives (${audioOverviews.size})",
+                                text = if (isOfflineCsc) {
+                                    "Offline Audio Briefings (${audioOverviews.size})"
+                                } else {
+                                    "AI Audio Deep Dives (${audioOverviews.size})"
+                                },
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = "2-Host podcast briefings powered by Text-to-Speech",
+                                text = if (isOfflineCsc) {
+                                    "Audio study briefings powered by on-device Text-to-Speech"
+                                } else {
+                                    "2-Host podcast briefings powered by Text-to-Speech"
+                                },
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+
+                        if (audioOverviews.isEmpty()) {
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                ) {
+                                    Text(
+                                        text = "No audio briefings are installed in this edition yet.",
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(16.dp)
+                                    )
+                                }
+                            }
                         }
 
                         items(audioOverviews) { audio ->
@@ -740,7 +845,12 @@ fun NotebookSourcesScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
-                            Text("AI Executive Summary", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                text = if (isOfflineCsc) "Executive Summary" else "AI Executive Summary",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(doc.summary, fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer, lineHeight = 18.sp)
                         }
@@ -772,18 +882,20 @@ fun NotebookSourcesScreen(
                     Text(doc.fullContent, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
                 }
 
-                item {
-                    Button(
-                        onClick = {
-                            viewModel.closeSource()
-                            viewModel.sendAIPrompt("I just reviewed '${doc.title}'. Can you quiz me with 3 high-yield scenario questions?")
-                            viewModel.navigateTo(AppScreen.AI_TUTOR)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Quiz Me on This Source")
+                if (!isOfflineCsc) {
+                    item {
+                        Button(
+                            onClick = {
+                                viewModel.closeSource()
+                                viewModel.sendAIPrompt("I just reviewed '${doc.title}'. Can you quiz me with 3 high-yield scenario questions?")
+                                viewModel.navigateTo(AppScreen.AI_TUTOR)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Quiz Me on This Source")
+                        }
                     }
                 }
             }
@@ -827,7 +939,8 @@ fun NotebookSourcesScreen(
                 Button(
                     onClick = {
                         if (newTitle.isNotEmpty()) {
-                            val domainId = viewModel.currentExam.value.domains.firstOrNull()?.id ?: "d1"
+                            val domainId = viewModel.currentExam.value.domains.firstOrNull()?.id
+                                ?: if (isOfflineCsc) "csc-part-1-general" else "d1"
                             viewModel.addSourceDoc(
                                 title = newTitle,
                                 summary = newSummary.ifBlank { "Personal study notes" },
@@ -844,6 +957,61 @@ fun NotebookSourcesScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showAddSourceDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showAddFlashcardDialog) {
+        var frontPrompt by remember { mutableStateOf("") }
+        var backAnswer by remember { mutableStateOf("") }
+        var topicLabel by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showAddFlashcardDialog = false },
+            title = { Text("Create Flashcard") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = frontPrompt,
+                        onValueChange = { frontPrompt = it },
+                        label = { Text("Question / Prompt") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = backAnswer,
+                        onValueChange = { backAnswer = it },
+                        label = { Text("Answer / Key Rule") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                    )
+                    OutlinedTextField(
+                        value = topicLabel,
+                        onValueChange = { topicLabel = it },
+                        label = { Text("Domain / Topic (Optional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (frontPrompt.isNotBlank() && backAnswer.isNotBlank()) {
+                            viewModel.addFlashcard(
+                                frontPrompt = frontPrompt.trim(),
+                                backAnswer = backAnswer.trim(),
+                                keyRule = backAnswer.trim(),
+                                domainId = topicLabel.trim()
+                            )
+                            showAddFlashcardDialog = false
+                        }
+                    }
+                ) {
+                    Text("Save Card")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddFlashcardDialog = false }) { Text("Cancel") }
             }
         )
     }

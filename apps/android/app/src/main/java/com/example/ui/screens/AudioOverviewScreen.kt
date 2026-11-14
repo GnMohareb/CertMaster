@@ -94,6 +94,8 @@ fun AudioOverviewScreen(
         return
     }
 
+    val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -103,12 +105,12 @@ fun AudioOverviewScreen(
             title = {
                 Column {
                     Text(
-                        text = "NotebookLM Deep Dive",
+                        text = if (isOfflineCsc) "Audio Study Briefing" else "NotebookLM Deep Dive",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "2-Host AI Conversation",
+                        text = if (isOfflineCsc) "Offline Text-to-Speech" else "2-Host AI Conversation",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -235,7 +237,7 @@ fun AudioOverviewScreen(
                             .clickable {
                                 if (isPlaying) {
                                     viewModel.speechManager.pause()
-                                } else {
+                                } else if (audio.turns.isNotEmpty()) {
                                     viewModel.playAudioTurn(activeTurnIndex.coerceIn(0, audio.turns.size - 1))
                                 }
                             }
@@ -253,22 +255,26 @@ fun AudioOverviewScreen(
                     // Next Turn
                     IconButton(
                         onClick = {
-                            val next = (activeTurnIndex + 1).coerceAtMost(audio.turns.size - 1)
-                            viewModel.playAudioTurn(next)
+                            if (audio.turns.isNotEmpty()) {
+                                val next = (activeTurnIndex + 1).coerceAtMost(audio.turns.size - 1)
+                                viewModel.playAudioTurn(next)
+                            }
                         }
                     ) {
                         Icon(Icons.Default.FastForward, contentDescription = "Next", modifier = Modifier.size(28.dp))
                     }
 
-                    // Ask AI about this overview
-                    IconButton(
-                        onClick = {
-                            viewModel.speechManager.stop()
-                            viewModel.sendAIPrompt("I listened to the NotebookLM deep dive on '${audio.title}'. Can you summarize the 3 highest yield takeaways?")
-                            viewModel.navigateTo(AppScreen.AI_TUTOR)
+                    if (!isOfflineCsc) {
+                        // Ask AI about this overview
+                        IconButton(
+                            onClick = {
+                                viewModel.speechManager.stop()
+                                viewModel.sendAIPrompt("I listened to the NotebookLM deep dive on '${audio.title}'. Can you summarize the 3 highest yield takeaways?")
+                                viewModel.navigateTo(AppScreen.AI_TUTOR)
+                            }
+                        ) {
+                            Icon(Icons.Default.Psychology, contentDescription = "Ask AI", tint = MaterialTheme.colorScheme.primary)
                         }
-                    ) {
-                        Icon(Icons.Default.Psychology, contentDescription = "Ask AI", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

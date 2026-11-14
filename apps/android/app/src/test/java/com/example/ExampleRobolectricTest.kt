@@ -16,6 +16,11 @@ class ExampleRobolectricTest {
   fun `read string from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("CertMaster", appName)
+    val expected = if (BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")) {
+      "CSC Part 1"
+    } else {
+      "CertMaster"
+    }
+    assertEquals(expected, appName)
   }
 }

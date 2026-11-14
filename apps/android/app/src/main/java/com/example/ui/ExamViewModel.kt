@@ -49,6 +49,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ExamRepository(context = application)
     val speechManager = SpeechManager(application)
 
+    internal fun repositoryForTesting(): ExamRepository = repository
+
     // Current Screen
     private val _currentScreen = MutableStateFlow(AppScreen.DASHBOARD)
     val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
@@ -64,6 +66,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     val flashcards: StateFlow<List<Flashcard>> = repository.flashcards
     val sessions: StateFlow<List<ExamSession>> = repository.sessions
     val simulationScores: StateFlow<List<SimulationScoreEntity>> = repository.simulationScores
+    val savedActiveAttempt = repository.savedActiveAttempt
     val userProfile: StateFlow<UserCentralProfile> = repository.userProfile
     val ssoSession: StateFlow<SsoSessionInfo> = repository.ssoSession
     val readinessReport: StateFlow<ExamReadinessReport> = repository.readinessReport
@@ -80,6 +83,15 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _highestStressDomain = MutableStateFlow(repository.getHighestStressDomain())
     val highestStressDomain: StateFlow<com.example.model.DomainStressMetrics?> = _highestStressDomain.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            repository.sessions.collect {
+                _domainStressMetrics.value = repository.getDomainStressMetricsList()
+                _highestStressDomain.value = repository.getHighestStressDomain()
+            }
+        }
+    }
 
     fun refreshStressMetrics() {
         _domainStressMetrics.value = repository.getDomainStressMetricsList()
@@ -189,6 +201,37 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         return sub?.status == com.example.model.SubStatus.ACTIVE
     }
 
+    private fun buildActiveAttemptEntity(pausedOverride: Boolean? = null): com.example.data.local.ActiveExamAttemptEntity? {
+        val qList = _simulationQuestions.value
+        if (qList.isEmpty()) return null
+        return com.example.data.local.ActiveExamAttemptEntity(
+            examId = ExamCatalog.normalizeExamId(repository.currentExam.value.id),
+            mode = _activeMode.value.name,
+            questionIdsJson = com.example.data.local.ActiveExamAttemptEntity.encodeStringList(qList.map { it.id }),
+            currentIndex = _currentQuestionIndex.value.coerceIn(0, qList.lastIndex),
+            userAnswersJson = com.example.data.local.ActiveExamAttemptEntity.encodeIntIntMap(_userAnswers.value),
+            flaggedIndicesJson = com.example.data.local.ActiveExamAttemptEntity.encodeIntSet(_flaggedIndices.value),
+            struckOptionsJson = com.example.data.local.ActiveExamAttemptEntity.encodeIntSetMap(_struckOptions.value),
+            optionSwitchCountsJson = com.example.data.local.ActiveExamAttemptEntity.encodeIntIntMap(_optionSwitchCounts.value),
+            remainingSeconds = _remainingSeconds.value.coerceAtLeast(0),
+            isPaused = pausedOverride ?: _isTimerPaused.value,
+            startedAtMillis = simulationStartedAtMillis,
+            updatedAtMillis = System.currentTimeMillis()
+        )
+    }
+
+    private fun persistActiveAttempt(pausedOverride: Boolean? = null) {
+        val entity = buildActiveAttemptEntity(pausedOverride) ?: return
+        repository.saveActiveAttempt(entity)
+    }
+
+    fun onAppBackgrounded() {
+        if (_simulationQuestions.value.isNotEmpty() && _currentScreen.value == AppScreen.SIMULATION_ACTIVE) {
+            pauseTimer()
+            persistActiveAttempt(pausedOverride = true)
+        }
+    }
+
     fun startSimulation(mode: ExamMode, domainFilterId: String? = null) {
         val isSubscribed = isStandaloneCsc() || isCurrentExamSubscribed()
 
@@ -216,7 +259,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (questionsToUse.isEmpty()) {
-            _statusMessage.value = "Exam questions are not installed yet. The application is in feature review mode."
+            _statusMessage.value = "Practice questions are not installed yet for this exam."
             return
         }
 
@@ -236,17 +279,81 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         simulationStartedAtMillis = System.currentTimeMillis()
         _isTimerPaused.value = false
 
+        persistActiveAttempt(pausedOverride = false)
         startTimer()
         navigateTo(AppScreen.SIMULATION_ACTIVE)
+    }
+
+    fun resumeSavedSimulation(): Boolean {
+        val saved = repository.savedActiveAttempt.value ?: return false
+        val byId = repository.questions.value.associateBy { it.id }
+        val restoredQuestions = saved.parseQuestionIds().mapNotNull { byId[it] }
+        if (restoredQuestions.isEmpty()) {
+            repository.clearActiveAttempt(saved.examId)
+            _statusMessage.value = "Saved session questions are no longer installed."
+            return false
+        }
+
+        _activeMode.value = saved.parseExamMode()
+        _simulationQuestions.value = restoredQuestions
+        _currentQuestionIndex.value = saved.currentIndex.coerceIn(0, restoredQuestions.lastIndex)
+        _userAnswers.value = saved.parseUserAnswers().filterKeys { it in restoredQuestions.indices }
+        _flaggedIndices.value = saved.parseFlaggedIndices().filter { it in restoredQuestions.indices }.toSet()
+        _struckOptions.value = saved.parseStruckOptions().filterKeys { it in restoredQuestions.indices }
+        _optionSwitchCounts.value = saved.parseOptionSwitchCounts().filterKeys { it in restoredQuestions.indices }
+        _remainingSeconds.value = saved.remainingSeconds.coerceAtLeast(1)
+        simulationStartedAtMillis = saved.startedAtMillis
+        _isTimerPaused.value = false
+
+        persistActiveAttempt(pausedOverride = false)
+        startTimer()
+        navigateTo(AppScreen.SIMULATION_ACTIVE)
+        return true
+    }
+
+    fun pauseAndExitToDashboard() {
+        pauseTimer()
+        persistActiveAttempt(pausedOverride = true)
+        screenStack.clear()
+        _currentScreen.value = AppScreen.DASHBOARD
+        _statusMessage.value = "Simulation saved locally. You can resume anytime from the Dashboard."
+    }
+
+    fun abandonSimulation() {
+        timerJob?.cancel()
+        _isTimerPaused.value = false
+        _simulationQuestions.value = emptyList()
+        _currentQuestionIndex.value = 0
+        _userAnswers.value = emptyMap()
+        _flaggedIndices.value = emptySet()
+        _struckOptions.value = emptyMap()
+        _optionSwitchCounts.value = emptyMap()
+        repository.clearActiveAttempt()
+        if (!handleBackPress()) {
+            _currentScreen.value = AppScreen.DASHBOARD
+        }
+    }
+
+    fun openHistoricalSession(session: ExamSession) {
+        val byId = repository.questions.value.associateBy { it.id }
+        val resolvedQuestions = session.questionIds.mapNotNull { byId[it] }
+        _simulationQuestions.value = resolvedQuestions
+        _lastCompletedSession.value = session
+        navigateTo(AppScreen.SESSION_RESULT)
     }
 
     private fun startTimer() {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
+            var tickCount = 0
             while (_remainingSeconds.value > 0) {
                 delay(1000)
                 if (!_isTimerPaused.value) {
                     _remainingSeconds.value -= 1
+                    tickCount++
+                    if (tickCount % 5 == 0) {
+                        persistActiveAttempt()
+                    }
                 }
             }
             if (_remainingSeconds.value <= 0 && _currentScreen.value == AppScreen.SIMULATION_ACTIVE) {
@@ -258,11 +365,13 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun pauseTimer() {
         _isTimerPaused.value = true
         timerJob?.cancel()
+        persistActiveAttempt(pausedOverride = true)
     }
 
     fun resumeTimer() {
         if (_isTimerPaused.value) {
             _isTimerPaused.value = false
+            persistActiveAttempt(pausedOverride = false)
             startTimer()
         }
     }
@@ -277,6 +386,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
         current[questionIndex] = optionIndex
         _userAnswers.value = current
+        persistActiveAttempt()
     }
 
     fun toggleFlagQuestion(questionIndex: Int) {
@@ -287,6 +397,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             current.add(questionIndex)
         }
         _flaggedIndices.value = current
+        persistActiveAttempt()
     }
 
     fun toggleStrikeOption(questionIndex: Int, optionIndex: Int) {
@@ -299,23 +410,27 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
         allStruck[questionIndex] = questionStruck
         _struckOptions.value = allStruck
+        persistActiveAttempt()
     }
 
     fun goToQuestion(index: Int) {
         if (index in 0 until _simulationQuestions.value.size) {
             _currentQuestionIndex.value = index
+            persistActiveAttempt()
         }
     }
 
     fun nextQuestion() {
         if (_currentQuestionIndex.value < _simulationQuestions.value.size - 1) {
             _currentQuestionIndex.value += 1
+            persistActiveAttempt()
         }
     }
 
     fun previousQuestion() {
         if (_currentQuestionIndex.value > 0) {
             _currentQuestionIndex.value -= 1
+            persistActiveAttempt()
         }
     }
 
@@ -353,8 +468,17 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val totalSwitches = _optionSwitchCounts.value.values.sum()
-        val elapsedSeconds = ((System.currentTimeMillis() - simulationStartedAtMillis) / 1000L)
-            .coerceAtLeast(1L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val configuredSeconds = if (_activeMode.value == ExamMode.FULL_SIMULATION) {
+            repository.currentExam.value.durationMinutes * 60
+        } else {
+            total * 90
+        }
+        val elapsedSeconds = (configuredSeconds - _remainingSeconds.value)
+            .takeIf { it > 0 }
+            ?: ((System.currentTimeMillis() - simulationStartedAtMillis) / 1000L)
+                .coerceAtLeast(1L)
+                .coerceAtMost(configuredSeconds.toLong().coerceAtLeast(1L))
+                .toInt()
 
         val session = ExamSession(
             sessionId = UUID.randomUUID().toString(),
@@ -369,7 +493,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             completedTimeMillis = System.currentTimeMillis(),
             scorePercent = scorePct,
             isPassed = isPassed,
-            domainScores = domainScores
+            domainScores = domainScores,
+            questionIds = questionsList.map { it.id }
         )
 
         repository.recordSession(session, optionSwitchCount = totalSwitches)
@@ -412,7 +537,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _isCardFlipped.value = false
         val list = repository.flashcards.value
         if (list.isNotEmpty()) {
-            _currentCardIndex.value = (_currentCardIndex.value + 1) % list.size
+            val safeIdx = _currentCardIndex.value.coerceIn(0, list.lastIndex)
+            _currentCardIndex.value = (safeIdx + 1) % list.size
         }
     }
 
@@ -420,7 +546,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _isCardFlipped.value = false
         val list = repository.flashcards.value
         if (list.isNotEmpty()) {
-            _currentCardIndex.value = if (_currentCardIndex.value > 0) _currentCardIndex.value - 1 else list.size - 1
+            val safeIdx = _currentCardIndex.value.coerceIn(0, list.lastIndex)
+            _currentCardIndex.value = if (safeIdx > 0) safeIdx - 1 else list.size - 1
         }
     }
 
@@ -431,10 +558,23 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun rateFlashcard(boxLevel: Int) {
         val list = repository.flashcards.value
         if (list.isNotEmpty()) {
-            val current = list[_currentCardIndex.value]
+            val safeIdx = _currentCardIndex.value.coerceIn(0, list.lastIndex)
+            val current = list[safeIdx]
             repository.updateFlashcardBox(current.id, boxLevel)
             nextFlashcard()
         }
+    }
+
+    fun addFlashcard(
+        frontPrompt: String,
+        backAnswer: String,
+        keyRule: String = "",
+        domainId: String = "",
+        sourceCitation: String = "Personal Study Card"
+    ) {
+        repository.addFlashcard(frontPrompt, backAnswer, keyRule, domainId, sourceCitation)
+        _currentCardIndex.value = 0
+        _isCardFlipped.value = false
     }
 
     fun addSourceDoc(title: String, summary: String, takeaways: List<String>, content: String, domainId: String) {

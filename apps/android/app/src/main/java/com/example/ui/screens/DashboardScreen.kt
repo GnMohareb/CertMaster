@@ -86,8 +86,10 @@ fun DashboardScreen(
     modifier: Modifier = Modifier
 ) {
     val currentExam by viewModel.currentExam.collectAsState()
+    val questions by viewModel.questions.collectAsState()
     val sessions by viewModel.sessions.collectAsState()
     val simulationScores by viewModel.simulationScores.collectAsState()
+    val savedActiveAttempt by viewModel.savedActiveAttempt.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val ssoSession by viewModel.ssoSession.collectAsState()
     val readinessReport by viewModel.readinessReport.collectAsState()
@@ -108,7 +110,13 @@ fun DashboardScreen(
     // Active subscription status for current exam
     val currentExamSub = userProfile.subscriptions.firstOrNull { it.examId == currentExam.id }
     val isExamSubscribed = currentExamSub?.status == SubStatus.ACTIVE
-    val isOfflineCsc = currentExam.shortCode.contains("CSC", ignoreCase = true)
+    val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") ||
+        currentExam.shortCode.contains("CSC", ignoreCase = true)
+    val effectiveDomains = if (currentExam.domains.isNotEmpty()) {
+        currentExam.domains
+    } else {
+        com.example.data.ExamCatalog.deriveDomainsFromQuestions(questions)
+    }
 
     Column(
         modifier = modifier
@@ -150,17 +158,18 @@ fun DashboardScreen(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val badgePositive = isOfflineCsc || isExamSubscribed
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(if (isExamSubscribed) SuccessGreen.copy(alpha = 0.15f) else WarningAmber.copy(alpha = 0.15f))
+                        .background(if (badgePositive) SuccessGreen.copy(alpha = 0.15f) else WarningAmber.copy(alpha = 0.15f))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = if (isOfflineCsc) "OFFLINE" else if (!ssoSession.isAuthenticated) "LOCAL ONLY" else if (isExamSubscribed) "ACTIVE" else "MANAGE PASS",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isExamSubscribed) SuccessGreen else WarningAmber
+                        color = if (badgePositive) SuccessGreen else WarningAmber
                     )
                 }
             }
@@ -314,8 +323,63 @@ fun DashboardScreen(
                         }
                     }
 
-                    // Standalone CSC has no paid access or network requirement.
-                    // Keep the action visible without implying questions are installed.
+                    // Resumable in-progress exam attempt persisted in Room SQLite
+                    if (savedActiveAttempt != null && questions.isNotEmpty()) {
+                        val active = savedActiveAttempt!!
+                        val qTotal = active.parseQuestionIds().size
+                        val answeredTotal = active.parseUserAnswers().size
+                        val minsLeft = active.remainingSeconds / 60
+                        val secsLeft = active.remainingSeconds % 60
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("card_resume_attempt"),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = AccentBlue.copy(alpha = 0.12f)),
+                                border = CardDefaults.outlinedCardBorder().copy(
+                                    brush = androidx.compose.ui.graphics.SolidColor(AccentBlue.copy(alpha = 0.5f))
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "In-Progress Session Saved",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = AccentBlue
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Question ${active.currentIndex + 1} of $qTotal • $answeredTotal answered • ${String.format("%02d:%02d", minsLeft, secsLeft)} left",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { viewModel.resumeSavedSimulation() },
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Resume Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        OutlinedButton(
+                                            onClick = { viewModel.abandonSimulation() }
+                                        ) {
+                                            Text("Discard", fontSize = 12.sp, color = ErrorRed)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Standalone CSC offline practice section (adapts cleanly once questions are installed).
                     if (isOfflineCsc) item {
                         Card(
                             modifier = Modifier.fillMaxWidth().testTag("card_offline_exam_status"),
@@ -331,18 +395,60 @@ fun DashboardScreen(
                                     fontSize = 15.sp
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Exam features are being prepared. Practice questions are not installed yet.",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Button(
-                                    onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
-                                    modifier = Modifier.fillMaxWidth().testTag("btn_offline_exam"),
-                                    enabled = false
-                                ) {
-                                    Text("Practice exam unavailable")
+                                if (questions.isNotEmpty()) {
+                                    Text(
+                                        text = "${questions.size} offline questions installed • ${currentExam.durationMinutes} min timed simulation • Pass mark ${currentExam.passingScorePercent}%.",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
+                                            modifier = Modifier.weight(1f).testTag("btn_offline_exam"),
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Timed Simulation", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        OutlinedButton(
+                                            onClick = { viewModel.startSimulation(ExamMode.DOMAIN_PRACTICE) },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Quick Sprint", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Exam features are prepared for offline use. Practice questions are not installed yet.",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
+                                            modifier = Modifier.weight(1f).testTag("btn_offline_exam"),
+                                            enabled = false
+                                        ) {
+                                            Text("Bank Not Installed", fontSize = 12.sp)
+                                        }
+                                        OutlinedButton(
+                                            onClick = { viewModel.navigateTo(AppScreen.NOTEBOOK_SOURCES) },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("Study Notes & Cards", fontSize = 12.sp)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -430,7 +536,14 @@ fun DashboardScreen(
                         val domainBreakdown = attempt.parseDomainScores()
 
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    val matchedSession = sessions.firstOrNull { it.sessionId == attempt.id }
+                                        ?: attempt.toExamSession()
+                                    viewModel.openHistoricalSession(matchedSession)
+                                },
                             shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(1.dp)
@@ -570,7 +683,11 @@ fun DashboardScreen(
                                     ) {
                                         Text(currentExam.shortCode, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                     }
-                                    Text("${currentExam.domains.size} Domains", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = if (effectiveDomains.isEmpty()) "Offline Mode" else "${effectiveDomains.size} Domains",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(currentExam.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
@@ -635,9 +752,27 @@ fun DashboardScreen(
                         )
                     }
 
-                    items(currentExam.domains) { domain ->
-                        val scorePct = domainPerformanceMap[domain.id] ?: 75
-                        val isPassing = scorePct >= currentExam.passingScorePercent
+                    if (effectiveDomains.isEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Text(
+                                    text = "Domain mastery breakdown will appear once practice questions or completed simulations are recorded.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    items(effectiveDomains) { domain ->
+                        val recordedPct = domainPerformanceMap[domain.id]
+                        val scorePct = recordedPct ?: if (isOfflineCsc) 0 else 75
+                        val isPassing = recordedPct != null && scorePct >= currentExam.passingScorePercent || (!isOfflineCsc && scorePct >= currentExam.passingScorePercent)
 
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -656,10 +791,10 @@ fun DashboardScreen(
                                         Text("Weight: ${domain.weightPercent}% of Exam", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Text(
-                                        text = "$scorePct%",
+                                        text = if (isOfflineCsc && recordedPct == null) "Not attempted" else "$scorePct%",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = if (isPassing) SuccessGreen else WarningAmber
+                                        fontSize = if (isOfflineCsc && recordedPct == null) 11.sp else 14.sp,
+                                        color = if (isOfflineCsc && recordedPct == null) Slate400 else if (isPassing) SuccessGreen else WarningAmber
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))

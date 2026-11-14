@@ -2,6 +2,7 @@ package com.example.data
 
 import android.content.Context
 import com.example.auth.SharedAuthManager
+import com.example.data.local.ActiveExamAttemptEntity
 import com.example.data.local.CertDatabase
 import com.example.data.local.DomainScoreRecord
 import com.example.data.local.FlashcardEntity
@@ -32,7 +33,7 @@ import com.example.model.SsoSessionInfo
 import com.example.model.SubStatus
 import com.example.model.SyncLogEntry
 import com.example.model.UserCentralProfile
-import com.example.network.ApiClient
+import com.example.network.BackendRelayClient
 import com.example.network.CertMasterFirebaseSyncClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,13 +76,14 @@ class ExamRepository(
     // A missing or invalid embedded bank fails closed instead of substituting CISSP.
     private fun loadQuestions(examId: String): List<Question> =
         if (examId.startsWith("csc-part-")) {
-            requireNotNull(context) { "CSC offline bank requires Android assets" }
-            // Feature-validation build: CSC content will be added only after UI and workflows pass QA.
-            // No unrelated questions and no startup crash when the future asset is absent.
-            try {
-                EmbeddedExamBank.load(context, examId)
-            } catch (_: IllegalStateException) {
+            if (context == null) {
                 emptyList()
+            } else {
+                try {
+                    EmbeddedExamBank.load(context, examId)
+                } catch (_: IllegalStateException) {
+                    emptyList()
+                }
             }
         } else {
             DefaultQuestions.getQuestionsForExam(examId)
@@ -89,6 +91,11 @@ class ExamRepository(
 
     private val _questions = MutableStateFlow<List<Question>>(loadQuestions(initialExam.id))
     val questions: StateFlow<List<Question>> = _questions.asStateFlow()
+
+    internal fun setQuestionsForTesting(testQuestions: List<Question>) {
+        _questions.value = testQuestions
+        recomputeReadinessAndStudyPlan()
+    }
 
     // 2. AI-Generated Learning Content (NotebookLM Sources & Audio Briefings)
     private val _sources = MutableStateFlow<List<SourceDoc>>(if (standaloneCsc) emptyList() else DefaultNotebookSources.CISSP_SOURCES)
@@ -108,8 +115,22 @@ class ExamRepository(
     private val _simulationScores = MutableStateFlow<List<SimulationScoreEntity>>(emptyList())
     val simulationScores: StateFlow<List<SimulationScoreEntity>> = _simulationScores.asStateFlow()
 
+    private val _savedActiveAttempt = MutableStateFlow<ActiveExamAttemptEntity?>(null)
+    val savedActiveAttempt: StateFlow<ActiveExamAttemptEntity?> = _savedActiveAttempt.asStateFlow()
+
     // 5. Student Central Profile & Subscription Entitlements
-    private val _userProfile = MutableStateFlow(UserCentralProfile())
+    private val _userProfile = MutableStateFlow(
+        if (standaloneCsc) {
+            UserCentralProfile(
+                userId = "local_csc_part_1",
+                targetExamId = initialExam.id,
+                lastActivePlatform = "ANDROID",
+                subscriptionTier = "Standalone Offline"
+            )
+        } else {
+            UserCentralProfile()
+        }
+    )
     val userProfile: StateFlow<UserCentralProfile> = _userProfile.asStateFlow()
 
     // 6. Shared SSO Session
@@ -211,6 +232,9 @@ class ExamRepository(
             // Remove fabricated "historical" attempts that earlier builds seeded into this local database.
             db.simulationScoreDao().deleteSeededHistoricalScores()
 
+            // Load any in-progress exam attempt for immediate restart recovery
+            _savedActiveAttempt.value = db.activeExamAttemptDao().getAttemptForExam(canonicalExamId)
+
             _pendingSyncCount.value = db.userProfileDao().getPendingSyncCount()
 
             // Reactively observe cached sources via Room Flow
@@ -230,11 +254,12 @@ class ExamRepository(
                 }
             }
 
-            // Reactively observe simulation scores via Room Flow for the performance line chart
+            // Reactively observe simulation scores via Room Flow for history and performance line chart
             scoresCollectJob?.cancel()
             scoresCollectJob = launch {
                 db.simulationScoreDao().getScoresByExam(canonicalExamId).collect { entities ->
                     _simulationScores.value = entities
+                    _sessions.value = entities.reversed().map { it.toExamSession() }
                     recomputeReadinessAndStudyPlan()
                 }
             }
@@ -359,12 +384,45 @@ class ExamRepository(
         }
     }
 
+    fun saveActiveAttempt(attempt: ActiveExamAttemptEntity) {
+        _savedActiveAttempt.value = attempt
+        val db = database ?: return
+        repositoryScope.launch {
+            db.activeExamAttemptDao().saveAttempt(attempt)
+        }
+    }
+
+    suspend fun saveActiveAttemptImmediate(attempt: ActiveExamAttemptEntity) {
+        _savedActiveAttempt.value = attempt
+        database?.activeExamAttemptDao()?.saveAttempt(attempt)
+    }
+
+    fun clearActiveAttempt(examId: String = _currentExam.value.id) {
+        _savedActiveAttempt.value = null
+        val canonicalExamId = ExamCatalog.normalizeExamId(examId)
+        val db = database ?: return
+        repositoryScope.launch {
+            db.activeExamAttemptDao().deleteAttemptForExam(canonicalExamId)
+        }
+    }
+
+    suspend fun getSavedActiveAttempt(examId: String = _currentExam.value.id): ActiveExamAttemptEntity? {
+        val canonicalExamId = ExamCatalog.normalizeExamId(examId)
+        val fromDb = database?.activeExamAttemptDao()?.getAttemptForExam(canonicalExamId)
+        if (fromDb != null) {
+            _savedActiveAttempt.value = fromDb
+            return fromDb
+        }
+        return _savedActiveAttempt.value?.takeIf { ExamCatalog.matchesExamId(it.examId, canonicalExamId) }
+    }
+
     fun recordSession(session: ExamSession, optionSwitchCount: Int = 2) {
-        _sessions.value = listOf(session) + _sessions.value
+        _sessions.value = listOf(session) + _sessions.value.filterNot { it.sessionId == session.sessionId }
         val attemptNo = (_simulationScores.value.maxOfOrNull { it.attemptNumber } ?: 0) + 1
-        val entity = SimulationScoreEntity.fromSession(session, attemptNo)
+        val entity = SimulationScoreEntity.fromSession(session, attemptNo, optionSwitchCount)
         _simulationScores.value = (_simulationScores.value.filterNot { it.id == entity.id } + entity)
             .sortedBy { it.timestampMillis }
+        clearActiveAttempt(session.examId)
 
         // Calculate authoritative simulation stress score matching Web SimulatorScreen.tsx
         val simStress = AuthoritativeMetricsEngine.calculateSimulationBehavioralStress(
@@ -671,14 +729,22 @@ class ExamRepository(
 
     fun addSourceDoc(title: String, summary: String, takeaways: List<String>, content: String, domainId: String) {
         val current = _currentExam.value
-        val domain = current.domains.firstOrNull { it.id == domainId } ?: current.domains.first()
+        val availableDomains = if (current.domains.isNotEmpty()) {
+            current.domains
+        } else {
+            ExamCatalog.deriveDomainsFromQuestions(_questions.value)
+        }
+        val matchedDomain = availableDomains.firstOrNull { it.id == domainId } ?: availableDomains.firstOrNull()
+        val resolvedDomainId = matchedDomain?.id ?: domainId.ifBlank { "${current.id}-general" }
+        val resolvedDomainTitle = matchedDomain?.title ?: "${current.shortCode} Study Notes"
+
         val doc = SourceDoc(
             id = "src_${UUID.randomUUID()}",
             examId = current.id,
-            domainId = domain.id,
-            domainName = domain.title,
+            domainId = resolvedDomainId,
+            domainName = resolvedDomainTitle,
             title = title,
-            authorOrStandard = "Custom Verified Source",
+            authorOrStandard = "Personal Study Notes",
             type = SourceType.OFFICIAL_GUIDE,
             summary = summary,
             keyTakeaways = takeaways,
@@ -702,6 +768,52 @@ class ExamRepository(
                 put("summary", doc.summary)
             }.toString()
         )
+    }
+
+    fun addFlashcard(
+        frontPrompt: String,
+        backAnswer: String,
+        keyFormulaOrRule: String = "",
+        domainId: String = "",
+        sourceCitation: String = "Personal Study Card"
+    ) {
+        val current = _currentExam.value
+        val availableDomains = if (current.domains.isNotEmpty()) {
+            current.domains
+        } else {
+            ExamCatalog.deriveDomainsFromQuestions(_questions.value)
+        }
+        val matchedDomain = availableDomains.firstOrNull { it.id == domainId } ?: availableDomains.firstOrNull()
+        val card = Flashcard(
+            id = "fc_${UUID.randomUUID()}",
+            examId = current.id,
+            domainId = matchedDomain?.id ?: domainId.ifBlank { "${current.id}-general" },
+            domainName = matchedDomain?.title ?: current.shortCode,
+            frontPrompt = frontPrompt.trim(),
+            backAnswer = backAnswer.trim(),
+            keyFormulaOrRule = keyFormulaOrRule.trim(),
+            sourceCitation = sourceCitation.trim().ifBlank { "Personal Study Card" },
+            boxLevel = 1,
+            status = FlashcardStatus.UNREVIEWED
+        )
+        _flashcards.value = listOf(card) + _flashcards.value
+        val db = database
+        if (db != null) {
+            repositoryScope.launch {
+                db.flashcardDao().insertFlashcard(FlashcardEntity.fromFlashcard(card))
+            }
+        }
+        enqueueOrSyncOperation(
+            domainType = "FLASHCARD",
+            entityId = card.id,
+            payloadJson = JSONObject().apply {
+                put("id", card.id)
+                put("boxLevel", card.boxLevel)
+                put("status", card.status.name)
+                put("lastReviewedEpoch", System.currentTimeMillis())
+            }.toString()
+        )
+        recomputeReadinessAndStudyPlan()
     }
 
     fun updateFlashcardBox(flashcardId: String, newBoxLevel: Int) {
@@ -856,14 +968,14 @@ class ExamRepository(
             return false
         }
         return try {
-            val service = ApiClient.createService(config.baseUrl)
-            val authHeader = if (config.apiKey.isNotEmpty()) "Bearer ${config.apiKey}" else null
             var restReachable = false
 
             try {
-                val healthResp = service.checkHealth(authHeader)
-                val syncResp = service.syncProfile(authHeader, _userProfile.value)
-                restReachable = healthResp.isSuccessful && syncResp.isSuccessful
+                restReachable = BackendRelayClient.pingAndSync(
+                    baseUrl = config.baseUrl,
+                    apiKey = config.apiKey,
+                    profile = _userProfile.value
+                )
             } catch (_: Exception) {
                 restReachable = false
             }
@@ -911,6 +1023,69 @@ class ExamRepository(
     fun getDomainStressMetricsList(): List<DomainStressMetrics> {
         val exam = _currentExam.value
         val sessionList = _sessions.value
+
+        if (standaloneCsc) {
+            // Standalone CSC Part 1 uses only real recorded attempt metrics (no fabricated baselines).
+            val recordedByDomain = sessionList.flatMap { it.domainScores }.groupBy { it.domainId }
+            if (recordedByDomain.isEmpty()) return emptyList()
+
+            val derivedDomains = if (exam.domains.isNotEmpty()) {
+                exam.domains
+            } else {
+                ExamCatalog.deriveDomainsFromQuestions(_questions.value)
+            }
+            val totalRecordedFlagRate = if (sessionList.isNotEmpty()) {
+                val totalQs = sessionList.sumOf { it.totalQuestions }.coerceAtLeast(1)
+                val totalFlagged = sessionList.sumOf { it.flaggedIndices.size }
+                ((totalFlagged.toDouble() / totalQs) * 100.0).toInt().coerceIn(0, 100)
+            } else {
+                0
+            }
+            val avgRecordedLatency = if (sessionList.isNotEmpty()) {
+                val totalQs = sessionList.sumOf { it.totalQuestions }.coerceAtLeast(1)
+                val totalSecs = sessionList.sumOf { it.durationSeconds }
+                (totalSecs / totalQs).coerceAtLeast(1)
+            } else {
+                0
+            }
+
+            return recordedByDomain.entries.mapIndexed { idx, (domainId, list) ->
+                val domainMeta = derivedDomains.firstOrNull { it.id == domainId }
+                val attempted = list.sumOf { it.totalCount }.coerceAtLeast(list.size)
+                val totalCorrect = list.sumOf { it.correctCount }
+                val accuracy = if (list.sumOf { it.totalCount } > 0) {
+                    ((totalCorrect.toDouble() / list.sumOf { it.totalCount }) * 100.0).toInt()
+                } else {
+                    list.map { it.percentage }.average().toInt()
+                }
+                val (stressScore, stressLevel) = AuthoritativeMetricsEngine.calculateDomainStressScore(
+                    accuracyPercent = accuracy,
+                    flagRatePercent = totalRecordedFlagRate,
+                    avgResponseSeconds = avgRecordedLatency
+                )
+                val diagnosis = when (stressLevel) {
+                    com.example.model.StressLevel.CRITICAL_STRESS -> "Critical Need: Accuracy $accuracy% across $attempted recorded question(s). Focus practice here first."
+                    com.example.model.StressLevel.HIGH_ATTENTION -> "High Attention: Accuracy $accuracy% across $attempted question(s). Additional review recommended."
+                    com.example.model.StressLevel.MODERATE_PRACTICE -> "Moderate Practice: $accuracy% accuracy. Continue targeted practice drills."
+                    com.example.model.StressLevel.ON_TRACK -> "On Track: Solid $accuracy% accuracy across $attempted question(s)."
+                    com.example.model.StressLevel.MASTERED -> "Mastered: High accuracy ($accuracy%) across $attempted question(s)."
+                }
+                DomainStressMetrics(
+                    domainId = domainId,
+                    domainNumber = domainMeta?.number ?: (idx + 1),
+                    domainName = domainMeta?.title ?: list.first().domainName,
+                    weightPercent = domainMeta?.weightPercent ?: 0,
+                    accuracyPercent = accuracy,
+                    questionsAttempted = attempted,
+                    avgResponseSeconds = avgRecordedLatency,
+                    flagRatePercent = totalRecordedFlagRate,
+                    stressScore = stressScore,
+                    stressLevel = stressLevel,
+                    aiStressDiagnosis = diagnosis,
+                    keyTopicsNeedingFocus = domainMeta?.keyFrameworks ?: emptyList()
+                )
+            }.sortedByDescending { it.stressScore }
+        }
 
         val domainScoresMap = sessionList.flatMap { it.domainScores }
             .groupBy { it.domainId }

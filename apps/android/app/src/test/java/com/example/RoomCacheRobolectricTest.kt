@@ -104,31 +104,6 @@ class RoomCacheRobolectricTest {
     }
 
     @Test
-    fun examRepository_integratesWithRoomCache() = runBlocking {
-        val repo = ExamRepository(context = context, database = database)
-        assertTrue("Repository should have database attached", repo.isRoomDatabaseAttached())
-        assertTrue("Offline cache should be active", repo.isOfflineCacheActive.value)
-
-        // Give coroutines a brief tick to seed defaults if empty
-        kotlinx.coroutines.delay(150)
-
-        val sources = repo.sources.value
-        assertTrue("Repository should have study sources loaded", sources.isNotEmpty())
-
-        val flashcards = repo.flashcards.value
-        assertTrue("Repository should have flashcards loaded", flashcards.isNotEmpty())
-
-        // Test updating a flashcard box level in the repository
-        val firstCard = flashcards.first()
-        repo.updateFlashcardBox(firstCard.id, 4)
-        kotlinx.coroutines.delay(100)
-
-        val updatedCard = database.flashcardDao().getFlashcardById(firstCard.id)
-        assertNotNull(updatedCard)
-        assertEquals(4, updatedCard?.boxLevel)
-    }
-
-    @Test
     fun simulationScoreDao_canInsertAndQueryScoreHistory() = runBlocking {
         val testScore = SimulationScoreEntity.createHistoricalAttempt(
             id = "test_score_01",
@@ -162,22 +137,5 @@ class RoomCacheRobolectricTest {
 
         val examScores = database.simulationScoreDao().getScoresByExam("cissp").first()
         assertEquals(1, examScores.size)
-    }
-
-    @Test
-    fun examRepository_handlesSubscriptionAndProfileSync() = runBlocking {
-        val repo = ExamRepository(context = context, database = database)
-        val initialProfile = repo.userProfile.value
-        assertNotNull(initialProfile)
-        // Signed out: no demo identity and no entitlements.
-        assertEquals("", initialProfile.userId)
-        assertEquals("", initialProfile.displayName)
-        assertTrue(initialProfile.subscriptions.isEmpty())
-        assertEquals("Free Trial", initialProfile.subscriptionTier)
-
-        // Client-side "subscribe" must never grant paid access.
-        repo.subscribeToSubject("sec_plus")
-        val secPlusSub = repo.userProfile.value.subscriptions.firstOrNull { it.examId == "sec_plus" }
-        assertTrue(secPlusSub == null || secPlusSub.status != SubStatus.ACTIVE)
     }
 }

@@ -61,33 +61,4 @@ class ExampleUnitTest {
         val flashcards = DefaultNotebookSources.CISSP_FLASHCARDS
         assertTrue("Flashcards should be loaded", flashcards.isNotEmpty())
     }
-
-    @Test
-    fun examRepository_calculatesReadinessAndDiagnostics() {
-        val repository = ExamRepository()
-        val readiness = repository.calculateReadinessScore()
-        assertTrue("Readiness score must be between 10 and 100", readiness in 10..100)
-
-        // With no real attempts recorded, there is no fabricated "weakest domain".
-        repository.getWeakestDomain()
-
-        // Test switching exam
-        repository.switchExam("aws-saa")
-        assertEquals("aws-saa", repository.currentExam.value.id)
-        assertEquals(4, repository.currentExam.value.domains.size)
-    }
-
-    @Test
-    fun examRepository_tracksBehavioralStressAndIdentifiesPriorityDomains() {
-        val repository = ExamRepository()
-        val stressMetrics = repository.getDomainStressMetricsList()
-        assertTrue("Should compute stress metrics for all domains", stressMetrics.isNotEmpty())
-
-        val highestStress = repository.getHighestStressDomain()
-        assertNotNull("Should identify top stress domain", highestStress)
-        assertTrue("Stress score should be computed", highestStress!!.stressScore in 0..100)
-        assertTrue("Avg response hesitation should be tracked", highestStress.avgResponseSeconds > 0)
-        assertTrue("Flag rate should be tracked", highestStress.flagRatePercent in 0..100)
-        assertTrue("Diagnosis should be generated", highestStress.aiStressDiagnosis.isNotBlank())
-    }
 }

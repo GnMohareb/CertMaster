@@ -152,24 +152,28 @@ object AuthoritativeMetricsEngine {
         val knownCardsCount = flashcards.count {
             it.status == FlashcardStatus.KNOWN || it.boxLevel >= 3
         }
+        val isOfflineCsc = exam.id.startsWith("csc-part-")
         val flashcardMasteryPct = if (flashcards.isNotEmpty()) {
             ((knownCardsCount.toDouble() / flashcards.size.toDouble()) * 100.0).roundToInt()
         } else {
-            70
+            if (isOfflineCsc) 0 else 70
         }
 
         // Weighted readiness: 60% simulation performance, 25% diagnostic baseline, 15% active recall mastery
-        val readinessPercent = (
-            (avgSimScore * 0.60) +
-                (profile.assessmentScorePercent * 0.25) +
-                (flashcardMasteryPct * 0.15)
-            ).roundToInt().coerceIn(10, 100)
+        val hasRealData = !isOfflineCsc || simScoresForExam.isNotEmpty() || profile.assessmentCompleted || flashcards.isNotEmpty()
+        val readinessPercent = if (!hasRealData) {
+            0
+        } else {
+            val raw = ((avgSimScore * 0.60) + (profile.assessmentScorePercent * 0.25) + (flashcardMasteryPct * 0.15)).roundToInt()
+            if (isOfflineCsc) raw.coerceIn(0, 100) else raw.coerceIn(10, 100)
+        }
 
         val passThreshold = exam.passingScorePercent
         val passProbabilityPercent = when {
+            !hasRealData -> 0
             readinessPercent >= passThreshold + 10 -> min(98, readinessPercent + 6)
             readinessPercent >= passThreshold -> min(92, readinessPercent + 3)
-            else -> max(15, readinessPercent - 5)
+            else -> if (isOfflineCsc) max(0, readinessPercent - 5) else max(15, readinessPercent - 5)
         }
 
         val weakestDomain = domainMetrics.minByOrNull { it.accuracyPercent }
@@ -212,10 +216,12 @@ object AuthoritativeMetricsEngine {
         profile: UserCentralProfile,
         readiness: ExamReadinessReport
     ): List<JourneyMilestone> {
+        val isOfflineCsc = exam.id.startsWith("csc-part-")
         val stage1Done = profile.assessmentCompleted
         val stage2Done = readiness.weakestDomainScore >= 65
         val stage3Done = readiness.completedSimulationsCount >= 3 && readiness.highestSimulationScore >= exam.passingScorePercent
         val stage4Done = readiness.passGuaranteeQualified
+        val stage2FocusLabel = readiness.weakestDomainName.ifBlank { "Priority Exam Topics" }
 
         return listOf(
             JourneyMilestone(
@@ -223,8 +229,8 @@ object AuthoritativeMetricsEngine {
                 stageName = "Baseline Diagnostic & Behavioral Telemetry",
                 status = if (stage1Done) "COMPLETED" else "IN_PROGRESS",
                 score = profile.assessmentScorePercent,
-                lastUpdated = "Synchronized",
-                description = "Calibrates question dwell times and hesitation option switches. Archetype: ${profile.behavioralArchetype} (${profile.averageDwellTimeSec}s avg dwell).",
+                lastUpdated = if (isOfflineCsc) "On Device" else "Synchronized",
+                description = "Calibrates question dwell times and hesitation option switches. Archetype: ${profile.behavioralArchetype.ifBlank { "Pending Assessment" }} (${profile.averageDwellTimeSec}s avg dwell).",
                 actionLabel = "Recalibrate (10 Questions)",
                 actionRoute = "INITIAL_BEHAVIORAL_ASSESSMENT"
             ),
@@ -238,7 +244,7 @@ object AuthoritativeMetricsEngine {
                 },
                 score = readiness.weakestDomainScore,
                 lastUpdated = "Active Focus",
-                description = "Priority remediation for ${readiness.weakestDomainName} (${readiness.weakestDomainScore}%) using NotebookLM study guides, flashcards, and audio briefings.",
+                description = "Priority remediation for $stage2FocusLabel (${readiness.weakestDomainScore}%) using study guides and spaced-repetition flashcards.",
                 actionLabel = "Open Study Sources",
                 actionRoute = "NOTEBOOK_SOURCES"
             ),
@@ -258,7 +264,7 @@ object AuthoritativeMetricsEngine {
             ),
             JourneyMilestone(
                 stage = 4,
-                stageName = "Domain Heatmap & Pass Guarantee Verification",
+                stageName = "Domain Heatmap & Pass Readiness Verification",
                 status = when {
                     stage4Done -> "COMPLETED"
                     stage3Done -> "READY"
@@ -267,23 +273,36 @@ object AuthoritativeMetricsEngine {
                 score = readiness.passProbabilityPercent,
                 lastUpdated = "${readiness.passProbabilityPercent}% Pass Probability",
                 description = if (readiness.passGuaranteeQualified) {
-                    "Qualified for the CertMaster Pass Guarantee (${readiness.readinessPercent}% readiness)."
+                    "Consistent passing readiness verified (${readiness.readinessPercent}% readiness)."
                 } else {
-                    "Reach ${exam.passingScorePercent}%+ across simulations to unlock the CertMaster Pass Guarantee."
+                    "Reach ${exam.passingScorePercent}%+ across simulations to verify exam readiness."
                 },
                 actionLabel = "View Analytics",
                 actionRoute = "DASHBOARD"
             ),
-            JourneyMilestone(
-                stage = 5,
-                stageName = "Cross-Device Sync & Testing Center Preparation",
-                status = if (stage4Done) "READY" else "IN_PROGRESS",
-                score = readiness.readinessPercent,
-                lastUpdated = "Target: ${profile.examTargetDate}",
-                description = "Web Companion and Android app offline banks, flashcards, and simulation scores are synchronized for test day.",
-                actionLabel = "Verify Cloud Sync",
-                actionRoute = "CENTRAL_PROFILE"
-            )
+            if (isOfflineCsc) {
+                JourneyMilestone(
+                    stage = 5,
+                    stageName = "Offline Readiness & Testing Center Preparation",
+                    status = if (stage4Done) "READY" else "IN_PROGRESS",
+                    score = readiness.readinessPercent,
+                    lastUpdated = "Stored Locally",
+                    description = "All simulation scores, flashcards, and study notes are saved locally on this device for offline test-day review.",
+                    actionLabel = "View Study Progress",
+                    actionRoute = "DASHBOARD"
+                )
+            } else {
+                JourneyMilestone(
+                    stage = 5,
+                    stageName = "Cross-Device Sync & Testing Center Preparation",
+                    status = if (stage4Done) "READY" else "IN_PROGRESS",
+                    score = readiness.readinessPercent,
+                    lastUpdated = "Target: ${profile.examTargetDate}",
+                    description = "Web Companion and Android app offline banks, flashcards, and simulation scores are synchronized for test day.",
+                    actionLabel = "Verify Cloud Sync",
+                    actionRoute = "CENTRAL_PROFILE"
+                )
+            }
         )
     }
 

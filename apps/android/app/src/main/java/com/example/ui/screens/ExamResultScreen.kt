@@ -73,7 +73,10 @@ fun ExamResultScreen(
     val questions by viewModel.simulationQuestions.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
 
-    val isExamSubscribed = userProfile.subscriptions.any {
+    val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") ||
+        currentExam.id.startsWith("csc-part-")
+
+    val isExamSubscribed = isOfflineCsc || userProfile.subscriptions.any {
         it.examId == currentExam.id && it.status == com.example.model.SubStatus.ACTIVE
     }
 
@@ -95,9 +98,22 @@ fun ExamResultScreen(
     val bannerColor = if (isPassed) SuccessGreen else ErrorRed
     val bannerTitle = if (isPassed) "PROVISIONAL PASS" else "NEEDS ADDITIONAL PREPARATION"
 
-    val correctCount = questions.count { q ->
-        val qIdx = questions.indexOf(q)
-        session.userAnswers[qIdx] == q.correctIndex
+    val correctCount = if (questions.isNotEmpty()) {
+        questions.count { q ->
+            val qIdx = questions.indexOf(q)
+            session.userAnswers[qIdx] == q.correctIndex
+        }
+    } else {
+        session.domainScores.sumOf { it.correctCount }.takeIf { it > 0 }
+            ?: ((session.scorePercent * session.totalQuestions) / 100)
+    }
+
+    val durationMinutes = session.durationSeconds / 60
+    val durationRemainderSeconds = session.durationSeconds % 60
+    val formattedDuration = if (durationMinutes > 0) {
+        "${durationMinutes}m ${durationRemainderSeconds}s"
+    } else {
+        "${durationRemainderSeconds}s"
     }
 
     Column(
@@ -173,7 +189,7 @@ fun ExamResultScreen(
                         )
 
                         Text(
-                            text = "Target Passing Threshold: $passing% • $correctCount of ${session.totalQuestions} Correct",
+                            text = "Target Threshold: $passing% • $correctCount of ${session.totalQuestions} Correct • $formattedDuration",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -194,14 +210,26 @@ fun ExamResultScreen(
                                 Text("Retake Test", fontSize = 12.sp)
                             }
 
-                            Button(
-                                onClick = { viewModel.navigateTo(AppScreen.AI_TUTOR) },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                            ) {
-                                Icon(Icons.Default.AutoAwesome, contentDescription = "Ask AI", modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("AI Tutor Drill", fontSize = 12.sp)
+                            if (isOfflineCsc) {
+                                Button(
+                                    onClick = { viewModel.navigateTo(AppScreen.EXAM_HUB) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Icon(Icons.Default.MenuBook, contentDescription = "Exams Hub", modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Exams Hub", fontSize = 12.sp)
+                                }
+                            } else {
+                                Button(
+                                    onClick = { viewModel.navigateTo(AppScreen.AI_TUTOR) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Ask AI", modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("AI Tutor Drill", fontSize = 12.sp)
+                                }
                             }
                         }
                     }
@@ -209,7 +237,7 @@ fun ExamResultScreen(
             }
 
             // 50-Question Assessment Conversion / Upgrade Card for Free Tier
-            if (!isExamSubscribed) {
+            if (!isOfflineCsc && !isExamSubscribed) {
                 item {
                     Card(
                         modifier = Modifier
@@ -335,7 +363,7 @@ fun ExamResultScreen(
                 }
             }
 
-            // Detailed Question-by-Question Review with NotebookLM Citations
+            // Detailed Question-by-Question Review with Source Citations
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -344,6 +372,25 @@ fun ExamResultScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
+            }
+
+            if (questions.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Text(
+                            text = "Detailed question-by-question breakdown is available when the questions from this attempt are installed in the local bank.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp),
+                            lineHeight = 19.sp
+                        )
+                    }
+                }
             }
 
             itemsIndexed(questions) { qIdx, question ->
@@ -476,19 +523,21 @@ fun ExamResultScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        if (!isOfflineCsc) {
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                        // Ask AI Tutor button
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.sendAIPrompt("Can you deep-dive into Question ${qIdx + 1} regarding '${question.citation.standardOrFramework}' and explain why option ${if (userChoice != null) userChoice + 1 else 1} is incorrect?")
-                                viewModel.navigateTo(AppScreen.AI_TUTOR)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Psychology, contentDescription = "Ask AI", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Ask AI Tutor to Analyze This Question", fontSize = 12.sp)
+                            // Ask AI Tutor button
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.sendAIPrompt("Can you deep-dive into Question ${qIdx + 1} regarding '${question.citation.standardOrFramework}' and explain why option ${if (userChoice != null) userChoice + 1 else 1} is incorrect?")
+                                    viewModel.navigateTo(AppScreen.AI_TUTOR)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Psychology, contentDescription = "Ask AI", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Ask AI Tutor to Analyze This Question", fontSize = 12.sp)
+                            }
                         }
                     }
                 }

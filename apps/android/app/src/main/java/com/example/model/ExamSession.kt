@@ -30,5 +30,6 @@ data class ExamSession(
     val completedTimeMillis: Long,
     val scorePercent: Int,
     val isPassed: Boolean,
-    val domainScores: List<DomainScore>
+    val domainScores: List<DomainScore>,
+    val questionIds: List<String> = emptyList()
 )

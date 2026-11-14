@@ -17,7 +17,14 @@ data class SimulationScoreEntity(
     val timeSpentSeconds: Int,
     val totalQuestions: Int,
     val attemptNumber: Int,
-    val domainScoresJson: String
+    val domainScoresJson: String,
+    val mode: String = "FULL_SIMULATION",
+    val startTimeMillis: Long = 0L,
+    val questionIdsJson: String = "[]",
+    val userAnswersJson: String = "{}",
+    val flaggedIndicesJson: String = "[]",
+    val struckOptionsJson: String = "{}",
+    val optionSwitchCount: Int = 0
 ) {
     /**
      * Parses the JSON domain score breakdown into a list of [DomainScoreRecord].
@@ -45,8 +52,49 @@ data class SimulationScoreEntity(
         }
     }
 
+    fun toExamSession(): ExamSession {
+        val parsedMode = try {
+            com.example.model.ExamMode.valueOf(mode)
+        } catch (_: Exception) {
+            com.example.model.ExamMode.FULL_SIMULATION
+        }
+        val effectiveStart = if (startTimeMillis > 0L) {
+            startTimeMillis
+        } else {
+            (timestampMillis - (timeSpentSeconds * 1000L)).coerceAtLeast(0L)
+        }
+        return ExamSession(
+            sessionId = id,
+            examId = examId,
+            mode = parsedMode,
+            startTimeMillis = effectiveStart,
+            durationSeconds = timeSpentSeconds,
+            totalQuestions = totalQuestions,
+            userAnswers = ActiveExamAttemptEntity.parseIntIntMap(userAnswersJson),
+            flaggedIndices = ActiveExamAttemptEntity.parseIntSet(flaggedIndicesJson),
+            struckOptions = ActiveExamAttemptEntity.parseIntSetMap(struckOptionsJson),
+            completedTimeMillis = timestampMillis,
+            scorePercent = overallScorePercent,
+            isPassed = isPassed,
+            domainScores = parseDomainScores().map { rec ->
+                DomainScore(
+                    domainId = rec.domainId,
+                    domainName = rec.domainName,
+                    correctCount = rec.correctCount,
+                    totalCount = rec.totalCount,
+                    percentage = rec.scorePercent
+                )
+            },
+            questionIds = ActiveExamAttemptEntity.parseStringList(questionIdsJson)
+        )
+    }
+
     companion object {
-        fun fromSession(session: ExamSession, attemptNumber: Int): SimulationScoreEntity {
+        fun fromSession(
+            session: ExamSession,
+            attemptNumber: Int,
+            optionSwitchCount: Int = 0
+        ): SimulationScoreEntity {
             val array = JSONArray()
             session.domainScores.forEach { ds ->
                 val obj = JSONObject()
@@ -67,7 +115,14 @@ data class SimulationScoreEntity(
                 timeSpentSeconds = session.durationSeconds,
                 totalQuestions = session.totalQuestions,
                 attemptNumber = attemptNumber,
-                domainScoresJson = array.toString()
+                domainScoresJson = array.toString(),
+                mode = session.mode.name,
+                startTimeMillis = session.startTimeMillis,
+                questionIdsJson = ActiveExamAttemptEntity.encodeStringList(session.questionIds),
+                userAnswersJson = ActiveExamAttemptEntity.encodeIntIntMap(session.userAnswers),
+                flaggedIndicesJson = ActiveExamAttemptEntity.encodeIntSet(session.flaggedIndices),
+                struckOptionsJson = ActiveExamAttemptEntity.encodeIntSetMap(session.struckOptions),
+                optionSwitchCount = optionSwitchCount
             )
         }
 

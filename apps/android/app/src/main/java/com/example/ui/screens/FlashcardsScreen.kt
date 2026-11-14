@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -37,12 +39,17 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,79 +81,150 @@ fun FlashcardsScreen(
     val currentIndex by viewModel.currentCardIndex.collectAsState()
     val isFlipped by viewModel.isCardFlipped.collectAsState()
 
+    var showAddFlashcardDialog by remember { mutableStateOf(false) }
+
     BackHandler {
         viewModel.navigateTo(AppScreen.DASHBOARD)
     }
 
     if (flashcards.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No flashcards available.")
-        }
-        return
-    }
-
-    val currentCard = flashcards.getOrNull(currentIndex) ?: flashcards.first()
-
-    // Flip animation
-    val rotation by animateFloatAsState(
-        targetValue = if (isFlipped) 180f else 0f,
-        animationSpec = tween(400),
-        label = "flashcard_flip"
-    )
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        TopAppBar(
-            title = {
-                Column {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            TopAppBar(
+                title = {
                     Text("Spaced Repetition Flashcards", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("Card ${currentIndex + 1} of ${flashcards.size}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = { viewModel.navigateTo(AppScreen.DASHBOARD) }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                }
-            },
-            actions = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(end = 12.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(SuccessGreen.copy(alpha = 0.12f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .testTag("flashcards_offline_badge")
+                },
+                navigationIcon = {
+                    IconButton(onClick = { viewModel.navigateTo(AppScreen.DASHBOARD) }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = { showAddFlashcardDialog = true },
+                        modifier = Modifier.testTag("btn_add_flashcard_empty")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Create Flashcard")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Room Local Cache",
-                        tint = SuccessGreen,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Room Cached",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = SuccessGreen
-                    )
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "No Flashcards Installed Yet",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Create custom flashcards to build an offline Leitner spaced-repetition deck stored locally in Room.",
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { showAddFlashcardDialog = true },
+                            modifier = Modifier.testTag("btn_create_first_flashcard")
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Create Flashcard")
+                        }
+                    }
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            }
+        }
+    } else {
+        val safeIndex = currentIndex.coerceIn(0, flashcards.lastIndex)
+        val currentCard = flashcards[safeIndex]
+
+        // Flip animation
+        val rotation by animateFloatAsState(
+            targetValue = if (isFlipped) 180f else 0f,
+            animationSpec = tween(400),
+            label = "flashcard_flip"
         )
 
-        LinearProgressIndicator(
-            progress = { ((currentIndex + 1).toFloat() / flashcards.size).coerceIn(0f, 1f) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Spaced Repetition Flashcards", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Card ${safeIndex + 1} of ${flashcards.size}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { viewModel.navigateTo(AppScreen.DASHBOARD) }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = { showAddFlashcardDialog = true },
+                        modifier = Modifier.testTag("btn_add_flashcard")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Create Flashcard")
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SuccessGreen.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .testTag("flashcards_offline_badge")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Room Local Cache",
+                            tint = SuccessGreen,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Room Cached",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SuccessGreen
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+
+            LinearProgressIndicator(
+                progress = { ((safeIndex + 1).toFloat() / flashcards.size).coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
 
         Column(
             modifier = Modifier
@@ -407,5 +485,63 @@ fun FlashcardsScreen(
                 }
             }
         }
+    }
+    }
+
+    if (showAddFlashcardDialog) {
+        var frontPrompt by remember { mutableStateOf("") }
+        var backAnswer by remember { mutableStateOf("") }
+        var domainLabel by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showAddFlashcardDialog = false },
+            title = { Text("Create Flashcard") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = frontPrompt,
+                        onValueChange = { frontPrompt = it },
+                        label = { Text("Question / Prompt") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = backAnswer,
+                        onValueChange = { backAnswer = it },
+                        label = { Text("Answer / Key Rule") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                    )
+                    OutlinedTextField(
+                        value = domainLabel,
+                        onValueChange = { domainLabel = it },
+                        label = { Text("Domain / Topic (Optional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (frontPrompt.isNotBlank() && backAnswer.isNotBlank()) {
+                            viewModel.addFlashcard(
+                                frontPrompt = frontPrompt.trim(),
+                                backAnswer = backAnswer.trim(),
+                                keyRule = backAnswer.trim(),
+                                domainId = domainLabel.trim()
+                            )
+                            showAddFlashcardDialog = false
+                        }
+                    }
+                ) {
+                    Text("Save Card")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddFlashcardDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

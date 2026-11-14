@@ -61,6 +61,15 @@ android {
     }
   }
 
+  sourceSets {
+    listOf("full", "cissp", "pmp", "awsSaa").forEach { flavor ->
+      val capitalizedFlavor = flavor.replaceFirstChar { it.uppercaseChar() }
+      getByName(flavor).java.directories.add("src/cloud/java")
+      getByName(flavor).res.directories.add("src/cloud/res")
+      getByName("test$capitalizedFlavor").java.directories.add("src/testCloud/java")
+    }
+  }
+
   // Do not remove or modify these signingConfigs. They are necessary for building, installing,
   // and updating Android apps in AI Studio.
   signingConfigs {
@@ -128,11 +137,24 @@ secrets {
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
 
+tasks.configureEach {
+  if (name.contains("GoogleServices", ignoreCase = true) && name.contains("CscPart1", ignoreCase = true)) {
+    enabled = false
+  }
+}
+
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
+  val cloudFlavors = listOf("full", "cissp", "pmp", "awsSaa")
+  fun DependencyHandlerScope.cloudImplementation(dependencyNotation: Any) {
+    cloudFlavors.forEach { flavor ->
+      add("${flavor}Implementation", dependencyNotation)
+    }
+  }
+
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
+  cloudImplementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
@@ -154,26 +176,22 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   // implementation(libs.coil.compose)
-  implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
-  // Uncomment to use Firestore:
-  implementation(libs.firebase.firestore)
-
-  // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
-  // Sign-In via Credential Manager:
-  implementation(libs.firebase.auth)
-  implementation(libs.androidx.credentials)
-  implementation(libs.androidx.credentials.play.services)
-  implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
-  implementation(libs.firebase.appcheck.debug)
+  cloudImplementation(libs.converter.moshi)
+  cloudImplementation(libs.firebase.ai)
+  cloudImplementation(libs.firebase.firestore)
+  cloudImplementation(libs.firebase.auth)
+  cloudImplementation(libs.androidx.credentials)
+  cloudImplementation(libs.androidx.credentials.play.services)
+  cloudImplementation(libs.googleid)
+  cloudImplementation(libs.firebase.appcheck.recaptcha)
+  cloudImplementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.moshi.kotlin)
-  implementation(libs.okhttp)
+  cloudImplementation(libs.logging.interceptor)
+  cloudImplementation(libs.moshi.kotlin)
+  cloudImplementation(libs.okhttp)
   // implementation(libs.play.services.location)
-  implementation(libs.retrofit)
+  cloudImplementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

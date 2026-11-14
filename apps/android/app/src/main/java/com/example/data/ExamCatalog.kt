@@ -228,6 +228,7 @@ object ExamCatalog {
      */
     fun getExamContentStatus(examId: String): String {
         return when (normalizeExamId(examId)) {
+            "csc-part-1" -> classifyExamContentAvailability(0, 0, 0, 0, 0)
             "cissp" -> classifyExamContentAvailability(8, 4, 8, 3, 8)
             "aws-saa" -> classifyExamContentAvailability(5, 1, 3, 1, 4)
             "sec-plus" -> classifyExamContentAvailability(5, 1, 2, 1, 5)
@@ -241,6 +242,31 @@ object ExamCatalog {
     fun getExamById(id: String): ExamConfig {
         val canonical = normalizeExamId(id)
         return ALL_PRESETS.firstOrNull { normalizeExamId(it.id) == canonical } ?: if (canonical == "csc-part-1") CSC_PART_1 else CISSP
+    }
+
+    /**
+     * Derives domain metadata directly from an installed list of [com.example.model.Question]s
+     * when the exam configuration leaves static domains empty (e.g. standalone offline CSC Part 1
+     * prior to or after importing a question bank).
+     */
+    fun deriveDomainsFromQuestions(questions: List<com.example.model.Question>): List<ExamDomain> {
+        if (questions.isEmpty()) return emptyList()
+        val total = questions.size.coerceAtLeast(1)
+        return questions
+            .groupBy { it.domainId }
+            .entries
+            .mapIndexed { index, (domainId, list) ->
+                val weight = ((list.size.toDouble() / total) * 100.0).toInt().coerceAtLeast(1)
+                ExamDomain(
+                    id = domainId,
+                    number = index + 1,
+                    title = list.first().domainName.ifBlank { domainId.uppercase() },
+                    weightPercent = weight,
+                    description = "${list.size} practice question(s) in this topic",
+                    keyFrameworks = list.map { it.citation.standardOrFramework }.filter { it.isNotBlank() }.distinct().take(3),
+                    iconName = "MenuBook"
+                )
+            }
     }
 
     /**

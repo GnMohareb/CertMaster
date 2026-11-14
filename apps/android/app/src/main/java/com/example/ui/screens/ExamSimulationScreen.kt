@@ -875,6 +875,18 @@ fun ExamSimulationScreen(
                             Text("Flagged for Review: ${flaggedIndices.size}")
                         }
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = {
+                            showPauseDialog = false
+                            viewModel.pauseAndExitToDashboard()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("btn_save_and_exit_exam")
+                    ) {
+                        Text("Save & Exit to Dashboard")
+                    }
                 }
             },
             confirmButton = {
@@ -898,7 +910,7 @@ fun ExamSimulationScreen(
                         showExitWarningDialog = true
                     }
                 ) {
-                    Text("Exit Simulation", color = ErrorRed)
+                    Text("Abandon Exam", color = ErrorRed)
                 }
             }
         )
@@ -985,7 +997,7 @@ fun ExamSimulationScreen(
                 Button(
                     onClick = {
                         showExitWarningDialog = false
-                        viewModel.handleBackPress()
+                        viewModel.abandonSimulation()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                 ) {
