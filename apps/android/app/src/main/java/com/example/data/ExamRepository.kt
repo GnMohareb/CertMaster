@@ -357,9 +357,10 @@ class ExamRepository(
 
     fun recordSession(session: ExamSession, optionSwitchCount: Int = 2) {
         _sessions.value = listOf(session) + _sessions.value
-        val attemptNo = _simulationScores.value.size + 1
+        val attemptNo = (_simulationScores.value.maxOfOrNull { it.attemptNumber } ?: 0) + 1
         val entity = SimulationScoreEntity.fromSession(session, attemptNo)
-        _simulationScores.value = _simulationScores.value + entity
+        _simulationScores.value = (_simulationScores.value.filterNot { it.id == entity.id } + entity)
+            .sortedBy { it.timestampMillis }
 
         // Calculate authoritative simulation stress score matching Web SimulatorScreen.tsx
         val simStress = AuthoritativeMetricsEngine.calculateSimulationBehavioralStress(
@@ -401,11 +402,13 @@ class ExamRepository(
             }
         }
 
-        enqueueOrSyncOperation(
-            domainType = "ATTEMPT",
-            entityId = entity.id,
-            payloadJson = firebaseSyncClient.toWebSimulationResultJson(entity, _currentExam.value.title)
-        )
+        if (!standaloneCsc) {
+            enqueueOrSyncOperation(
+                domainType = "ATTEMPT",
+                entityId = entity.id,
+                payloadJson = firebaseSyncClient.toWebSimulationResultJson(entity, _currentExam.value.title)
+            )
+        }
         recomputeReadinessAndStudyPlan()
     }
 
@@ -439,11 +442,13 @@ class ExamRepository(
         )
         _userProfile.value = updated
         persistProfileLocally(updated)
-        enqueueOrSyncOperation(
-            domainType = "PROFILE",
-            entityId = updated.userId,
-            payloadJson = firebaseSyncClient.toWebProfileJson(updated)
-        )
+        if (!standaloneCsc) {
+            enqueueOrSyncOperation(
+                domainType = "PROFILE",
+                entityId = updated.userId,
+                payloadJson = firebaseSyncClient.toWebProfileJson(updated)
+            )
+        }
         recomputeReadinessAndStudyPlan()
     }
 
