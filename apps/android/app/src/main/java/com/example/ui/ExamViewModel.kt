@@ -211,6 +211,11 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             filtered
         }
 
+        if (questionsToUse.isEmpty()) {
+            _statusMessage.value = "Exam questions are not installed yet. The application is in feature review mode."
+            return
+        }
+
         _simulationQuestions.value = questionsToUse
         _currentQuestionIndex.value = 0
         _userAnswers.value = emptyMap()
