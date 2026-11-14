@@ -57,6 +57,7 @@ class ExamRepository(
 ) {
 
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val standaloneCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
     private var sourcesCollectJob: Job? = null
     private var flashcardsCollectJob: Job? = null
     private var scoresCollectJob: Job? = null
@@ -73,7 +74,7 @@ class ExamRepository(
     // CSC standalone builds must never display unrelated certification sample questions.
     // A missing or invalid embedded bank fails closed instead of substituting CISSP.
     private fun loadQuestions(examId: String): List<Question> =
-        if (examId == "csc-part-1") {
+        if (examId.startsWith("csc-part-")) {
             requireNotNull(context) { "CSC offline bank requires Android assets" }
             // Feature-validation build: CSC content will be added only after UI and workflows pass QA.
             // No unrelated questions and no startup crash when the future asset is absent.
@@ -90,14 +91,14 @@ class ExamRepository(
     val questions: StateFlow<List<Question>> = _questions.asStateFlow()
 
     // 2. AI-Generated Learning Content (NotebookLM Sources & Audio Briefings)
-    private val _sources = MutableStateFlow<List<SourceDoc>>(DefaultNotebookSources.CISSP_SOURCES)
+    private val _sources = MutableStateFlow<List<SourceDoc>>(if (standaloneCsc) emptyList() else DefaultNotebookSources.CISSP_SOURCES)
     val sources: StateFlow<List<SourceDoc>> = _sources.asStateFlow()
 
-    private val _audioOverviews = MutableStateFlow<List<AudioOverview>>(DefaultNotebookSources.AUDIO_OVERVIEWS)
+    private val _audioOverviews = MutableStateFlow<List<AudioOverview>>(if (standaloneCsc) emptyList() else DefaultNotebookSources.AUDIO_OVERVIEWS)
     val audioOverviews: StateFlow<List<AudioOverview>> = _audioOverviews.asStateFlow()
 
     // 3. Spaced-Repetition Flashcards
-    private val _flashcards = MutableStateFlow<List<Flashcard>>(DefaultNotebookSources.CISSP_FLASHCARDS)
+    private val _flashcards = MutableStateFlow<List<Flashcard>>(if (standaloneCsc) emptyList() else DefaultNotebookSources.CISSP_FLASHCARDS)
     val flashcards: StateFlow<List<Flashcard>> = _flashcards.asStateFlow()
 
     // 4. Exam Attempts & Scores
@@ -117,10 +118,10 @@ class ExamRepository(
     // 7. Authoritative Exam Readiness & 5-Stage Mastery Study Plan
     private val _readinessReport = MutableStateFlow(
         AuthoritativeMetricsEngine.calculateAuthoritativeReadiness(
-            exam = ExamCatalog.CISSP,
+            exam = initialExam,
             profile = UserCentralProfile(),
             simulationScores = emptyList(),
-            flashcards = DefaultNotebookSources.CISSP_FLASHCARDS,
+            flashcards = _flashcards.value,
             domainMetrics = emptyList()
         )
     )
@@ -128,7 +129,7 @@ class ExamRepository(
 
     private val _studyPlanMilestones = MutableStateFlow<List<JourneyMilestone>>(
         AuthoritativeMetricsEngine.buildFiveStageStudyPlan(
-            exam = ExamCatalog.CISSP,
+            exam = initialExam,
             profile = UserCentralProfile(),
             readiness = _readinessReport.value
         )
@@ -216,9 +217,7 @@ class ExamRepository(
             sourcesCollectJob?.cancel()
             sourcesCollectJob = launch {
                 db.studySourceDao().getSourcesByExam(canonicalExamId).collect { entities ->
-                    if (entities.isNotEmpty()) {
-                        _sources.value = entities.map { it.toSourceDoc() }
-                    }
+                    _sources.value = entities.map { it.toSourceDoc() }
                 }
             }
 
@@ -226,10 +225,8 @@ class ExamRepository(
             flashcardsCollectJob?.cancel()
             flashcardsCollectJob = launch {
                 db.flashcardDao().getFlashcardsByExam(canonicalExamId).collect { entities ->
-                    if (entities.isNotEmpty()) {
-                        _flashcards.value = entities.map { it.toFlashcard() }
-                        recomputeReadinessAndStudyPlan()
-                    }
+                    _flashcards.value = entities.map { it.toFlashcard() }
+                    recomputeReadinessAndStudyPlan()
                 }
             }
 
@@ -318,6 +315,7 @@ class ExamRepository(
     }
 
     fun switchExam(examId: String) {
+        if (standaloneCsc && examId != initialExam.id) return
         val exam = ExamCatalog.getExamById(examId)
         _currentExam.value = exam
         _questions.value = loadQuestions(exam.id)
@@ -327,10 +325,12 @@ class ExamRepository(
     }
 
     fun setOnlineMode(isOnline: Boolean) {
-        _backendConfig.value = _backendConfig.value.copy(isOnline = isOnline)
+        _backendConfig.value = _backendConfig.value.copy(isOnline = if (standaloneCsc) false else isOnline)
     }
 
     private fun enqueueOrSyncOperation(domainType: String, entityId: String, payloadJson: String) {
+        // Standalone builds persist locally; never queue data for future cloud delivery.
+        if (standaloneCsc) return
         val db = database ?: return
         val isOnline = _backendConfig.value.isOnline
         repositoryScope.launch {
@@ -469,6 +469,7 @@ class ExamRepository(
      * Never deletes a pending operation until its delivery succeeds, and never reports a failed sync as SUCCESS.
      */
     suspend fun syncCentralProfileWithCloud(): Boolean {
+        if (standaloneCsc) return false
         val db = database
         val isOnline = _backendConfig.value.isOnline
         if (!isOnline) {
@@ -829,6 +830,7 @@ class ExamRepository(
     }
 
     fun updateBackendConfig(url: String, key: String) {
+        if (standaloneCsc) return
         _backendConfig.value = _backendConfig.value.copy(
             baseUrl = url,
             apiKey = key,
@@ -838,6 +840,7 @@ class ExamRepository(
     }
 
     suspend fun syncWithBackend(): Boolean {
+        if (standaloneCsc) return false
         val config = _backendConfig.value
         if (!config.isOnline) {
             _backendConfig.value = config.copy(isConnected = false)
