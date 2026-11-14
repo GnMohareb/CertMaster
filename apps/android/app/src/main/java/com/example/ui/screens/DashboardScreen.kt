@@ -108,6 +108,7 @@ fun DashboardScreen(
     // Active subscription status for current exam
     val currentExamSub = userProfile.subscriptions.firstOrNull { it.examId == currentExam.id }
     val isExamSubscribed = currentExamSub?.status == SubStatus.ACTIVE
+    val isOfflineCsc = currentExam.shortCode.contains("CSC", ignoreCase = true)
 
     Column(
         modifier = modifier
@@ -119,7 +120,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                .clickable { viewModel.navigateTo(AppScreen.CENTRAL_PROFILE) }
+                .clickable(enabled = !isOfflineCsc) { viewModel.navigateTo(AppScreen.CENTRAL_PROFILE) }
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -141,7 +142,7 @@ fun DashboardScreen(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
+                    text = if (isOfflineCsc) "CSC Part 1 • Offline study" else if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -156,7 +157,7 @@ fun DashboardScreen(
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = if (!ssoSession.isAuthenticated) "LOCAL ONLY" else if (isExamSubscribed) "ACTIVE" else "MANAGE PASS",
+                        text = if (isOfflineCsc) "OFFLINE" else if (!ssoSession.isAuthenticated) "LOCAL ONLY" else if (isExamSubscribed) "ACTIVE" else "MANAGE PASS",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isExamSubscribed) SuccessGreen else WarningAmber
@@ -228,8 +229,8 @@ fun DashboardScreen(
                         )
                     }
 
-                    // Central Web Platform Companion Card
-                    item {
+                    // Hide cloud marketing and portal navigation for standalone CSC.
+                    if (!isOfflineCsc) item {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -314,7 +315,7 @@ fun DashboardScreen(
                     }
 
                     // Simulation Action CTAs (Hero Practice Actions)
-                    item {
+                    if (!isOfflineCsc) item {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
