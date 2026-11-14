@@ -35,6 +35,12 @@ android {
       buildConfigField("String", "TARGET_EXAM_ID", "\"all\"")
       buildConfigField("int", "FREE_ASSESSMENT_LIMIT", "50")
     }
+    create("cscPart1") {
+      dimension = "exam"
+      applicationId = "com.certmaster.cscpart1"
+      buildConfigField("String", "TARGET_EXAM_ID", "\"csc-part-1\"")
+      buildConfigField("int", "FREE_ASSESSMENT_LIMIT", "50")
+    }
     create("cissp") {
       dimension = "exam"
       applicationId = "com.certmaster.cissp"
