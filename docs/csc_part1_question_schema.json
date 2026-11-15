@@ -4,12 +4,19 @@
   "title": "CertMaster CSC Part 1 Embedded Question Bank Schema v2",
   "description": "Canonical JSON schema accepted by com.example.data.EmbeddedExamBank.parseWithMetadata for offline standalone CSC Part 1 APK builds.",
   "type": "object",
-  "required": ["schemaVersion", "examId", "questions"],
+  "required": [
+    "schemaVersion",
+    "examId",
+    "questions"
+  ],
   "additionalProperties": true,
   "properties": {
     "schemaVersion": {
       "type": "integer",
-      "enum": [1, 2],
+      "enum": [
+        1,
+        2
+      ],
       "description": "Schema version supported by EmbeddedExamBank (use 2 for new banks)."
     },
     "examId": {
@@ -61,7 +68,7 @@
           "domainId": {
             "type": "string",
             "minLength": 1,
-            "description": "Authoritative CSC Volume 1 domain identifier (must match verified syllabus domain ID; not pre-populated in ExamCatalog)."
+            "description": "Stable app-owned domain identifier mapped to a verified CSC Volume 1 curriculum heading. Do not claim it is an official CSI-issued code unless the source provides one."
           },
           "domainName": {
             "type": "string",
@@ -70,7 +77,7 @@
           },
           "topicId": {
             "type": "string",
-            "description": "Canonical topic identifier inside domainId. Recommended required for v2; unmapped items fall back to unmapped:<domainId>."
+            "description": "Stable app-owned topic identifier, unique across this bank and mapped to a verified topic inside domainId. Keep published IDs unchanged."
           },
           "topicName": {
             "type": "string",
@@ -78,7 +85,7 @@
           },
           "objectiveId": {
             "type": "string",
-            "description": "Authoritative CSC Volume 1 learning objective identifier (optional; used for same-objective remediation matching when present)."
+            "description": "Stable app-owned learning-objective identifier mapped to a verified objective. Official CSI-issued codes are optional; do not invent official codes."
           },
           "learningObjective": {
             "type": "string",
@@ -86,13 +93,22 @@
           },
           "questionType": {
             "type": "string",
-            "enum": ["MULTIPLE_CHOICE", "SCENARIO_MCQ", "CALCULATION_MCQ"],
+            "enum": [
+              "MULTIPLE_CHOICE",
+              "SCENARIO_MCQ",
+              "CALCULATION_MCQ"
+            ],
             "default": "MULTIPLE_CHOICE",
             "description": "Single-best-answer question format accepted by EmbeddedExamBank.parseWithMetadata."
           },
           "questionPool": {
             "type": "string",
-            "enum": ["GENERAL", "PRACTICE", "ASSESSMENT", "FULL_EXAM_RESERVED"],
+            "enum": [
+              "GENERAL",
+              "PRACTICE",
+              "ASSESSMENT",
+              "FULL_EXAM_RESERVED"
+            ],
             "default": "GENERAL",
             "description": "Controls pool eligibility. FULL_EXAM_RESERVED is excluded from Initial Assessment and Adaptive Practice."
           },
@@ -102,7 +118,11 @@
           },
           "difficulty": {
             "type": "string",
-            "enum": ["EASY", "MEDIUM", "HARD"],
+            "enum": [
+              "EASY",
+              "MEDIUM",
+              "HARD"
+            ],
             "description": "Explicit difficulty label; omit when uncalibrated (engine uses neutral weight when omitted)."
           },
           "questionText": {
@@ -137,11 +157,24 @@
           },
           "citation": {
             "type": "object",
-            "required": ["title", "sectionOrPage", "standardOrFramework"],
+            "required": [
+              "title",
+              "sectionOrPage",
+              "standardOrFramework"
+            ],
             "properties": {
-              "title": { "type": "string", "minLength": 1 },
-              "sectionOrPage": { "type": "string", "minLength": 1 },
-              "standardOrFramework": { "type": "string", "minLength": 1 }
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sectionOrPage": {
+                "type": "string",
+                "minLength": 1
+              },
+              "standardOrFramework": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         }

@@ -55,6 +55,40 @@ jobs:
         working-directory: apps/android
         run: gradle :app:assembleCscPart1Debug --stacktrace --no-daemon --max-workers=2
 
+      - name: Verify independent offline APK
+        working-directory: apps/android
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/cscPart1/debug -name '*.apk' -print -quit)
+          test -n "$APK_PATH"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          "$AAPT" dump badging "$APK_PATH" > apk-badging.txt
+          "$AAPT" dump permissions "$APK_PATH" > apk-permissions.txt
+          grep -q "package: name='com.certmaster.cscpart1'" apk-badging.txt
+          if grep -Eq "android.permission.(INTERNET|ACCESS_NETWORK_STATE)" apk-permissions.txt; then
+            cat apk-permissions.txt
+            exit 1
+          fi
+          gradle :app:dependencies --configuration cscPart1DebugRuntimeClasspath --no-daemon --max-workers=2 > offline-runtime-dependencies.txt
+          if grep -Eq 'com.google.firebase:|com.squareup.retrofit2:|com.squareup.okhttp3:|androidx.credentials:|com.google.android.libraries.identity.googleid:' offline-runtime-dependencies.txt; then
+            echo "Unexpected cloud dependency in offline runtime"
+            exit 1
+          fi
+          stat --printf='APK bytes: %s\n' "$APK_PATH"
+          cat apk-permissions.txt
+
+      - name: Upload executable verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSC-Part1-Verification-Reports
+          path: |
+            apps/android/app/build/reports/tests/
+            apps/android/app/build/test-results/
+            apps/android/apk-badging.txt
+            apps/android/apk-permissions.txt
+            apps/android/offline-runtime-dependencies.txt
+          if-no-files-found: ignore
+
       - name: Upload CSC Part 1 APK
         if: success()
         uses: actions/upload-artifact@v4

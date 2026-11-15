@@ -4,7 +4,7 @@
 **Android Parser**: `com.example.data.EmbeddedExamBank.parseWithMetadata(...)`  
 **JSON Schema File**: `docs/csc_part1_question_schema.json`
 
-> **CRITICAL NON-INVENTION RULE**: Authoritative CSI CSC Volume 1 curriculum identifiers (`domainId`, `topicId`, `objectiveId`), official domain weights (`syllabusWeights`), and official syllabus edition labels are **NOT** pre-populated in `ExamCatalog.CSC_PART_1` (`domains = emptyList()`). Do **not** invent official CSI domain/topic/objective codes or percentages. Supply only identifiers and weights verified directly against an authoritative CSI CSC Volume 1 curriculum source, and leave unverified `syllabusWeights` omitted.
+> **CONTENT AND ID OWNERSHIP**: Perplexity creates and researches the CSC content. The implementation agent owns import compatibility. `domainId`, `topicId` and `objectiveId` are stable application identifiers mapped to verified curriculum headings/objectives; they need not be official CSI-issued codes. Use an existing approved mapping where available, or deliver a proposed mapping explicitly labelled for review. Do not invent official CSI codes, syllabus edition labels or exam weights. Omit unverified `syllabusWeights`. Topic IDs must be unique across the bank.
 
 ---
 
@@ -73,12 +73,12 @@ Any unrecognized `questionType` string causes fail-closed rejection during parsi
 ## 5. Domain Identifiers (`domainId`, `domainName`)
 - **Unverified in App Today**: `ExamCatalog.CSC_PART_1` has `domains = emptyList()` and derives active domains dynamically from the installed bank (`ExamCatalog.deriveDomainsFromQuestions`).
 - **Missing Authoritative Mapping**: Official CSI CSC Part 1 domain IDs, domain names, and exam weight percentages are **not yet verified or bundled**.
-- Every question must supply consistent `domainId` and `domainName` pairs sourced from verified CSI Volume 1 materials. If `syllabusWeights` is included, its keys must match `domainId` values in `questions`.
+- Every question must supply consistent app-owned `domainId` and verified curriculum `domainName` pairs. If `syllabusWeights` is included, its keys must match `domainId` values in `questions`.
 
 ---
 
 ## 6. Topic Identifiers (`topicId`, `topicName`)
-- **Missing Authoritative Mapping**: Official CSI chapter/topic identifiers are not pre-populated in the app.
+- **Missing Authoritative Mapping**: An approved app-owned chapter/topic mapping is not pre-populated in the app.
 - Every question in a v2 bank should include both `topicId` and `topicName`.
 - If a question omits both `topicId` and `topicName`, the engine does **not** invent a topic; it isolates the item under `unmapped:<domainId>` with `hasExplicitTopicMapping = false`, and `auditBank()` increments `unmappedTopicQuestionCount`.
 - Supply **at least 3–5 distinct questions per `topicId`** so mastery can graduate past `INSUFFICIENT_EVIDENCE` (`>= 3` attempts across `>= 2` distinct items) and wrong answers can immediately select a different same-topic item.
@@ -86,8 +86,8 @@ Any unrecognized `questionType` string causes fail-closed rejection during parsi
 ---
 
 ## 7. Learning Objective Identifiers (`objectiveId`, `learningObjective`)
-- **Missing Authoritative Mapping**: Official CSI learning objective IDs are not pre-populated in the app.
-- Supply `objectiveId` (concise stable ID from the verified syllabus) and `learningObjective` (concise objective statement).
+- **Missing Authoritative Mapping**: An approved app-owned learning-objective mapping is not pre-populated in the app.
+- Supply `objectiveId` (stable app-owned ID mapped to the verified objective) and `learningObjective` (concise objective statement).
 - During immediate remediation (`pickImmediateRemediationQuestion`), when same-topic candidates are exhausted or filtered, the engine matches `objectiveId` first (case-insensitive) and then `learningObjective`.
 - `auditBank()` increments `missingObjectiveCount` only when both `objectiveId` and `learningObjective` are blank.
 
