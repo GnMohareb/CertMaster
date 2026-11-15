@@ -61,12 +61,17 @@ class AdaptiveMasteryEngineTest {
         Dispatchers.resetMain()
     }
 
-    private suspend fun awaitCondition(timeoutMs: Long = 4000L, predicate: suspend () -> Boolean) {
+    private suspend fun awaitCondition(
+        timeoutMs: Long = 4000L,
+        failureMessage: suspend () -> String = { "Timed out waiting for asynchronous state update" },
+        predicate: suspend () -> Boolean
+    ) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (!predicate() && System.currentTimeMillis() < deadline) {
             delay(25)
         }
-        assertTrue("Timed out waiting for asynchronous state update", predicate())
+        val satisfied = predicate()
+        assertTrue(if (satisfied) "" else failureMessage(), satisfied)
     }
 
     private fun q(
@@ -341,7 +346,19 @@ class AdaptiveMasteryEngineTest {
             vm.selectOption(0, wrongOpt)
             vm.checkPracticeAnswer(0)
 
-            awaitCondition {
+            awaitCondition(
+                failureMessage = {
+                    val dao = CertDatabase.getInstance(context).adaptiveMasteryDao()
+                    val dbEvents = dao.getAnswerEventCount("csc-part-1")
+                    val dbTopics = dao.getTopicMasteryList("csc-part-1")
+                        .joinToString { "${it.topicKey}:${it.attemptCount}" }
+                    val vmTopics = vm.topicMasteryList.value.joinToString { "${it.topicKey}:${it.attemptCount}" }
+                    "Timed out waiting for remediation mastery update: " +
+                        "feedbackPresent=${vm.currentPracticeFeedback.value != null}, " +
+                        "vmTopics=[$vmTopics], dbEvents=$dbEvents, dbTopics=[$dbTopics], " +
+                        "evidenceError=${vm.lastEvidenceErrorForTesting}"
+                }
+            ) {
                 vm.currentPracticeFeedback.value != null &&
                     vm.topicMasteryList.value.any { it.topicKey == "t_reg" && it.attemptCount == 1 }
             }

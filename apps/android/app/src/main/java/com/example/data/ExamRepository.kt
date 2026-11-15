@@ -80,10 +80,12 @@ class ExamRepository(
     private val answerEvidenceMutex = Mutex()
     private val activeAttemptMutex = Mutex()
     private val contentWriteMutex = Mutex()
+    private val analyticsLock = Any()
     private val activeAttemptRevision = AtomicLong(0)
     private val pendingSourceWrites = AtomicInteger(0)
     private val pendingFlashcardWrites = AtomicInteger(0)
     private val pendingSessionWrites = AtomicInteger(0)
+    private val pendingEvidenceWrites = AtomicInteger(0)
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeWriteJobs = Collections.synchronizedSet(mutableSetOf<Job>())
     private val standaloneCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
@@ -372,24 +374,40 @@ class ExamRepository(
             // Reactively observe topic mastery states
             topicMasteryCollectJob?.cancel()
             topicMasteryCollectJob = repositoryScope.launch {
-                db.adaptiveMasteryDao().observeTopicMastery(canonicalExamId).collect { entities ->
-                    _storedTopicMastery.value = entities.associate { it.topicKey to it.toDomainModel() }
-                    recomputeAdaptiveAnalytics()
+                db.adaptiveMasteryDao().observeTopicMastery(canonicalExamId).collect {
+                    if (pendingEvidenceWrites.get() == 0) {
+                        answerEvidenceMutex.withLock {
+                            if (pendingEvidenceWrites.get() == 0) {
+                                _storedTopicMastery.value = db.adaptiveMasteryDao()
+                                    .getTopicMasteryList(canonicalExamId)
+                                    .associate { it.topicKey to it.toDomainModel() }
+                                recomputeAdaptiveAnalytics()
+                            }
+                        }
+                    }
                 }
             }
 
             // Reactively observe per-question exposure & review schedules
             exposuresCollectJob?.cancel()
             exposuresCollectJob = repositoryScope.launch {
-                db.adaptiveMasteryDao().observeQuestionExposures(canonicalExamId).collect { entities ->
-                    _questionExposures.value = entities.associate { it.questionId to it.toDomainModel() }
-                    recomputeAdaptiveAnalytics()
+                db.adaptiveMasteryDao().observeQuestionExposures(canonicalExamId).collect {
+                    if (pendingEvidenceWrites.get() == 0) {
+                        answerEvidenceMutex.withLock {
+                            if (pendingEvidenceWrites.get() == 0) {
+                                _questionExposures.value = db.adaptiveMasteryDao()
+                                    .getQuestionExposures(canonicalExamId)
+                                    .associate { it.questionId to it.toDomainModel() }
+                                recomputeAdaptiveAnalytics()
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    fun recomputeAdaptiveAnalytics(nowMillis: Long = System.currentTimeMillis()) {
+    fun recomputeAdaptiveAnalytics(nowMillis: Long = System.currentTimeMillis()) = synchronized(analyticsLock) {
         val examId = ExamCatalog.normalizeExamId(_currentExam.value.id)
         val bankQuestions = _questions.value
         val metadata = _bankMetadata.value
@@ -423,6 +441,13 @@ class ExamRepository(
         )
     }
 
+    private data class AnswerEvidenceTransactionResult(
+        val applied: Boolean,
+        val returnedTopic: TopicMasteryState?,
+        val appliedTopic: TopicMasteryState? = null,
+        val appliedExposure: QuestionExposureState? = null
+    )
+
     /**
      * Records a single answered question idempotently keyed by (examId, attemptId, questionId).
      * Resuming, saving, or reopening an attempt will never double-apply mastery evidence.
@@ -435,14 +460,41 @@ class ExamRepository(
         mode: ExamMode,
         viewedExplanationOnly: Boolean = false,
         nowMillis: Long = System.currentTimeMillis()
-    ): TopicMasteryState? = answerEvidenceMutex.withLock {
-        val db = database
-        if (db != null) {
-            db.withTransaction {
-                recordAnswerEvidenceLocked(attemptId, question, selectedIndex, mode, viewedExplanationOnly, nowMillis)
+    ): TopicMasteryState? {
+        pendingEvidenceWrites.incrementAndGet()
+        try {
+            return answerEvidenceMutex.withLock {
+                val db = database
+                val txResult = if (db != null) {
+                    db.withTransaction {
+                        recordAnswerEvidenceLocked(attemptId, question, selectedIndex, mode, viewedExplanationOnly, nowMillis)
+                    }
+                } else {
+                    recordAnswerEvidenceLocked(attemptId, question, selectedIndex, mode, viewedExplanationOnly, nowMillis)
+                }
+                if (txResult.applied) {
+                    val canonicalExamId = ExamCatalog.normalizeExamId(_currentExam.value.id)
+                    if (db != null) {
+                        _storedTopicMastery.value = db.adaptiveMasteryDao()
+                            .getTopicMasteryList(canonicalExamId)
+                            .associate { it.topicKey to it.toDomainModel() }
+                        _questionExposures.value = db.adaptiveMasteryDao()
+                            .getQuestionExposures(canonicalExamId)
+                            .associate { it.questionId to it.toDomainModel() }
+                    } else {
+                        txResult.appliedTopic?.let { topic ->
+                            _storedTopicMastery.value = _storedTopicMastery.value + (topic.topicKey to topic)
+                        }
+                        txResult.appliedExposure?.let { exposure ->
+                            _questionExposures.value = _questionExposures.value + (exposure.questionId to exposure)
+                        }
+                    }
+                    recomputeAdaptiveAnalytics(nowMillis)
+                }
+                txResult.returnedTopic
             }
-        } else {
-            recordAnswerEvidenceLocked(attemptId, question, selectedIndex, mode, viewedExplanationOnly, nowMillis)
+        } finally {
+            pendingEvidenceWrites.decrementAndGet()
         }
     }
 
@@ -453,7 +505,7 @@ class ExamRepository(
         mode: ExamMode,
         viewedExplanationOnly: Boolean = false,
         nowMillis: Long = System.currentTimeMillis()
-    ): TopicMasteryState? {
+    ): AnswerEvidenceTransactionResult {
         val canonicalExamId = ExamCatalog.normalizeExamId(_currentExam.value.id)
         val safeAttemptId = attemptId.ifBlank { "session_${nowMillis}" }
         val eventId = "${canonicalExamId}::${safeAttemptId}::${question.id}"
@@ -488,7 +540,13 @@ class ExamRepository(
         }
 
         if (!isNewEvent) {
-            return _storedTopicMastery.value[topicMeta.topicKey]
+            val existingTopic = if (db != null) {
+                db.adaptiveMasteryDao().getTopicMasteryList(canonicalExamId)
+                    .firstOrNull { it.topicKey == topicMeta.topicKey }?.toDomainModel()
+            } else {
+                _storedTopicMastery.value[topicMeta.topicKey]
+            }
+            return AnswerEvidenceTransactionResult(applied = false, returnedTopic = existingTopic)
         }
 
         val currentTopic = if (db != null) {
@@ -519,9 +577,6 @@ class ExamRepository(
         if (update.applied) {
             val normalizedTopic = update.topicState.copy(examId = canonicalExamId)
             val normalizedExposure = update.exposureState.copy(examId = canonicalExamId)
-            _storedTopicMastery.value = _storedTopicMastery.value + (normalizedTopic.topicKey to normalizedTopic)
-            _questionExposures.value = _questionExposures.value + (normalizedExposure.questionId to normalizedExposure)
-
             if (db != null) {
                 db.adaptiveMasteryDao().upsertTopicMastery(
                     TopicMasteryEntity.fromDomainModel(normalizedTopic, nowMillis)
@@ -530,10 +585,14 @@ class ExamRepository(
                     QuestionExposureEntity.fromDomainModel(normalizedExposure)
                 )
             }
-            recomputeAdaptiveAnalytics(nowMillis)
-            return normalizedTopic
+            return AnswerEvidenceTransactionResult(
+                applied = true,
+                returnedTopic = normalizedTopic,
+                appliedTopic = normalizedTopic,
+                appliedExposure = normalizedExposure
+            )
         }
-        return currentTopic
+        return AnswerEvidenceTransactionResult(applied = false, returnedTopic = currentTopic)
     }
 
     /**
@@ -786,6 +845,7 @@ class ExamRepository(
 
         val db = database
         pendingSessionWrites.incrementAndGet()
+        pendingEvidenceWrites.incrementAndGet()
         launchWrite {
             try {
                 db?.simulationScoreDao()?.insertScore(entity)
@@ -806,24 +866,34 @@ class ExamRepository(
 
                 // Lock in fixed per-topic baseline scores only on the very first Initial Assessment
                 if (enrichedSession.isInitialBaseline && topicScores.isNotEmpty()) {
-                    val updatedMap = _storedTopicMastery.value.toMutableMap()
-                    topicScores.forEach { tScore ->
-                        val existing = updatedMap[tScore.topicKey]
-                        if (existing != null && existing.baselineScorePercent == null) {
-                            val withBaseline = existing.copy(
-                                baselineScorePercent = tScore.percentage,
-                                baselineAttemptCount = tScore.totalCount
-                            )
-                            updatedMap[tScore.topicKey] = withBaseline
-                            db?.adaptiveMasteryDao()?.upsertTopicMastery(
-                                TopicMasteryEntity.fromDomainModel(withBaseline, enrichedSession.completedTimeMillis)
-                            )
+                    answerEvidenceMutex.withLock {
+                        val canonicalExamId = ExamCatalog.normalizeExamId(_currentExam.value.id)
+                        val updatedMap = if (db != null) {
+                            db.adaptiveMasteryDao().getTopicMasteryList(canonicalExamId)
+                                .associate { it.topicKey to it.toDomainModel() }
+                                .toMutableMap()
+                        } else {
+                            _storedTopicMastery.value.toMutableMap()
                         }
+                        topicScores.forEach { tScore ->
+                            val existing = updatedMap[tScore.topicKey]
+                            if (existing != null && existing.baselineScorePercent == null) {
+                                val withBaseline = existing.copy(
+                                    baselineScorePercent = tScore.percentage,
+                                    baselineAttemptCount = tScore.totalCount
+                                )
+                                updatedMap[tScore.topicKey] = withBaseline
+                                db?.adaptiveMasteryDao()?.upsertTopicMastery(
+                                    TopicMasteryEntity.fromDomainModel(withBaseline, enrichedSession.completedTimeMillis)
+                                )
+                            }
+                        }
+                        _storedTopicMastery.value = updatedMap
+                        recomputeAdaptiveAnalytics(enrichedSession.completedTimeMillis)
                     }
-                    _storedTopicMastery.value = updatedMap
-                    recomputeAdaptiveAnalytics(enrichedSession.completedTimeMillis)
                 }
             } finally {
+                pendingEvidenceWrites.decrementAndGet()
                 pendingSessionWrites.decrementAndGet()
             }
         }

@@ -167,6 +167,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private var timerJob: Job? = null
     private var checkPracticeEvidenceJob: Job? = null
+    internal var lastEvidenceErrorForTesting: Throwable? = null
     private var simulationStartedAtMillis: Long = 0L
 
     private fun isStandaloneCsc(): Boolean =
@@ -655,17 +656,28 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         activeAttemptId = attemptKey
         persistActiveAttempt()
 
+        val capturedMode = _activeMode.value
+        val previousJob = checkPracticeEvidenceJob
+        lastEvidenceErrorForTesting = null
         checkPracticeEvidenceJob = viewModelScope.launch {
-            val updatedTopic = repository.recordAnswerEvidence(
-                attemptId = attemptKey,
-                question = question,
-                selectedIndex = selectedIndex,
-                mode = _activeMode.value
-            )
-            if (_currentQuestionIndex.value == questionIndex && _currentPracticeFeedback.value?.questionId == question.id) {
-                _currentPracticeFeedback.value = _currentPracticeFeedback.value?.copy(
-                    updatedTopicMastery = updatedTopic
+            previousJob?.join()
+            try {
+                val updatedTopic = repository.recordAnswerEvidence(
+                    attemptId = attemptKey,
+                    question = question,
+                    selectedIndex = selectedIndex,
+                    mode = capturedMode
                 )
+                if (_currentQuestionIndex.value == questionIndex && _currentPracticeFeedback.value?.questionId == question.id) {
+                    _currentPracticeFeedback.value = _currentPracticeFeedback.value?.copy(
+                        updatedTopicMastery = updatedTopic
+                    )
+                }
+            } catch (ce: kotlinx.coroutines.CancellationException) {
+                throw ce
+            } catch (t: Throwable) {
+                lastEvidenceErrorForTesting = t
+                throw t
             }
         }
     }
