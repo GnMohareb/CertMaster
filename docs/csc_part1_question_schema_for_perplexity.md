@@ -35,7 +35,7 @@
 ### Root Object Optional Fields
 - `bankVersion` (`string`, optional; recommended): Non-empty version string (e.g., `"2026.1"`), persisted on completed sessions and topic mastery records. Defaults to `"1"` if omitted.
 - `syllabusEdition` (`string`, optional; recommended): Verified CSI CSC Volume 1 curriculum/edition identifier (e.g., `"2026 CSI CSC Volume 1"`). Defaults to `""` if omitted.
-- `syllabusWeights` (`object<string, integer>`, optional): Map of verified `domainId -> integer weight (1..100)`. **Omit** unless sourced from an official CSI exam blueprint; when omitted, Initial Assessment balances equally across available domains and explicitly discloses that no official weights are bundled.
+- `syllabusWeights` (`object<string, integer>`, optional): Map of verified `domainId -> integer weight (1..100)`. **Omit** unless sourced from an official CSI exam blueprint; when omitted, sampled assessments balance equally across available domains. A dedicated diagnostic sequence, when present, takes precedence over sampled selection.
 
 ### Per-Question Optional Fields
 - `topicId` (`string`, optional; strongly recommended for v2): Canonical topic slug inside `domainId`.
@@ -72,13 +72,13 @@ Any unrecognized `questionType` string causes fail-closed rejection during parsi
 
 ## 5. Domain Identifiers (`domainId`, `domainName`)
 - **Unverified in App Today**: `ExamCatalog.CSC_PART_1` has `domains = emptyList()` and derives active domains dynamically from the installed bank (`ExamCatalog.deriveDomainsFromQuestions`).
-- **Missing Authoritative Mapping**: Official CSI CSC Part 1 domain IDs, domain names, and exam weight percentages are **not yet verified or bundled**.
+- **Current mapping**: The supplied bank contains nine app-owned domain IDs (`csc-d1` through `csc-d9`) and supplied blueprint weights. The edition and weights have not been independently verified against CSI in this implementation.
 - Every question must supply consistent app-owned `domainId` and verified curriculum `domainName` pairs. If `syllabusWeights` is included, its keys must match `domainId` values in `questions`.
 
 ---
 
 ## 6. Topic Identifiers (`topicId`, `topicName`)
-- **Missing Authoritative Mapping**: An approved app-owned chapter/topic mapping is not pre-populated in the app.
+- **Current mapping**: Reuse the 43 app-owned topic IDs in the bundled 474-question bank. Curriculum provenance remains the content producer’s responsibility.
 - Every question in a v2 bank should include both `topicId` and `topicName`.
 - If a question omits both `topicId` and `topicName`, the engine does **not** invent a topic; it isolates the item under `unmapped:<domainId>` with `hasExplicitTopicMapping = false`, and `auditBank()` increments `unmappedTopicQuestionCount`.
 - Supply **at least 3–5 distinct questions per `topicId`** so mastery can graduate past `INSUFFICIENT_EVIDENCE` (`>= 3` attempts across `>= 2` distinct items) and wrong answers can immediately select a different same-topic item.
@@ -127,7 +127,7 @@ Accepted values:
 
 ---
 
-## 13. Valid Schema v2 Example (Illustrative Structure Only — Verify IDs Against Official CSI Syllabus)
+## 13. Schema v2 Example (Illustrative Only — Reuse Approved Application IDs)
 
 ```json
 {
@@ -138,11 +138,11 @@ Accepted values:
   "questions": [
     {
       "id": "csc1_sample_001",
-      "domainId": "<VERIFY_CSI_DOMAIN_ID>",
+      "domainId": "<APP_DOMAIN_ID>",
       "domainName": "<VERIFY_CSI_DOMAIN_NAME>",
-      "topicId": "<VERIFY_CSI_TOPIC_ID>",
+      "topicId": "<APP_TOPIC_ID>",
       "topicName": "<VERIFY_CSI_TOPIC_NAME>",
-      "objectiveId": "<VERIFY_CSI_OBJECTIVE_ID>",
+      "objectiveId": "<APP_OBJECTIVE_ID>",
       "learningObjective": "Distinguish federal self-regulatory oversight (CIRO) from provincial statutory commissions.",
       "questionType": "MULTIPLE_CHOICE",
       "questionPool": "PRACTICE",
@@ -174,3 +174,11 @@ Accepted values:
 ```
 
 > **Validation Gate**: Generated JSON must validate against `docs/csc_part1_question_schema.json`, parse cleanly via `EmbeddedExamBank.parseWithMetadata(json, "csc-part-1")`, and pass `auditBank()` with `unmappedTopicQuestionCount == 0`, `missingObjectiveCount == 0`, and `missingOptionAnalysisCount == 0`.
+
+## 14. Dedicated diagnostic and timed paper metadata
+
+- `diagnosticQuestionIds`: Optional non-empty array of unique existing question IDs in source order. Cannot reference `FULL_EXAM_RESERVED`. When present, Initial Assessment and retakes use the entire exact sequence. Current bank has 54 DX IDs. Preserve these when adding questions.
+- `simulationPapers`: Optional array of objects with unique non-empty `id`, non-empty `title`, optional `description`, positive integer `durationMinutes` (default 120), and non-empty unique `questionIds` referencing existing bank questions in exact source order. Current four papers each contain 100 IDs and last 120 minutes.
+- Existing papers reuse 400 topic-practice questions. Do not label them unseen readiness evidence or duplicate their stems under new IDs. Only genuinely separate reserve papers belong in `FULL_EXAM_RESERVED`.
+- Existing bank has 474 unique questions across nine domains and 43 topics. Some supplied questions lack per-option rationales and explicit objectives; new Perplexity batches should include these fields with sourced explanations. Never fabricate syllabus metadata to fill gaps.
+

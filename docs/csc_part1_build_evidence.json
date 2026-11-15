@@ -1,0 +1,111 @@
+{
+  "apkFilename": "app-cscPart1-debug.apk",
+  "apkSizeBytes": 18504575,
+  "apkSha256": "6eabd5c9232ab499a153942dec587898b4c41dd6b1a04b4bd38cca3f247b2a71",
+  "bankVersion": "2026.3-diagnostic-54-practice-474-sims-4",
+  "uniqueQuestions": 474,
+  "domains": 9,
+  "topics": 43,
+  "diagnosticQuestions": 54,
+  "papers": [
+    {
+      "id": "csc1_exam_3",
+      "questions": 100,
+      "minutes": 120
+    },
+    {
+      "id": "csc1_exam_4",
+      "questions": 100,
+      "minutes": 120
+    },
+    {
+      "id": "csc1_exam_5",
+      "questions": 100,
+      "minutes": 120
+    },
+    {
+      "id": "csc1_exam_6",
+      "questions": 100,
+      "minutes": 120
+    }
+  ],
+  "tests": {
+    "total": 29,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "suite": "com.example.AdaptiveMasteryEngineTest",
+      "counts": [
+        9,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "suite": "com.example.CscPart1OfflineTest",
+      "counts": [
+        12,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "suite": "com.example.ExampleRobolectricTest",
+      "counts": [
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "suite": "com.example.ExampleUnitTest",
+      "counts": [
+        3,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "suite": "com.example.Migration4To5Test",
+      "counts": [
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "suite": "com.example.RoomCacheRobolectricTest",
+      "counts": [
+        3,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "packageBadging": [
+    "package: name='com.certmaster.cscpart1' versionCode='1' versionName='1.0' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'",
+    "sdkVersion:'24'",
+    "targetSdkVersion:'36'",
+    "uses-permission: name='com.certmaster.cscpart1.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'",
+    "application-label:'CSC Part 1'",
+    "application-label-af:'CSC Part 1'",
+    "application-label-am:'CSC Part 1'",
+    "application-label-ar:'CSC Part 1'"
+  ],
+  "permissions": "package: com.certmaster.cscpart1\npermission: com.certmaster.cscpart1.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION\nuses-permission: name='com.certmaster.cscpart1.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'\n",
+  "offlineDependenciesChecked": true,
+  "buildCommit": "64bf5f4dc233dc09d76cfbd34127db26c7971f7d",
+  "workflowRunId": 43742543897,
+  "apkArtifactId": 14173476181,
+  "verificationArtifactId": 14173301484,
+  "physicalDeviceQa": "not performed"
+}

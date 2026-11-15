@@ -119,3 +119,8 @@ Implemented full offline adaptive assessment, adaptive practice, deterministic t
 ## Content-bearing completion candidate — 2026-11-15
 
 Integrated AI Studio 474-question/four-paper export; corrected dedicated 54-question diagnostic and pre-start practice-overlap disclosure after AI Studio quota exhaustion. New CI pending; older APK is superseded for content delivery. See csc_part1_verified_report.md.
+
+
+## Verified content-bearing delivery — 2026-11-15
+
+Build 64bf5f4, run 43742543897 succeeded: 29/29 tests, Android APK assembly and offline checks. APK artifact 14173476181 contains the full 474-question bank, dedicated 54-question diagnostic and four timed practice papers. Fixed history reconciliation after restart. Physical-device QA remains unperformed. See csc_part1_verified_report.md and csc_part1_build_evidence.json.
