@@ -117,6 +117,7 @@ fun ExamSimulationScreen(
     val practiceFeedback by viewModel.currentPracticeFeedback.collectAsState()
     val selectionReasons by viewModel.selectionReasons.collectAsState()
     val exhaustionNotice by viewModel.practiceExhaustionNotice.collectAsState()
+    val activeSimulationPaperTitle by viewModel.activeSimulationPaperTitle.collectAsState()
     val isAdaptivePractice = AdaptivePracticeEngine.isAdaptivePracticeMode(activeMode)
 
     var showQuestionGridSheet by remember { mutableStateOf(false) }
@@ -203,7 +204,11 @@ fun ExamSimulationScreen(
                         )
                     }
                     Text(
-                        text = currentQ.domainName,
+                        text = if (!activeSimulationPaperTitle.isNullOrBlank()) {
+                            "$activeSimulationPaperTitle • ${currentQ.domainName}"
+                        } else {
+                            currentQ.domainName
+                        },
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
@@ -1448,3 +1453,4 @@ private fun QuestionCardContent(
         }
     }
 }
+

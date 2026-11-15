@@ -35,9 +35,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,21 +68,27 @@ fun ExamsHubScreen(
 ) {
     val currentExam by viewModel.currentExam.collectAsState()
     val questions by viewModel.questions.collectAsState()
+    val questionExposures by viewModel.questionExposures.collectAsState()
     val sessions by viewModel.sessions.collectAsState()
     val savedActiveAttempt by viewModel.savedActiveAttempt.collectAsState()
     val topicMasteryList by viewModel.topicMasteryList.collectAsState()
     val domainMasteryList by viewModel.domainMasteryList.collectAsState()
     val initialBaselineSession by viewModel.initialBaselineSession.collectAsState()
     val recommendations by viewModel.recommendations.collectAsState()
+    val bankMetadata by viewModel.bankMetadata.collectAsState()
     val bankCoverageAudit by viewModel.bankCoverageAudit.collectAsState()
+
+    var expandedDomainId by remember { mutableStateOf<String?>(null) }
+    var showAllTopics by remember { mutableStateOf(false) }
 
     val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") ||
         currentExam.id.startsWith("csc-part-")
     val effectiveDomains = if (currentExam.domains.isNotEmpty()) {
         currentExam.domains
     } else {
-        com.example.data.ExamCatalog.deriveDomainsFromQuestions(questions)
+        com.example.data.ExamCatalog.deriveDomainsFromQuestions(questions, bankMetadata.syllabusWeights)
     }
+    val topicsByDomain = topicMasteryList.groupBy { it.domainId }
     val domainMasteryById = domainMasteryList.associateBy { it.domainId }
     val nowMillis = System.currentTimeMillis()
     val dueTopicsCount = topicMasteryList.count {
@@ -288,7 +298,11 @@ fun ExamsHubScreen(
                                 } else {
                                     "Creates a new diagnostic record; original baseline stays saved."
                                 }
-                                "${bankCoverageAudit.coverageDescription} $baselineNote"
+                                if (bankMetadata.diagnosticQuestionIds.isNotEmpty()) {
+                                    "${bankMetadata.diagnosticQuestionIds.size} diagnostic questions across domains. $baselineNote"
+                                } else {
+                                    "${bankCoverageAudit.coverageDescription} $baselineNote"
+                                }
                             } else {
                                 "Practice questions are not installed yet for ${currentExam.shortCode}."
                             },
@@ -445,78 +459,158 @@ fun ExamsHubScreen(
             }
         }
 
-        // 1. Full Exam Simulation (Timed, test conditions)
+        // 1. Full Exam Simulation (Timed, exam conditions — 100-question Exam 1 style papers)
         item {
-            val displayCount = questions.size.takeIf { it > 0 } ?: currentExam.totalBankQuestions
+            val simulationPapers = bankMetadata.simulationPapers
+            val hasReservedMockBank = bankCoverageAudit.reservedFullExamCount > 0
+            val hasSimulationPapers = simulationPapers.isNotEmpty()
+            val fullSimEnabled = !isOfflineCsc || hasReservedMockBank || hasSimulationPapers
+            val displayCount = when {
+                hasSimulationPapers -> simulationPapers.first().questionIds.size
+                isOfflineCsc -> bankCoverageAudit.reservedFullExamCount
+                else -> questions.size.takeIf { it > 0 } ?: currentExam.totalBankQuestions
+            }
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("mode_full_simulation")
-                    .clickable(enabled = !isOfflineCsc || questions.isNotEmpty()) {
+                    .clickable(enabled = fullSimEnabled) {
                         viewModel.startSimulation(ExamMode.FULL_SIMULATION)
                     },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(CircleShape)
-                            .background(AccentBlue.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+                Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Timer, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(28.dp))
-                    }
-
-                    Spacer(modifier = Modifier.width(14.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (displayCount > 0) "Full Timed Simulation ($displayCount Qs)" else "Timed Simulation (Not Installed)",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background((if (fullSimEnabled) AccentBlue else Slate400).copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Timer,
+                                contentDescription = null,
+                                tint = if (fullSimEnabled) AccentBlue else Slate400,
+                                modifier = Modifier.size(28.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(if (isOfflineCsc) SuccessGreen else AccentBlue)
-                                    .padding(horizontal = 6.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = if (isOfflineCsc) "EXAM MODE" else "SAMPLE BANK",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (displayCount > 0) {
-                                "$displayCount Qs • ${currentExam.durationMinutes} min • Strict exam conditions (answers revealed only on submit)"
-                            } else {
-                                "Practice questions are not installed yet for ${currentExam.shortCode}."
-                            },
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = when {
+                                        hasSimulationPapers -> "Timed Practice Simulations (${simulationPapers.size} Papers)"
+                                        displayCount > 0 -> "Full Timed Simulation ($displayCount Qs)"
+                                        isOfflineCsc && questions.isNotEmpty() -> "Full Timed Exam Simulation"
+                                        else -> "Timed Simulation (Not Installed)"
+                                    },
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (fullSimEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(
+                                            when {
+                                                isOfflineCsc && !hasReservedMockBank && !hasSimulationPapers -> WarningAmber
+                                                isOfflineCsc -> SuccessGreen
+                                                else -> AccentBlue
+                                            }
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = when {
+                                            isOfflineCsc && !hasReservedMockBank && !hasSimulationPapers -> "COMING SOON"
+                                            isOfflineCsc -> "EXAM MODE"
+                                            else -> "SAMPLE BANK"
+                                        },
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = when {
+                                    hasSimulationPapers ->
+                                        "${simulationPapers.size} practice simulations • $displayCount Qs each • ${simulationPapers.first().durationMinutes} min • Questions also appear in topic practice; scores are not unseen readiness estimates. Answers on submit."
+                                    displayCount > 0 ->
+                                        "$displayCount Qs • ${currentExam.durationMinutes} min • Strict exam conditions (answers revealed only on submit)"
+                                    isOfflineCsc && questions.isNotEmpty() ->
+                                        "Dedicated timed mock exams are coming separately. Use Topic & Domain Practice above (${questions.size} Qs)."
+                                    else ->
+                                        "Practice questions are not installed yet for ${currentExam.shortCode}."
+                                },
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Icon(
+                            Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = if (fullSimEnabled) MaterialTheme.colorScheme.primary else Slate400
                         )
                     }
 
-                    Icon(
-                        Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        tint = if (!isOfflineCsc || questions.isNotEmpty()) MaterialTheme.colorScheme.primary else Slate400
-                    )
+                    if (hasSimulationPapers) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        simulationPapers.forEach { paper ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(AccentBlue.copy(alpha = 0.08f))
+                                    .clickable { viewModel.startSimulationPaper(paper.id) }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                                    .testTag("simulation_paper_${paper.id}"),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        text = paper.title,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${paper.questionIds.size} Qs • ${paper.durationMinutes} min • ${paper.questionIds.count { (questionExposures[it]?.exposureCount ?: 0) > 0 }} previously practised • Shared practice questions",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Start Exam",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentBlue
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = AccentBlue,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -621,11 +715,13 @@ fun ExamsHubScreen(
 
         items(effectiveDomains) { domain ->
             val domainMastery = domainMasteryById[domain.id]
+            val domainTopics = topicsByDomain[domain.id].orEmpty().sortedBy { it.topicKey }
+            val isExpanded = expandedDomainId == domain.id
             val statusSubtitle = when {
                 domainMastery == null || !domainMastery.isAssessed ->
-                    "Not assessed yet • ${domain.description}"
+                    "${domain.weightPercent}% Exam 1 wt • ${domain.description}"
                 else ->
-                    "Mastery: ${domainMastery.masteryPercent}% (${domainMastery.confidence.displayLabel()}) • ${domainMastery.attemptCount} Qs answered"
+                    "Mastery: ${domainMastery.masteryPercent}% (${domainMastery.confidence.displayLabel()}) • ${domainMastery.attemptCount} Qs"
             }
 
             Card(
@@ -640,62 +736,126 @@ fun ExamsHubScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(1.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                     Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "D${domain.number}",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "D${domain.number}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column {
+                                Text(
+                                    text = domain.title,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = statusSubtitle,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2
+                                )
+                            }
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
-                        Column {
-                            Text(
-                                text = domain.title,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = statusSubtitle,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
+                        Column(horizontalAlignment = Alignment.End) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = if (domainMastery?.isWeak == true) "Strengthen" else "Start Drill",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (domainTopics.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .clickable {
+                                            expandedDomainId = if (isExpanded) null else domain.id
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        .testTag("toggle_domain_topics_${domain.id}")
+                                ) {
+                                    Text(
+                                        text = if (isExpanded) "Hide Topics ▲" else "${domainTopics.size} Topics ▼",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = if (domainMastery?.isWeak == true) "Strengthen" else "Start Drill",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                    if (isExpanded && domainTopics.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        domainTopics.forEach { topic ->
+                            val tBadge = when {
+                                !topic.isAssessed -> "Practice"
+                                topic.masteryPercent < 65 -> "${topic.masteryPercent}% • Weak"
+                                topic.masteryPercent >= 80 -> "${topic.masteryPercent}% • Strong"
+                                else -> "${topic.masteryPercent}%"
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                    .clickable {
+                                        viewModel.startAdaptivePractice(topicFilterKey = topic.topicKey)
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                                    .testTag("domain_topic_item_${topic.topicKey}"),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = topic.topicName,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                )
+                                Text(
+                                    text = tBadge,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -705,15 +865,31 @@ fun ExamsHubScreen(
         if (topicMasteryList.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Topic Practice Targets (${topicMasteryList.size})",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Topic Practice Targets (${topicMasteryList.size})",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    if (topicMasteryList.size > 10) {
+                        TextButton(onClick = { showAllTopics = !showAllTopics }) {
+                            Text(
+                                text = if (showAllTopics) "Show Top 10" else "Show All ${topicMasteryList.size}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
 
-            items(topicMasteryList.take(10)) { topic ->
+            val visibleTopics = if (showAllTopics) topicMasteryList else topicMasteryList.take(10)
+            items(visibleTopics) { topic ->
                 val badgeText = when {
                     !topic.isAssessed -> "Not assessed"
                     topic.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> "${topic.masteryPercent}% • Insufficient evidence"
@@ -855,4 +1031,5 @@ fun ExamsHubScreen(
         }
     }
 }
+
 

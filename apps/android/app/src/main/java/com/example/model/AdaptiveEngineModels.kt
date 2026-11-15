@@ -114,12 +114,22 @@ data class QuestionExposureState(
     val nextReviewDueAtMillis: Long = 0L
 )
 
+data class SimulationPaper(
+    val id: String,
+    val title: String,
+    val description: String = "",
+    val durationMinutes: Int = 120,
+    val questionIds: List<String> = emptyList()
+)
+
 data class EmbeddedBankMetadata(
     val schemaVersion: Int = 1,
     val examId: String = "csc-part-1",
     val bankVersion: String = "1",
     val syllabusEdition: String = "",
-    val syllabusWeights: Map<String, Int> = emptyMap()
+    val syllabusWeights: Map<String, Int> = emptyMap(),
+    val simulationPapers: List<SimulationPaper> = emptyList(),
+    val diagnosticQuestionIds: List<String> = emptyList()
 )
 
 data class EmbeddedBankLoadResult(
@@ -139,7 +149,8 @@ data class BankCoverageAudit(
     val missingOptionAnalysisCount: Int,
     val missingExplicitDifficultyCount: Int,
     val usesSyllabusWeights: Boolean,
-    val coverageDescription: String
+    val coverageDescription: String,
+    val simulationPapersCount: Int = 0
 )
 
 data class PracticeRecommendation(
@@ -182,3 +193,4 @@ data class PracticeAnswerFeedback(
     val remediationNotice: String?,
     val updatedTopicMastery: TopicMasteryState?
 )
+

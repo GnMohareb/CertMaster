@@ -43,6 +43,45 @@
         "maximum": 100
       }
     },
+    "simulationPapers": {
+      "type": "array",
+      "description": "Optional ordered timed full-exam simulations referencing unique question IDs defined in questions[].",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "questionIds"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 120
+          },
+          "questionIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
     "questions": {
       "type": "array",
       "minItems": 1,
@@ -179,6 +218,16 @@
           }
         }
       }
+    },
+    "diagnosticQuestionIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Optional ordered diagnostic IDs. Every ID must exist and must not be FULL_EXAM_RESERVED. When present, Initial Assessment uses this exact complete sequence, including on retake."
     }
   }
 }

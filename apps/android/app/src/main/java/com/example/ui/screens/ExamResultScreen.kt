@@ -80,6 +80,8 @@ fun ExamResultScreen(
     val initialBaselineSession by viewModel.initialBaselineSession.collectAsState()
     val recommendations by viewModel.recommendations.collectAsState()
     val bankCoverageAudit by viewModel.bankCoverageAudit.collectAsState()
+    val lastSimulationPaperId by viewModel.lastSimulationPaperId.collectAsState()
+    val lastSimulationPaperTitle by viewModel.lastSimulationPaperTitle.collectAsState()
 
     val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") ||
         currentExam.id.startsWith("csc-part-")
@@ -215,13 +217,26 @@ fun ExamResultScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
+                            val canRetakeSameMode = !isOfflineCsc ||
+                                session.mode != ExamMode.FULL_SIMULATION ||
+                                bankCoverageAudit.reservedFullExamCount > 0 ||
+                                bankCoverageAudit.simulationPapersCount > 0
                             OutlinedButton(
-                                onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
+                                onClick = {
+                                    if (canRetakeSameMode) {
+                                        viewModel.startSimulation(
+                                            mode = session.mode,
+                                            simulationPaperId = if (session.mode == ExamMode.FULL_SIMULATION) lastSimulationPaperId else null
+                                        )
+                                    } else {
+                                        viewModel.startAdaptivePractice()
+                                    }
+                                },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Icon(Icons.Default.Replay, contentDescription = "Retake", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Retake Test", fontSize = 12.sp)
+                                Text(if (canRetakeSameMode) "Retake Test" else "Practice Drill", fontSize = 12.sp)
                             }
 
                             if (isOfflineCsc) {
@@ -319,6 +334,8 @@ fun ExamResultScreen(
             item {
                 val answeredInAttempt = session.userAnswers.size
                 val baselineLabel = when {
+                    session.mode == ExamMode.FULL_SIMULATION && !lastSimulationPaperTitle.isNullOrBlank() ->
+                        lastSimulationPaperTitle!!
                     session.isInitialBaseline -> "Initial Baseline (Fixed)"
                     session.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT -> "Assessment Retake (Historical)"
                     else -> session.mode.name.replace("_", " ")
@@ -731,3 +748,4 @@ fun ExamResultScreen(
         }
     }
 }
+

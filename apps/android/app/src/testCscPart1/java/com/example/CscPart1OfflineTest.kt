@@ -147,7 +147,19 @@ class CscPart1OfflineTest {
     }
 
     @Test
-    fun repository_failsClosedWithNoCrossExamLeakageWhenQuestionBankAbsent() = runBlocking(Dispatchers.IO) {
+    fun repository_loadsBundled474PracticeBank_andFailsClosedWhenBankAbsent() = runBlocking(Dispatchers.IO) {
+        val missingError = runCatching {
+            EmbeddedExamBank.loadWithMetadata(context, "missing-exam-id")
+        }.exceptionOrNull()
+        assertTrue("Missing asset must fail closed", missingError is IllegalStateException)
+
+        val unattachedRepo = ExamRepository(context = null, database = null)
+        try {
+            assertTrue("Expected empty bank when no assets context is attached", unattachedRepo.questions.value.isEmpty())
+        } finally {
+            unattachedRepo.shutdown()
+        }
+
         val db = Room.inMemoryDatabaseBuilder(context, CertDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -161,7 +173,42 @@ class CscPart1OfflineTest {
 
             assertEquals("csc-part-1", repository.currentExam.value.id)
             assertEquals(60, repository.currentExam.value.passingScorePercent)
-            assertTrue("Expected empty question bank before import", repository.questions.value.isEmpty())
+            assertEquals(474, repository.questions.value.size)
+            assertEquals(474, repository.bankCoverageAudit.value.practiceEligibleCount)
+            assertEquals(474, repository.bankCoverageAudit.value.assessmentEligibleCount)
+            assertEquals(0, repository.bankCoverageAudit.value.reservedFullExamCount)
+            assertEquals(4, repository.bankCoverageAudit.value.simulationPapersCount)
+            assertEquals(4, repository.bankMetadata.value.simulationPapers.size)
+            assertEquals(
+                listOf("csc1_exam_3", "csc1_exam_4", "csc1_exam_5", "csc1_exam_6"),
+                repository.bankMetadata.value.simulationPapers.map { it.id }
+            )
+            repository.bankMetadata.value.simulationPapers.forEach { paper ->
+                assertEquals(120, paper.durationMinutes)
+                assertEquals(100, paper.questionIds.size)
+                assertEquals(100, paper.questionIds.distinct().size)
+            }
+            assertEquals(9, repository.bankCoverageAudit.value.domainsCount)
+            assertEquals(43, repository.bankCoverageAudit.value.topicsCount)
+            assertEquals(0, repository.bankCoverageAudit.value.unmappedTopicQuestionCount)
+            assertEquals(400, repository.bankCoverageAudit.value.missingObjectiveCount)
+            assertEquals(400, repository.bankCoverageAudit.value.missingOptionAnalysisCount)
+            assertEquals(454, repository.bankCoverageAudit.value.missingExplicitDifficultyCount)
+            assertTrue(repository.bankCoverageAudit.value.usesSyllabusWeights)
+            assertEquals(
+                mapOf(
+                    "csc-d1" to 15,
+                    "csc-d2" to 13,
+                    "csc-d3" to 12,
+                    "csc-d4" to 11,
+                    "csc-d5" to 13,
+                    "csc-d6" to 10,
+                    "csc-d7" to 10,
+                    "csc-d8" to 8,
+                    "csc-d9" to 8
+                ),
+                repository.bankMetadata.value.syllabusWeights
+            )
             assertTrue("Expected no CISSP flashcards in CSC Part 1", repository.flashcards.value.isEmpty())
             assertTrue("Expected no CISSP study guides in CSC Part 1", repository.sources.value.isEmpty())
             assertTrue("Expected no CISSP audio briefings in CSC Part 1", repository.audioOverviews.value.isEmpty())
@@ -174,6 +221,141 @@ class CscPart1OfflineTest {
             repo?.awaitPendingWritesForTesting()
             repo?.shutdown()
             db.close()
+        }
+    }
+
+    @Test
+    fun bundledBank_supportsFourFullTimedSimulationsWeightedAssessmentAndTopicDrills() = runBlocking(Dispatchers.IO) {
+        val viewModel = ExamViewModel(application)
+        try {
+            // 1. Unknown paper ID fails safe without launching a session
+            viewModel.startSimulationPaper("nonexistent_paper")
+            assertTrue(viewModel.simulationQuestions.value.isEmpty())
+
+            // 2. Selecting Exam 6 launches exact 100-question 120-minute strict Exam 1 simulation
+            viewModel.startSimulationPaper("csc1_exam_6")
+            assertEquals(AppScreen.SIMULATION_ACTIVE, viewModel.currentScreen.value)
+            assertEquals(ExamMode.FULL_SIMULATION, viewModel.activeMode.value)
+            assertEquals(100, viewModel.simulationQuestions.value.size)
+            assertEquals("csc1_p6_001", viewModel.simulationQuestions.value.first().id)
+            assertEquals("csc1_p6_100", viewModel.simulationQuestions.value.last().id)
+            assertEquals(120 * 60, viewModel.remainingSeconds.value)
+            assertEquals("CSC Practice Exam 6 (Exam 1 Style)", viewModel.activeSimulationPaperTitle.value)
+
+            // Strict exam conditions suppress immediate answer feedback during simulation
+            viewModel.selectOption(0, viewModel.simulationQuestions.value[0].correctIndex)
+            viewModel.checkPracticeAnswer(0)
+            assertNull("Full simulation must not reveal immediate check feedback", viewModel.currentPracticeFeedback.value)
+
+            viewModel.finishSimulation()
+            val examResult = viewModel.lastCompletedSession.value
+            assertNotNull(examResult)
+            assertEquals(AppScreen.SESSION_RESULT, viewModel.currentScreen.value)
+            assertEquals(100, examResult!!.totalQuestions)
+            assertEquals(9, examResult.domainScores.size)
+            assertEquals("csc1_exam_6", viewModel.lastSimulationPaperId.value)
+
+            // 3. Initial Assessment spans all 9 weighted domains
+            viewModel.startSimulation(ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT)
+            val sampled = viewModel.simulationQuestions.value
+            assertEquals(54, sampled.size)
+            assertEquals(54, sampled.map { it.id }.distinct().size)
+            assertEquals(viewModel.bankMetadata.value.diagnosticQuestionIds, sampled.map { it.id })
+            val perDomain = sampled.groupingBy { it.domainId }.eachCount()
+            assertEquals(9, perDomain.size)
+            viewModel.abandonSimulation()
+
+            // 4. Topic-specific adaptive practice works directly on any of the 43 bundled topics
+            val targetTopic = viewModel.topicMasteryList.value.first()
+            viewModel.startAdaptivePractice(topicFilterKey = targetTopic.topicKey)
+            val topicDrill = viewModel.simulationQuestions.value
+            assertTrue("Expected questions for topic ${targetTopic.topicKey}", topicDrill.isNotEmpty())
+            assertTrue(topicDrill.all { com.example.domain.AdaptivePracticeEngine.resolveTopic(it).topicKey == targetTopic.topicKey })
+            viewModel.abandonSimulation()
+        } finally {
+            viewModel.closeForTesting()
+        }
+    }
+
+    @Test
+    fun dedicatedDiagnostic_preservesOrderAnswersBaselineAndRetakeHistoryAfterRestart() = runBlocking(Dispatchers.IO) {
+        val expected = EmbeddedExamBank.loadWithMetadata(context, "csc-part-1").metadata.diagnosticQuestionIds
+        assertEquals(54, expected.size)
+        var baselineId = ""
+        val vm1 = ExamViewModel(application)
+        try {
+            vm1.startSimulation(ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT)
+            assertEquals(expected, vm1.simulationQuestions.value.map { it.id })
+            vm1.selectOption(0, vm1.simulationQuestions.value.first().correctIndex)
+            vm1.nextQuestion()
+            vm1.pauseAndExitToDashboard()
+            awaitCondition { vm1.savedActiveAttempt.value?.isPaused == true }
+        } finally { vm1.closeForTesting() }
+        val vm2 = ExamViewModel(application)
+        try {
+            awaitCondition { vm2.savedActiveAttempt.value != null }
+            assertTrue(vm2.resumeSavedSimulation())
+            assertEquals(expected, vm2.simulationQuestions.value.map { it.id })
+            assertEquals(1, vm2.currentQuestionIndex.value)
+            assertEquals(vm2.simulationQuestions.value.first().correctIndex, vm2.userAnswers.value[0])
+            vm2.finishSimulation()
+            awaitCondition { vm2.initialBaselineSession.value != null && vm2.sessions.value.size == 1 }
+            baselineId = vm2.initialBaselineSession.value!!.sessionId
+            vm2.startSimulation(ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT, requestedCount = 20)
+            assertEquals("Dedicated diagnostic must never silently shrink to a sampled subset", expected, vm2.simulationQuestions.value.map { it.id })
+            vm2.simulationQuestions.value.forEachIndexed { idx, q -> vm2.selectOption(idx, q.correctIndex) }
+            vm2.finishSimulation()
+            awaitCondition { vm2.sessions.value.size == 2 }
+            assertEquals(baselineId, vm2.initialBaselineSession.value!!.sessionId)
+        } finally { vm2.closeForTesting() }
+        val vm3 = ExamViewModel(application)
+        try {
+            awaitCondition { vm3.sessions.value.size == 2 }
+            assertEquals(baselineId, vm3.initialBaselineSession.value!!.sessionId)
+            assertEquals(1, vm3.sessions.value.count { it.isInitialBaseline })
+        } finally { vm3.closeForTesting() }
+    }
+
+    @Test
+    fun allBundledPapers_preserveExactOrderTimerAndSuppressPracticeFeedback() = runBlocking(Dispatchers.IO) {
+        val vm = ExamViewModel(application)
+        try {
+            val papers = vm.bankMetadata.value.simulationPapers
+            assertEquals(4, papers.size)
+            for (paper in papers) {
+                vm.startSimulationPaper(paper.id)
+                assertEquals(paper.questionIds, vm.simulationQuestions.value.map { it.id })
+                assertEquals(100, vm.simulationQuestions.value.size)
+                assertEquals(7200, vm.remainingSeconds.value)
+                vm.selectOption(0, vm.simulationQuestions.value.first().correctIndex)
+                vm.checkPracticeAnswer(0)
+                assertNull(vm.currentPracticeFeedback.value)
+                vm.abandonSimulation()
+            }
+            val json = context.assets.open("exams/csc-part-1.json").bufferedReader().use { it.readText() }
+            val bad = org.json.JSONObject(json).put("diagnosticQuestionIds", org.json.JSONArray(listOf("missing")))
+            assertTrue(runCatching { EmbeddedExamBank.parseWithMetadata(bad.toString(), "csc-part-1") }.isFailure)
+            val duplicate = org.json.JSONObject(json).put("diagnosticQuestionIds", org.json.JSONArray(listOf("csc1_dx_001", "csc1_dx_001")))
+            assertTrue(runCatching { EmbeddedExamBank.parseWithMetadata(duplicate.toString(), "csc-part-1") }.isFailure)
+        } finally { vm.closeForTesting() }
+    }
+
+    @Test
+    fun practiceOnlyBankWithoutSimulationPapers_stillBlocksFullSimulation() = runBlocking(Dispatchers.IO) {
+        val viewModel = ExamViewModel(application)
+        try {
+            val practiceOnlyItem = buildSyntheticCscQuestions().first().copy(
+                questionPool = com.example.model.QuestionPool.PRACTICE
+            )
+            viewModel.repositoryForTesting().setQuestionsForTesting(
+                testQuestions = listOf(practiceOnlyItem),
+                metadata = com.example.model.EmbeddedBankMetadata(examId = "csc-part-1")
+            )
+            viewModel.startSimulation(ExamMode.FULL_SIMULATION)
+            assertTrue("Practice-only bank without simulationPapers must block FULL_SIMULATION", viewModel.simulationQuestions.value.isEmpty())
+            assertTrue(viewModel.statusMessage.value?.contains("coming soon", ignoreCase = true) == true)
+        } finally {
+            viewModel.closeForTesting()
         }
     }
 
@@ -436,3 +618,4 @@ class CscPart1OfflineTest {
         }
     }
 }
+

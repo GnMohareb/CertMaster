@@ -85,7 +85,14 @@ object AdaptivePracticeEngine {
             ExamMode.FULL_SIMULATION -> {
                 val reserved = allQuestions.filter { it.questionPool == QuestionPool.FULL_EXAM_RESERVED }
                 val others = allQuestions.filter { it.questionPool != QuestionPool.FULL_EXAM_RESERVED }
-                reserved + others
+                if (reserved.isNotEmpty() && others.any {
+                        it.questionPool == QuestionPool.PRACTICE || it.questionPool == QuestionPool.ASSESSMENT
+                    }
+                ) {
+                    reserved
+                } else {
+                    reserved + others
+                }
             }
             ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT -> {
                 allQuestions.filter { it.questionPool != QuestionPool.FULL_EXAM_RESERVED }
@@ -848,3 +855,4 @@ object AdaptivePracticeEngine {
         return recs.sortedByDescending { it.priority }
     }
 }
+

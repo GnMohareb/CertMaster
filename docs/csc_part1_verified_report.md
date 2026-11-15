@@ -1,42 +1,25 @@
-# CSC Part 1 Standalone Offline Android — Verified Report
+# CSC Part 1 standalone offline completion verification
 
-- **Repository / Branch**: `GnMohareb/CertMaster` / `feature/standalone-android-offline-exams`
-- **Verified Commit**: `a96dac02e1bcfb118f6648c3828ed3f5181dcc24`
-- **Actions Run**: [`43733629853`](https://github.com/GnMohareb/CertMaster/actions/runs/43733629853) (`SUCCESS`)
-- **Debug APK Artifact**: `CSC-Part1-Offline-Debug-APK` (ID `14168504627`, ZIP `17,864,354` bytes, `app-cscPart1-debug.apk` `18,392,589` bytes) — [Download](https://github.com/GnMohareb/CertMaster/actions/runs/43733629853/artifacts/14168504627)
-- **Reports Artifact**: ID `14169455952` (downloaded and inspected)
+## Content-bearing candidate
 
----
+The AI Studio implementation export `c417295e382bb1e4f6ef95592562c0a068a6cea5` is integrated on remote base `a046af8ca6d8637effd1d7094d698d63c5a83e1e`. AI Studio reached its daily quota before final corrections, so the orchestrator completed dedicated diagnostic selection and overlap disclosure.
 
-## 1. Automated CI & Build Verification (PASS)
+- Bank: 474 unique user-supplied questions, 9 domains, 43 topics.
+- Dedicated diagnostic: original 54 DX IDs in ordered metadata; initial assessment and retakes use the full sequence. First completed baseline remains fixed; subsequent attempts remain in history.
+- Four timed practice papers: Exams 3–6, 100 questions and 120 minutes each, preserving exact question IDs/order and answer keys from AI Studio's source integration.
+- Timed papers reuse 400 questions from topic practice. Previously-practised counts appear on each paper before launch. Scores are practice results, not unseen readiness estimates.
+- Dashboard opens the paper chooser before starting; immediate answer feedback remains suppressed in full simulation.
+- Topic/domain practice, adaptive remediation, mastery confidence, repeat discount, retention review, Room persistence and migration are preserved.
+- No production synthetic bank, web edits, main changes or cloud dependencies added.
 
-| Check | Outcome | Exact Evidence |
-| :--- | :--- | :--- |
-| Unit & Robolectric Suite | **PASS (24/24)** | 24 executed, 0 failures, 0 errors, 0 skips (`AdaptiveMasteryEngineTest`: 9, `CscPart1OfflineTest`: 7, `ExampleRobolectricTest`: 1, `ExampleUnitTest`: 3, `RoomCacheTest`: 3, `Migration4To5Test`: 1) |
-| Offline Debug APK Build | **PASS** | `app-cscPart1-debug.apk` (`18,392,589` bytes) packaged cleanly |
-| AAPT Manifest & SDK Check | **PASS** | Package `com.certmaster.cscpart1`, label `CSC Part1`, version `1.0`, `minSdk 24`, `targetSdk 36`; **NO** `INTERNET` or `ACCESS_NETWORK_STATE` permission |
-| Runtime Dependency Check | **PASS** | No Firebase, auth, cloud sync, backend, or runtime AI dependencies in `cscPart1` |
-| Embedded Bank Check | **HONEST EMPTY** | No `assets/exams` bank bundled yet (app handles missing bank without synthetic filler) |
-| Scope Guardrail Diff | **PASS** | 25 files changed across Android/docs/workflow only; `apps/web/` and `main` untouched |
+## Content provenance and exclusions
 
----
+Edition label (CSC Volume 1, 2025 printing) and domain weights come from supplied source materials; this is not an independent CSI verification. App domain/topic IDs are application identifiers. AI Studio's source-content audit excluded uploaded Practice Exam 2 for Volume 2 subjects including investment/portfolio analysis, funds/ETFs, tax and institutional clients. No content was excluded solely because of its filename. Full distractor rationales/objective tags remain absent for 400 supplied P3–P6 questions; concise answer explanations exist. These are content-enrichment limitations, not fabricated metadata.
 
-## 2. Ten-Phase Readiness Matrix
+## Verification status
 
-| Phase / Area | Status | Evidence & Notes |
-| :--- | :--- | :--- |
-| **1–2. Recovery, Scope & Offline Isolation** | **Verified** | Recovered `4bf38733` + `e0dd472`; `cscPart1` flavor isolated from Firebase/Auth/network (`NO INTERNET` / `ACCESS_NETWORK_STATE`). |
-| **3–4. Schema v2 Parser & Coverage Audit** | **Verified** | `EmbeddedExamBank.parseWithMetadata` + `auditBank` verified via `AdaptiveMasteryEngineTest` (fail-closed validation, unmapped fallback, reserved exam separation). |
-| **5. Room v5 Persistence & Migration** | **Verified** | `Migration4To5Test` passes against v4 tables; `CscPart1OfflineTest` restart persistence (`7/7`) passes; destructive migration fallback removed (`d76700c`). |
-| **6. Atomic Answer Evidence & Mastery Engine** | **Verified** | `AdaptiveMasteryEngineTest` (`9/9`) verifies idempotent `withTransaction` evidence recording, rollback recovery, repeat-exposure discount, insufficient-evidence cap, and immediate/delayed remediation. |
-| **7. Adaptive Selection & Strict Full Exam Isolation** | **Verified** | `FULL_EXAM_RESERVED` excluded from practice/assessment; Initial Assessment fixed baseline preserved across retakes; `FULL_SIMULATION` suppresses immediate feedback. |
-| **8. Offline Student UI & Study Workflows** | **Code Complete** | Compose screens (`DashboardScreen`, `ExamsHubScreen`, `ExamSimulationScreen`, `ExamResultScreen`) wired to offline ViewModel/Room flows (visual/interactive check pending device QA). |
-| **9. Perplexity Content Handoff & Contract** | **Contract Ready / Bank Pending** | Schema & handoff docs ready (`docs/csc_part1_question_schema.json`, `docs/csc_part1_question_schema_for_perplexity.md`, `docs/csc_part1_coverage_audit.md`). |
-| **10. CI Packaging & Release Readiness** | **Code/Build Verified; QA & Bank Pending** | CI build/tests/APK offline verification complete; debug APK only (not Play Store release). |
+Bank JSON schema, 474 unique IDs, 54 diagnostic references, 43 topics and all four 100-ID paper references validated locally. New content-bearing code must pass GitHub Actions tests, Android assembly and offline permission/dependency checks before delivery. Previous successful run 43733629853 verified earlier code only and its APK lacked this content; do not deliver it as the completed app.
 
----
+Added coverage: exact diagnostic order and size, diagnostic restart/answer/baseline/retake history, all four papers' order/timing/feedback isolation, invalid diagnostic references. Existing migration, persistence and deterministic mastery tests retained.
 
-## 3. Remaining External Dependencies (Pending)
-
-1. **Question Bank Content (Perplexity)**: Real CSC Part 1 question bank, verified `syllabusEdition`, and verified `syllabusWeights` have not yet been supplied (`assets/exams` is absent from the APK).
-2. **Physical-Device / Emulator QA**: Interactive install, UI walkthrough, process death, and airplane-mode validation on a physical Android device or emulator have not yet been executed.
+Physical-device/emulator airplane-mode QA remains unexecuted. This report will record the new CI result and artifact after verification.

@@ -100,6 +100,7 @@ fun DashboardScreen(
     val domainMasteryList by viewModel.domainMasteryList.collectAsState()
     val initialBaselineSession by viewModel.initialBaselineSession.collectAsState()
     val recommendations by viewModel.recommendations.collectAsState()
+    val bankMetadata by viewModel.bankMetadata.collectAsState()
     val bankCoverageAudit by viewModel.bankCoverageAudit.collectAsState()
 
     // 0: Score Trajectory & Line Chart, 1: Readiness & Domain Mastery, 2: User Behavior & Stress Telemetry
@@ -121,7 +122,7 @@ fun DashboardScreen(
     val effectiveDomains = if (currentExam.domains.isNotEmpty()) {
         currentExam.domains
     } else {
-        com.example.data.ExamCatalog.deriveDomainsFromQuestions(questions)
+        com.example.data.ExamCatalog.deriveDomainsFromQuestions(questions, bankMetadata.syllabusWeights)
     }
 
     Column(
@@ -433,7 +434,7 @@ fun DashboardScreen(
                                 Spacer(modifier = Modifier.height(6.dp))
                                 if (questions.isNotEmpty()) {
                                     Text(
-                                        text = "${questions.size} offline questions • ${bankCoverageAudit.domainsCount} domains • Pass mark ${currentExam.passingScorePercent}%.",
+                                        text = "${questions.size} practice questions • ${bankCoverageAudit.domainsCount} domains • ${bankCoverageAudit.topicsCount} topics • Pass mark ${currentExam.passingScorePercent}%.",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -513,14 +514,67 @@ fun DashboardScreen(
                                         }
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Button(
-                                        onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
-                                        modifier = Modifier.fillMaxWidth().testTag("btn_offline_exam"),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Slate800)
-                                    ) {
-                                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Full Timed Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    val simulationPapers = bankMetadata.simulationPapers
+                                    val hasReservedFullExam = bankCoverageAudit.reservedFullExamCount > 0
+                                    val hasSimulationPapers = simulationPapers.isNotEmpty()
+                                    if (hasSimulationPapers || hasReservedFullExam) {
+                                        Button(
+                                            onClick = { viewModel.navigateTo(AppScreen.EXAM_HUB) },
+                                            modifier = Modifier.fillMaxWidth().testTag("btn_offline_exam"),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Slate800)
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (hasSimulationPapers) {
+                                                    val firstPaper = simulationPapers.first()
+                                                    "Choose Timed Practice (${simulationPapers.size} Papers • ${firstPaper.questionIds.size} Qs)"
+                                                } else {
+                                                    "Full Timed Exam (${bankCoverageAudit.reservedFullExamCount} Qs)"
+                                                },
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        OutlinedButton(
+                                            onClick = { viewModel.navigateTo(AppScreen.EXAM_HUB) },
+                                            modifier = Modifier.fillMaxWidth().testTag("btn_browse_topics")
+                                        ) {
+                                            Text(
+                                                text = if (hasSimulationPapers) {
+                                                    "Choose Exams 3–6, ${bankCoverageAudit.domainsCount} Domains & ${bankCoverageAudit.topicsCount} Topics"
+                                                } else {
+                                                    "Browse ${bankCoverageAudit.domainsCount} Domains & ${bankCoverageAudit.topicsCount} Topics"
+                                                },
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = { viewModel.navigateTo(AppScreen.EXAM_HUB) },
+                                            modifier = Modifier.fillMaxWidth().testTag("btn_browse_topics")
+                                        ) {
+                                            Text(
+                                                "Browse ${bankCoverageAudit.domainsCount} Domains & ${bankCoverageAudit.topicsCount} Topics",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        OutlinedButton(
+                                            onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
+                                            enabled = false,
+                                            modifier = Modifier.fillMaxWidth().testTag("btn_offline_exam")
+                                        ) {
+                                            Text(
+                                                "Full Timed Exam Simulation (Coming Soon)",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
                                     }
                                 } else {
                                     Text(
@@ -1246,3 +1300,4 @@ fun DashboardScreen(
         }
     }
 }
+

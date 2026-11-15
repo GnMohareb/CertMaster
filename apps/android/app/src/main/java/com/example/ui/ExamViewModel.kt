@@ -169,6 +169,16 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     private var checkPracticeEvidenceJob: Job? = null
     internal var lastEvidenceErrorForTesting: Throwable? = null
     private var simulationStartedAtMillis: Long = 0L
+    private var activeSimulationPaperId: String? = null
+
+    private val _activeSimulationPaperTitle = MutableStateFlow<String?>(null)
+    val activeSimulationPaperTitle: StateFlow<String?> = _activeSimulationPaperTitle.asStateFlow()
+
+    private val _lastSimulationPaperId = MutableStateFlow<String?>(null)
+    val lastSimulationPaperId: StateFlow<String?> = _lastSimulationPaperId.asStateFlow()
+
+    private val _lastSimulationPaperTitle = MutableStateFlow<String?>(null)
+    val lastSimulationPaperTitle: StateFlow<String?> = _lastSimulationPaperTitle.asStateFlow()
 
     private fun isStandaloneCsc(): Boolean =
         com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
@@ -291,11 +301,19 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun startSimulationPaper(paperId: String) {
+        startSimulation(
+            mode = ExamMode.FULL_SIMULATION,
+            simulationPaperId = paperId
+        )
+    }
+
     fun startSimulation(
         mode: ExamMode,
         domainFilterId: String? = null,
         topicFilterKey: String? = null,
-        requestedCount: Int? = null
+        requestedCount: Int? = null,
+        simulationPaperId: String? = null
     ) {
         val isSubscribed = isStandaloneCsc() || isCurrentExamSubscribed()
 
@@ -307,24 +325,89 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             mode
         }
 
-        _activeMode.value = effectiveMode
         val allQ = repository.questions.value
+        val availablePapers = repository.bankMetadata.value.simulationPapers
+        val selectedPaper = if (effectiveMode == ExamMode.FULL_SIMULATION) {
+            when {
+                simulationPaperId != null -> {
+                    val matched = availablePapers.firstOrNull { it.id == simulationPaperId }
+                    if (matched == null) {
+                        _statusMessage.value = "Selected exam paper is unavailable."
+                        return
+                    }
+                    matched
+                }
+                availablePapers.isNotEmpty() -> availablePapers.first()
+                else -> null
+            }
+        } else {
+            null
+        }
+
+        if (effectiveMode == ExamMode.FULL_SIMULATION && selectedPaper == null && isStandaloneCsc()) {
+            val hasReservedFullExam = allQ.any { it.questionPool == com.example.model.QuestionPool.FULL_EXAM_RESERVED }
+            val isPracticeOnlyBank = allQ.isNotEmpty() &&
+                !hasReservedFullExam &&
+                allQ.any {
+                    it.questionPool == com.example.model.QuestionPool.PRACTICE ||
+                        it.questionPool == com.example.model.QuestionPool.ASSESSMENT
+                }
+            if (isPracticeOnlyBank) {
+                _statusMessage.value = "Full timed exam simulations are coming soon. Choose Initial Assessment or Topic/Domain Practice."
+                return
+            }
+        }
+
+        _activeMode.value = effectiveMode
         val nowMillis = System.currentTimeMillis()
         var selectionReasonsMap: Map<String, String> = emptyMap()
         var exhaustionNotice: String? = null
 
         val questionsToUse = when {
+            selectedPaper != null -> {
+                val byId = allQ.associateBy { it.id }
+                val orderedPaperQuestions = selectedPaper.questionIds.mapNotNull { byId[it] }
+                if (orderedPaperQuestions.size != selectedPaper.questionIds.size || orderedPaperQuestions.isEmpty()) {
+                    _statusMessage.value = "Selected exam paper questions are incomplete or missing."
+                    return
+                }
+                orderedPaperQuestions
+            }
+            effectiveMode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT &&
+                repository.bankMetadata.value.diagnosticQuestionIds.isNotEmpty() -> {
+                val byId = allQ.associateBy { it.id }
+                val ids = repository.bankMetadata.value.diagnosticQuestionIds
+                val diagnostic = ids.mapNotNull { byId[it] }
+                if (diagnostic.size != ids.size) {
+                    _statusMessage.value = "Diagnostic assessment questions are incomplete."
+                    return
+                }
+                diagnostic
+            }
             effectiveMode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT -> {
                 val filteredByDomain = if (domainFilterId != null) {
                     allQ.filter { it.domainId == domainFilterId }
                 } else {
                     allQ
                 }
+                val eligibleCount = filteredByDomain.count {
+                    it.questionPool != com.example.model.QuestionPool.FULL_EXAM_RESERVED
+                }
+                val defaultLength = if (isStandaloneCsc() && eligibleCount in 1..60) {
+                    eligibleCount
+                } else {
+                    repository.adaptiveConfig.initialAssessmentDefaultLength
+                }
+                val effectiveMaxLimit = if (isStandaloneCsc()) {
+                    eligibleCount.coerceAtLeast(FREE_ASSESSMENT_QUESTION_LIMIT)
+                } else {
+                    FREE_ASSESSMENT_QUESTION_LIMIT
+                }
                 AdaptivePracticeEngine.selectInitialAssessmentQuestions(
                     allQuestions = filteredByDomain,
                     syllabusWeights = repository.bankMetadata.value.syllabusWeights,
-                    targetLength = requestedCount ?: repository.adaptiveConfig.initialAssessmentDefaultLength,
-                    maxLimit = FREE_ASSESSMENT_QUESTION_LIMIT
+                    targetLength = requestedCount ?: defaultLength,
+                    maxLimit = effectiveMaxLimit
                 )
             }
             AdaptivePracticeEngine.isAdaptivePracticeMode(effectiveMode) -> {
@@ -361,6 +444,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        activeSimulationPaperId = selectedPaper?.id
+        _activeSimulationPaperTitle.value = selectedPaper?.title
         activeAttemptId = UUID.randomUUID().toString()
         _simulationQuestions.value = questionsToUse
         _currentQuestionIndex.value = 0
@@ -375,10 +460,10 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _globalStepCounter.value = 0
         _practiceExhaustionNotice.value = exhaustionNotice
 
-        val timeLimit = if (effectiveMode == ExamMode.FULL_SIMULATION) {
-            repository.currentExam.value.durationMinutes * 60
-        } else {
-            questionsToUse.size * 90 // 1.5 min per question
+        val timeLimit = when {
+            selectedPaper != null -> selectedPaper.durationMinutes * 60
+            effectiveMode == ExamMode.FULL_SIMULATION -> repository.currentExam.value.durationMinutes * 60
+            else -> questionsToUse.size * 90 // 1.5 min per question
         }
         _remainingSeconds.value = timeLimit
         simulationStartedAtMillis = nowMillis
@@ -401,6 +486,14 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
         activeAttemptId = saved.attemptId.ifBlank { UUID.randomUUID().toString() }
         _activeMode.value = saved.parseExamMode()
+        val matchedPaper = if (_activeMode.value == ExamMode.FULL_SIMULATION) {
+            val restoredIds = restoredQuestions.map { it.id }
+            repository.bankMetadata.value.simulationPapers.firstOrNull { it.questionIds == restoredIds }
+        } else {
+            null
+        }
+        activeSimulationPaperId = matchedPaper?.id
+        _activeSimulationPaperTitle.value = matchedPaper?.title
         _simulationQuestions.value = restoredQuestions
         val restoredIdx = saved.currentIndex.coerceIn(0, restoredQuestions.lastIndex)
         _currentQuestionIndex.value = restoredIdx
@@ -445,6 +538,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun abandonSimulation() {
         timerJob?.cancel()
         _isTimerPaused.value = false
+        activeSimulationPaperId = null
+        _activeSimulationPaperTitle.value = null
         activeAttemptId = ""
         _simulationQuestions.value = emptyList()
         _currentQuestionIndex.value = 0
@@ -467,6 +562,13 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun openHistoricalSession(session: ExamSession) {
         val byId = repository.questions.value.associateBy { it.id }
         val resolvedQuestions = session.questionIds.mapNotNull { byId[it] }
+        val matchedPaper = if (session.mode == ExamMode.FULL_SIMULATION) {
+            repository.bankMetadata.value.simulationPapers.firstOrNull { it.questionIds == session.questionIds }
+        } else {
+            null
+        }
+        _lastSimulationPaperId.value = matchedPaper?.id
+        _lastSimulationPaperTitle.value = matchedPaper?.title
         _simulationQuestions.value = resolvedQuestions
         _lastCompletedSession.value = session
         navigateTo(AppScreen.SESSION_RESULT)
@@ -791,11 +893,20 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             DomainScore(id, pair.first, correct, dTotal, pct)
         }
 
-        val totalSwitches = _optionSwitchCounts.value.values.sum()
-        val configuredSeconds = if (_activeMode.value == ExamMode.FULL_SIMULATION) {
-            repository.currentExam.value.durationMinutes * 60
+        val activePaper = activeSimulationPaperId?.let { id ->
+            repository.bankMetadata.value.simulationPapers.firstOrNull { it.id == id }
+        } ?: if (_activeMode.value == ExamMode.FULL_SIMULATION) {
+            val qIds = questionsList.map { it.id }
+            repository.bankMetadata.value.simulationPapers.firstOrNull { it.questionIds == qIds }
         } else {
-            total * 90
+            null
+        }
+
+        val totalSwitches = _optionSwitchCounts.value.values.sum()
+        val configuredSeconds = when {
+            activePaper != null -> activePaper.durationMinutes * 60
+            _activeMode.value == ExamMode.FULL_SIMULATION -> repository.currentExam.value.durationMinutes * 60
+            else -> total * 90
         }
         val elapsedSeconds = (configuredSeconds - _remainingSeconds.value)
             .takeIf { it > 0 }
@@ -828,6 +939,10 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             sessionQuestions = questionsList,
             attemptId = attemptKey
         )
+        _lastSimulationPaperId.value = activePaper?.id
+        _lastSimulationPaperTitle.value = activePaper?.title
+        activeSimulationPaperId = null
+        _activeSimulationPaperTitle.value = null
         _checkedQuestionIndices.value = emptySet()
         _currentPracticeFeedback.value = null
         _remediationQueue.value = emptyList()
@@ -999,3 +1114,4 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         repository.shutdown()
     }
 }
+

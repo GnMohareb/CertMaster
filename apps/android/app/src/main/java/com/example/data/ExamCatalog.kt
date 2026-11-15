@@ -249,20 +249,33 @@ object ExamCatalog {
      * when the exam configuration leaves static domains empty (e.g. standalone offline CSC Part 1
      * prior to or after importing a question bank).
      */
-    fun deriveDomainsFromQuestions(questions: List<com.example.model.Question>): List<ExamDomain> {
+    fun deriveDomainsFromQuestions(
+        questions: List<com.example.model.Question>,
+        syllabusWeights: Map<String, Int> = emptyMap()
+    ): List<ExamDomain> {
         if (questions.isEmpty()) return emptyList()
         val total = questions.size.coerceAtLeast(1)
         return questions
             .groupBy { it.domainId }
             .entries
             .mapIndexed { index, (domainId, list) ->
-                val weight = ((list.size.toDouble() / total) * 100.0).toInt().coerceAtLeast(1)
+                val verifiedWeight = syllabusWeights[domainId]?.takeIf { it > 0 }
+                val weight = verifiedWeight
+                    ?: ((list.size.toDouble() / total) * 100.0).toInt().coerceAtLeast(1)
+                val topicCount = list.mapNotNull { q ->
+                    q.topicId.trim().ifEmpty { q.topicName.trim() }.ifEmpty { null }
+                }.distinct().size
+                val desc = if (topicCount > 0) {
+                    "${list.size} practice questions • $topicCount topic(s)"
+                } else {
+                    "${list.size} practice question(s) in this domain"
+                }
                 ExamDomain(
                     id = domainId,
                     number = index + 1,
                     title = list.first().domainName.ifBlank { domainId.uppercase() },
                     weightPercent = weight,
-                    description = "${list.size} practice question(s) in this topic",
+                    description = desc,
                     keyFrameworks = list.map { it.citation.standardOrFramework }.filter { it.isNotBlank() }.distinct().take(3),
                     iconName = "MenuBook"
                 )
@@ -274,3 +287,4 @@ object ExamCatalog {
      */
     fun getFullSynchronizedCatalogCount(): Int = 112
 }
+

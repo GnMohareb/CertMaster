@@ -7,7 +7,9 @@ import com.example.model.EmbeddedBankMetadata
 import com.example.model.Question
 import com.example.model.QuestionDifficulty
 import com.example.model.QuestionPool
+import com.example.model.SimulationPaper
 import com.example.model.SourceCitation
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -122,16 +124,69 @@ object EmbeddedExamBank {
                 difficultyExplicit = hasExplicitDifficulty
             )
         }
+        val simulationPapers = parseSimulationPapers(
+            arr = root.optJSONArray("simulationPapers"),
+            knownQuestionIds = seen
+        )
+        val diagnosticArray = root.optJSONArray("diagnosticQuestionIds")
+        val diagnosticIds = if (diagnosticArray == null) emptyList() else
+            (0 until diagnosticArray.length()).map { diagnosticArray.getString(it).trim() }
+        require(diagnosticArray == null || diagnosticIds.isNotEmpty()) { "Empty diagnosticQuestionIds" }
+        require(diagnosticIds.distinct().size == diagnosticIds.size) { "Duplicate diagnostic question IDs" }
+        val byId = questions.associateBy { it.id }
+        require(diagnosticIds.all { byId[it] != null && byId[it]!!.questionPool != QuestionPool.FULL_EXAM_RESERVED }) {
+            "Diagnostic references missing or reserved questions"
+        }
         return EmbeddedBankLoadResult(
             metadata = EmbeddedBankMetadata(
                 schemaVersion = schemaVersion,
                 examId = expectedExamId,
                 bankVersion = bankVersion,
                 syllabusEdition = syllabusEdition,
-                syllabusWeights = syllabusWeights
+                syllabusWeights = syllabusWeights,
+                simulationPapers = simulationPapers,
+                diagnosticQuestionIds = diagnosticIds
             ),
             questions = questions
         )
+    }
+
+    private fun parseSimulationPapers(
+        arr: JSONArray?,
+        knownQuestionIds: Set<String>
+    ): List<SimulationPaper> {
+        if (arr == null) return emptyList()
+        val seenPaperIds = mutableSetOf<String>()
+        return (0 until arr.length()).map { i ->
+            val obj = arr.getJSONObject(i)
+            val id = obj.getString("id").trim()
+            require(id.isNotEmpty() && seenPaperIds.add(id)) { "Blank or duplicate simulation paper ID: $id" }
+            val title = obj.getString("title").trim()
+            require(title.isNotEmpty()) { "Missing simulation paper title: $id" }
+            val description = obj.optString("description", "").trim()
+            val durationMinutes = obj.optInt("durationMinutes", 120)
+            require(durationMinutes > 0) { "Invalid durationMinutes ($durationMinutes) for simulation paper: $id" }
+            val qIdsArr = obj.getJSONArray("questionIds")
+            require(qIdsArr.length() > 0) { "Simulation paper has no questionIds: $id" }
+            val seenPaperQIds = mutableSetOf<String>()
+            val questionIds = (0 until qIdsArr.length()).map { qIdx ->
+                val qId = qIdsArr.getString(qIdx).trim()
+                require(qId.isNotEmpty() && qId in knownQuestionIds) {
+                    "Simulation paper '$id' references unknown question ID: $qId"
+                }
+                require(seenPaperQIds.add(qId)) {
+                    "Simulation paper '$id' contains duplicate question ID: $qId"
+                }
+                qId
+            }
+            SimulationPaper(
+                id = id,
+                title = title,
+                description = description,
+                durationMinutes = durationMinutes,
+                questionIds = questionIds
+            )
+        }
     }
 
     private fun parseSyllabusWeights(obj: JSONObject?): Map<String, Int> {
@@ -203,7 +258,7 @@ object EmbeddedExamBank {
 
         val coverageDesc = when {
             questions.isEmpty() -> "No practice questions installed yet."
-            usesWeights -> "Weighted by verified syllabus weights across ${domains.size} domain(s)."
+            usesWeights -> "Weighted by supplied syllabus weights across ${domains.size} domain(s)."
             else -> "Balanced equally across ${domains.size} available domain(s) (no official syllabus weights bundled)."
         }
 
@@ -219,7 +274,9 @@ object EmbeddedExamBank {
             missingOptionAnalysisCount = missingOptionAnalysis,
             missingExplicitDifficultyCount = missingExplicitDifficulty,
             usesSyllabusWeights = usesWeights,
-            coverageDescription = coverageDesc
+            coverageDescription = coverageDesc,
+            simulationPapersCount = metadata.simulationPapers.size
         )
     }
 }
+

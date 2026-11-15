@@ -109,7 +109,13 @@ Implemented full offline adaptive assessment, adaptive practice, deterministic t
     - AAPT verified: `com.certmaster.cscpart1`, label `CSC Part1`, version `1.0`, `minSdk 24`, `targetSdk 36`; **NO** `INTERNET` or `ACCESS_NETWORK_STATE` permission; runtime dependency check passed; APK has no `assets/exams` bank yet.
   - **Scope Diff**: 25 files in Android/docs/workflow only; `apps/web/` and `main` untouched.
   - See `docs/csc_part1_verified_report.md` for the complete ten-phase evidence summary.
-- **Pending Items Before Study Release**:
-  - **Content (Perplexity)**: Real CSC Part 1 question bank, verified `syllabusEdition`, and verified `syllabusWeights` (`assets/exams` bank not yet supplied).
-  - **Device QA**: Physical-device or emulator installation and interactive airplane-mode QA.
+- **Pending Items Before Full Study Release**:
+  - **474-Question Practice Bank & 4 Timed Exam Simulations Integrated Locally (Pending CI Rerun)**: Updated `apps/android/app/src/cscPart1/assets/exams/csc-part-1.json` (`bankVersion = "2026.2-practice-474-sims-4"`, Schema v2, `syllabusEdition = "CSC Volume 1 (2025 printing)"`, 9 Exam-1 weighted domains totaling `100%`, 43 mapped topics with `unmappedTopicQuestionCount == 0`) with `474` unique practice/diagnostic items plus `4` ordered `simulationPapers` (`csc1_exam_3`..`csc1_exam_6` = **CSC Practice Exams 3, 4, 5, and 6**, `100` questions / `120` minutes each). Excluded `CSC Practice Exam 2` because it tests CSC Part 2 (Volume 2) domains. Added fail-closed `SimulationPaper` parsing, paper-level `ExamViewModel` launch/timer/resume/retake handling, unlocked simulation cards on `ExamsHubScreen` and `DashboardScreen`, and unit test coverage in `CscPart1OfflineTest` / `AdaptiveMasteryEngineTest` (Gradle/CI rerun required).
+  - **Device QA**: Physical-device or emulator installation and interactive airplane-mode QA remain pending.
 
+
+
+
+## Content-bearing completion candidate — 2026-11-15
+
+Integrated AI Studio 474-question/four-paper export; corrected dedicated 54-question diagnostic and pre-start practice-overlap disclosure after AI Studio quota exhaustion. New CI pending; older APK is superseded for content delivery. See csc_part1_verified_report.md.

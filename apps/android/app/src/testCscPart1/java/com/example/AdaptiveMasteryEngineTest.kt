@@ -465,6 +465,14 @@ class AdaptiveMasteryEngineTest {
               "bankVersion": "2026.1",
               "syllabusEdition": "2026-placeholder-unverified",
               "syllabusWeights": { "csc-d1": 60, "csc-d2": 40 },
+              "simulationPapers": [
+                {
+                  "id": "sim_1",
+                  "title": "Sample Timed Simulation 1",
+                  "durationMinutes": 120,
+                  "questionIds": ["v2_q1", "v2_q2"]
+                }
+              ],
               "questions": [
                 {
                   "id": "v2_q1",
@@ -508,6 +516,8 @@ class AdaptiveMasteryEngineTest {
         assertEquals("2026.1", result.metadata.bankVersion)
         assertEquals("2026-placeholder-unverified", result.metadata.syllabusEdition)
         assertEquals(mapOf("csc-d1" to 60, "csc-d2" to 40), result.metadata.syllabusWeights)
+        assertEquals(1, result.metadata.simulationPapers.size)
+        assertEquals("sim_1", result.metadata.simulationPapers.first().id)
         assertEquals(2, result.questions.size)
 
         val q1 = result.questions[0]
@@ -528,6 +538,7 @@ class AdaptiveMasteryEngineTest {
         assertEquals(2, audit.totalQuestions)
         assertEquals(1, audit.practiceEligibleCount)
         assertEquals(1, audit.reservedFullExamCount)
+        assertEquals(1, audit.simulationPapersCount)
         assertEquals(1, audit.unmappedTopicQuestionCount)
         assertEquals(1, audit.missingObjectiveCount)
         assertEquals(1, audit.missingOptionAnalysisCount)
@@ -545,6 +556,12 @@ class AdaptiveMasteryEngineTest {
             EmbeddedExamBank.parseWithMetadata(badTypeJson, "csc-part-1")
         }.exceptionOrNull()
         assertTrue(badTypeThrown is IllegalArgumentException)
+
+        val badPaperRefJson = jsonV2.replace("\"questionIds\": [\"v2_q1\", \"v2_q2\"]", "\"questionIds\": [\"v2_q1\", \"missing_q\"]")
+        val badPaperRefThrown = runCatching {
+            EmbeddedExamBank.parseWithMetadata(badPaperRefJson, "csc-part-1")
+        }.exceptionOrNull()
+        assertTrue(badPaperRefThrown is IllegalArgumentException)
     }
 
     @Test
@@ -604,3 +621,4 @@ class AdaptiveMasteryEngineTest {
     }
 
 }
+
