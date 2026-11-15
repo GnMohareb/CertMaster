@@ -75,3 +75,32 @@ Verified on commit ce31d0cab14a110efbcd91695aa62495d87219b9:
 - Download: https://github.com/GnMohareb/CertMaster/actions/runs/43632287764/artifacts/14128328065
 
 Limits: this verifies compilation, JVM/Robolectric unit tests and debug packaging. No physical-device/emulator install or interactive QA was performed in this session. This is a debug build, not a Play Store release. No QIS question bank was imported. AI Studio's source still needs reconciliation with the follow-up GitHub fixes before future exports overwrite this branch.
+
+---
+
+## CSC Part 1 Offline Adaptive Assessment, Practice & Mastery Engine — 2026-11-15
+
+Implemented full offline adaptive assessment, adaptive practice, deterministic topic/domain mastery, retention review, Room v5 persistence/migration, offline UI workflows, acceptance/migration tests, and Perplexity content-handoff documentation strictly inside the standalone CSC Part 1 Android scope (`apps/android/` and `docs/`). `apps/web/` and `main` were untouched, and no QIS/synthetic question bank was added to `assets/`.
+
+### Implemented Components
+1. **Models & Schema v2 Parser (`Question.kt`, `ExamSession.kt`, `AdaptiveEngineModels.kt`, `EmbeddedExamBank.kt`)**:
+   - Added `QuestionPool` (`GENERAL`, `PRACTICE`, `ASSESSMENT`, `FULL_EXAM_RESERVED`), `topicId`, `topicName`, `learningObjective`, `nearDuplicateGroupId`, `difficultyExplicit`, `EvidenceConfidence`, `TopicMasteryState`, `DomainMasterySummary`, `BankCoverageAudit`, `PracticeRecommendation`, `AdaptiveConfig`.
+   - Upgraded `EmbeddedExamBank.parseWithMetadata` to support `schemaVersion` `1..2`, `bankVersion`, `syllabusWeights`, `optionAnalysis` (index or letter keys), and `auditBank()`. Preserves fail-closed behavior and explicit unmapped fallback (`unmapped:<domainId>`).
+2. **Room v5 Database & Migration (`CertDatabase.kt`, `AdaptiveMasteryEntities.kt`, `AdaptiveMasteryDao.kt`, `ActiveExamAttemptEntity.kt`, `SimulationScoreEntity.kt`)**:
+   - Added `answer_events` (idempotent key `examId::attemptId::questionId`), `topic_mastery`, and `question_exposure` tables plus `MIGRATION_4_5` preserving existing v4 rows and schema integrity.
+3. **Deterministic Engine, Repository & ViewModel (`AdaptivePracticeEngine.kt`, `ExamRepository.kt`, `ExamViewModel.kt`)**:
+   - Balanced or syllabus-weighted duplicate-free Initial Assessment excluding `FULL_EXAM_RESERVED`, preserving the first completed assessment as a fixed baseline while storing retakes separately.
+   - Deterministic mastery scoring with diminishing repeat exposure weight, explicit-difficulty-only scaling, `INSUFFICIENT_EVIDENCE` cap (`74%`), skip/view-only exclusion, and honest `"Not assessed"` state (never labels unassessed topics weak).
+   - Adaptive selection (`45%` weak / `25%` insufficient evidence / `20%` due retention review / `10%` maintenance), near-duplicate avoidance, immediate `checkPracticeAnswer` rationale + distractor analysis + different follow-up remediation + delayed revisit queue, and strict separation from `FULL_SIMULATION`.
+4. **Offline Student UI (`DashboardScreen.kt`, `ExamsHubScreen.kt`, `ExamSimulationScreen.kt`, `ExamResultScreen.kt`)**:
+   - Added Study Plan, Baseline vs Current Mastery, Domain/Topic confidence breakdown, Study Modes (`Initial Assessment`, `Adaptive Practice`, `Retention Review`, `Full Timed Simulation`), `Check Answer` immediate feedback card, and post-attempt Topic Breakdown & Recommendations.
+5. **Unit & Migration Tests + Perplexity Handoff Docs**:
+   - Added `AdaptiveMasteryEngineTest.kt` and `Migration4To5Test.kt` in `apps/android/app/src/testCscPart1/java/com/example/`.
+   - Added `docs/adaptive_mastery_model.md`, `docs/csc_part1_question_schema.json`, `docs/csc_part1_question_schema_for_perplexity.md`, and `docs/csc_part1_coverage_audit.md` (covering `schemaVersion` 1–2, `bankVersion`, `syllabusEdition`, `syllabusWeights`, `topicId`/`topicName`, `objectiveId`/`learningObjective`, `questionType`, `questionPool`, `nearDuplicateGroupId`, `optionAnalysis`, and fail-closed citation/type checks without inventing CSI syllabus IDs or weights).
+
+### Verification & Sync Status (Sandbox Constraints)
+- **Not Executed Locally**: JDK and Gradle are not installed in this Linux sandbox (`java` and `gradle` missing), so `:app:testCscPart1DebugUnitTest` and `:app:assembleCscPart1Debug` could **not** execute locally and remain **PENDING** GitHub Actions CI on `GnMohareb/CertMaster` branch `feature/standalone-android-offline-exams` via `.github/workflows/csc-part1-android.yml`.
+- **GitHub Sync Blocker**: Neither `gh` CLI nor GitHub credentials (`~/.ssh`, `~/.git-credentials`, `~/.netrc`, `GITHUB_TOKEN`, `GH_TOKEN`) are configured in this sandbox; non-interactive `git push origin feature/standalone-android-offline-exams` failed (`could not read Username`). Remote `origin/feature/standalone-android-offline-exams` remains at `c6cc4726f1d5f9a2660fd01d278628f2ca1af15`.
+- **Transfer Package Ready**: Updated `exports/csc-part1-transfer.json`, `exports/csc-part1-changes.patch`, `exports/csc-part1-changes.txt`, `exports/csc-part1-offline.bundle`, and `exports/csc-part1-android-complete.zip` generated from `/tmp/gh_current` relative to `c6cc4726f1d5f9a2660fd01d278628f2ca1af15`.
+- **Untouched Guardrails Verified**: `apps/web/` and `main` unmodified; no Firebase, auth, cloud sync, backend, or runtime AI dependencies added to `cscPart1`; no question bank JSON bundled in `apps/android/app/src/cscPart1/assets/`.
+

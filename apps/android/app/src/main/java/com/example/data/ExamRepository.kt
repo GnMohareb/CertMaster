@@ -3,21 +3,30 @@ package com.example.data
 import android.content.Context
 import com.example.auth.SharedAuthManager
 import com.example.data.local.ActiveExamAttemptEntity
+import com.example.data.local.AnswerEventEntity
 import com.example.data.local.CertDatabase
 import com.example.data.local.DomainScoreRecord
 import com.example.data.local.FlashcardEntity
+import com.example.data.local.QuestionExposureEntity
 import com.example.data.local.SimulationScoreEntity
 import com.example.data.local.StudyPlanEntity
 import com.example.data.local.StudySourceEntity
 import com.example.data.local.SyncQueueEntity
+import com.example.data.local.TopicMasteryEntity
 import com.example.data.local.UserProfileEntity
+import com.example.domain.AdaptivePracticeEngine
 import com.example.domain.AuthoritativeMetricsEngine
 import com.example.model.AITutorMessage
+import com.example.model.AdaptiveConfig
 import com.example.model.AudioOverview
 import com.example.model.BackendConfig
+import com.example.model.BankCoverageAudit
+import com.example.model.DomainMasterySummary
 import com.example.model.DomainPerformancePoint
 import com.example.model.DomainScore
 import com.example.model.DomainStressMetrics
+import com.example.model.EmbeddedBankLoadResult
+import com.example.model.EmbeddedBankMetadata
 import com.example.model.ExamConfig
 import com.example.model.ExamMode
 import com.example.model.ExamReadinessReport
@@ -26,12 +35,15 @@ import com.example.model.Flashcard
 import com.example.model.FlashcardStatus
 import com.example.model.JourneyMilestone
 import com.example.model.PlatformOrigin
+import com.example.model.PracticeRecommendation
 import com.example.model.Question
+import com.example.model.QuestionExposureState
 import com.example.model.SourceDoc
 import com.example.model.SourceType
 import com.example.model.SsoSessionInfo
 import com.example.model.SubStatus
 import com.example.model.SyncLogEntry
+import com.example.model.TopicMasteryState
 import com.example.model.UserCentralProfile
 import com.example.network.BackendRelayClient
 import com.example.network.CertMasterFirebaseSyncClient
@@ -62,6 +74,11 @@ class ExamRepository(
     private var sourcesCollectJob: Job? = null
     private var flashcardsCollectJob: Job? = null
     private var scoresCollectJob: Job? = null
+    private var topicMasteryCollectJob: Job? = null
+    private var exposuresCollectJob: Job? = null
+
+    val adaptiveConfig: AdaptiveConfig = AdaptiveConfig()
+    private val inMemoryAppliedEventIds = mutableSetOf<String>()
 
     // 1. Active Certification Catalog & Question Bank
     private val initialExam = if (com.example.BuildConfig.TARGET_EXAM_ID != "all") {
@@ -72,28 +89,59 @@ class ExamRepository(
     private val _currentExam = MutableStateFlow(initialExam)
     val currentExam: StateFlow<ExamConfig> = _currentExam.asStateFlow()
 
-    // CSC standalone builds must never display unrelated certification sample questions.
-    // A missing or invalid embedded bank fails closed instead of substituting CISSP.
-    private fun loadQuestions(examId: String): List<Question> =
+    private fun loadBankResult(examId: String): EmbeddedBankLoadResult =
         if (examId.startsWith("csc-part-")) {
             if (context == null) {
-                emptyList()
+                EmbeddedBankLoadResult(EmbeddedBankMetadata(examId = examId), emptyList())
             } else {
                 try {
-                    EmbeddedExamBank.load(context, examId)
+                    EmbeddedExamBank.loadWithMetadata(context, examId)
                 } catch (_: IllegalStateException) {
-                    emptyList()
+                    EmbeddedBankLoadResult(EmbeddedBankMetadata(examId = examId), emptyList())
                 }
             }
         } else {
-            DefaultQuestions.getQuestionsForExam(examId)
+            EmbeddedBankLoadResult(
+                metadata = EmbeddedBankMetadata(examId = examId),
+                questions = DefaultQuestions.getQuestionsForExam(examId)
+            )
         }
 
-    private val _questions = MutableStateFlow<List<Question>>(loadQuestions(initialExam.id))
+    private val initialBank = loadBankResult(initialExam.id)
+    private val _bankMetadata = MutableStateFlow(initialBank.metadata)
+    val bankMetadata: StateFlow<EmbeddedBankMetadata> = _bankMetadata.asStateFlow()
+
+    private val _questions = MutableStateFlow<List<Question>>(initialBank.questions)
     val questions: StateFlow<List<Question>> = _questions.asStateFlow()
 
-    internal fun setQuestionsForTesting(testQuestions: List<Question>) {
+    private val _bankCoverageAudit = MutableStateFlow(
+        EmbeddedExamBank.auditBank(initialBank.questions, initialBank.metadata)
+    )
+    val bankCoverageAudit: StateFlow<BankCoverageAudit> = _bankCoverageAudit.asStateFlow()
+
+    private val _storedTopicMastery = MutableStateFlow<Map<String, TopicMasteryState>>(emptyMap())
+    private val _topicMasteryList = MutableStateFlow<List<TopicMasteryState>>(emptyList())
+    val topicMasteryList: StateFlow<List<TopicMasteryState>> = _topicMasteryList.asStateFlow()
+
+    private val _domainMasteryList = MutableStateFlow<List<DomainMasterySummary>>(emptyList())
+    val domainMasteryList: StateFlow<List<DomainMasterySummary>> = _domainMasteryList.asStateFlow()
+
+    private val _questionExposures = MutableStateFlow<Map<String, QuestionExposureState>>(emptyMap())
+    val questionExposures: StateFlow<Map<String, QuestionExposureState>> = _questionExposures.asStateFlow()
+
+    private val _initialBaselineSession = MutableStateFlow<ExamSession?>(null)
+    val initialBaselineSession: StateFlow<ExamSession?> = _initialBaselineSession.asStateFlow()
+
+    private val _recommendations = MutableStateFlow<List<PracticeRecommendation>>(emptyList())
+    val recommendations: StateFlow<List<PracticeRecommendation>> = _recommendations.asStateFlow()
+
+    internal fun setQuestionsForTesting(
+        testQuestions: List<Question>,
+        metadata: EmbeddedBankMetadata = EmbeddedBankMetadata(examId = _currentExam.value.id)
+    ) {
+        _bankMetadata.value = metadata
         _questions.value = testQuestions
+        recomputeAdaptiveAnalytics()
         recomputeReadinessAndStudyPlan()
     }
 
@@ -195,6 +243,7 @@ class ExamRepository(
     val backendConfig: StateFlow<BackendConfig> = _backendConfig.asStateFlow()
 
     init {
+        recomputeAdaptiveAnalytics()
         bindDatabaseForExam(_currentExam.value.id)
         recomputeReadinessAndStudyPlan()
     }
@@ -259,11 +308,156 @@ class ExamRepository(
             scoresCollectJob = launch {
                 db.simulationScoreDao().getScoresByExam(canonicalExamId).collect { entities ->
                     _simulationScores.value = entities
-                    _sessions.value = entities.reversed().map { it.toExamSession() }
+                    val reversedSessions = entities.reversed().map { it.toExamSession() }
+                    _sessions.value = reversedSessions
+                    val baselineEntity = entities.firstOrNull { it.isInitialBaseline }
+                        ?: entities.firstOrNull { it.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT.name }
+                    _initialBaselineSession.value = baselineEntity?.toExamSession()
+                    recomputeAdaptiveAnalytics()
                     recomputeReadinessAndStudyPlan()
                 }
             }
+
+            // Reactively observe topic mastery states
+            topicMasteryCollectJob?.cancel()
+            topicMasteryCollectJob = launch {
+                db.adaptiveMasteryDao().observeTopicMastery(canonicalExamId).collect { entities ->
+                    _storedTopicMastery.value = entities.associate { it.topicKey to it.toDomainModel() }
+                    recomputeAdaptiveAnalytics()
+                }
+            }
+
+            // Reactively observe per-question exposure & review schedules
+            exposuresCollectJob?.cancel()
+            exposuresCollectJob = launch {
+                db.adaptiveMasteryDao().observeQuestionExposures(canonicalExamId).collect { entities ->
+                    _questionExposures.value = entities.associate { it.questionId to it.toDomainModel() }
+                    recomputeAdaptiveAnalytics()
+                }
+            }
         }
+    }
+
+    fun recomputeAdaptiveAnalytics(nowMillis: Long = System.currentTimeMillis()) {
+        val examId = ExamCatalog.normalizeExamId(_currentExam.value.id)
+        val bankQuestions = _questions.value
+        val metadata = _bankMetadata.value
+        _bankCoverageAudit.value = EmbeddedExamBank.auditBank(bankQuestions, metadata)
+
+        val allTopics = AdaptivePracticeEngine.buildAllTopicStates(
+            examId = examId,
+            questions = bankQuestions,
+            storedStates = _storedTopicMastery.value.values.toList(),
+            config = adaptiveConfig,
+            bankVersion = metadata.bankVersion
+        )
+        _topicMasteryList.value = allTopics
+
+        val domainSummaries = AdaptivePracticeEngine.aggregateDomainMastery(
+            questions = bankQuestions,
+            topicStates = allTopics,
+            nowMillis = nowMillis,
+            config = adaptiveConfig
+        )
+        _domainMasteryList.value = domainSummaries
+
+        val hasBaseline = _initialBaselineSession.value != null || _userProfile.value.assessmentCompleted
+        _recommendations.value = AdaptivePracticeEngine.buildRecommendations(
+            topicStates = allTopics,
+            domainSummaries = domainSummaries,
+            questions = bankQuestions,
+            hasCompletedBaseline = hasBaseline,
+            nowMillis = nowMillis,
+            config = adaptiveConfig
+        )
+    }
+
+    /**
+     * Records a single answered question idempotently keyed by (examId, attemptId, questionId).
+     * Resuming, saving, or reopening an attempt will never double-apply mastery evidence.
+     * Skipped questions (selectedIndex < 0) and explanation-only views do not alter mastery.
+     */
+    suspend fun recordAnswerEvidence(
+        attemptId: String,
+        question: Question,
+        selectedIndex: Int,
+        mode: ExamMode,
+        viewedExplanationOnly: Boolean = false,
+        nowMillis: Long = System.currentTimeMillis()
+    ): TopicMasteryState? {
+        val canonicalExamId = ExamCatalog.normalizeExamId(_currentExam.value.id)
+        val safeAttemptId = attemptId.ifBlank { "session_${nowMillis}" }
+        val eventId = "${canonicalExamId}::${safeAttemptId}::${question.id}"
+        val topicMeta = AdaptivePracticeEngine.resolveTopic(question)
+        val wasSkipped = selectedIndex < 0
+        val isCorrect = !wasSkipped && selectedIndex == question.correctIndex
+
+        val db = database
+        val isNewEvent = if (db != null) {
+            val insertedRow = db.adaptiveMasteryDao().insertAnswerEventIfNew(
+                AnswerEventEntity(
+                    eventId = eventId,
+                    examId = canonicalExamId,
+                    attemptId = safeAttemptId,
+                    questionId = question.id,
+                    domainId = question.domainId,
+                    topicKey = topicMeta.topicKey,
+                    topicName = topicMeta.topicName,
+                    selectedIndex = selectedIndex,
+                    isCorrect = isCorrect,
+                    wasSkipped = wasSkipped,
+                    viewedExplanationOnly = viewedExplanationOnly,
+                    attemptMode = mode.name,
+                    difficulty = question.difficulty.name,
+                    answeredAtMillis = nowMillis,
+                    appliedToMastery = !wasSkipped && !viewedExplanationOnly
+                )
+            )
+            insertedRow != -1L
+        } else {
+            inMemoryAppliedEventIds.add(eventId)
+        }
+
+        if (!isNewEvent) {
+            return _storedTopicMastery.value[topicMeta.topicKey]
+        }
+
+        val currentTopic = _storedTopicMastery.value[topicMeta.topicKey]
+        val currentExposure = _questionExposures.value[question.id]
+        val nextOrder = ((db?.adaptiveMasteryDao()?.getMaxGlobalOrder(canonicalExamId) ?: 0L)
+            .coerceAtLeast(_questionExposures.value.values.maxOfOrNull { it.lastGlobalOrder } ?: 0L)) + 1L
+
+        val update = AdaptivePracticeEngine.applyAnswerToMastery(
+            existingTopic = currentTopic,
+            existingExposure = currentExposure,
+            question = question,
+            isCorrect = isCorrect,
+            wasSkipped = wasSkipped,
+            viewedExplanationOnly = viewedExplanationOnly,
+            nowMillis = nowMillis,
+            globalOrder = nextOrder,
+            bankVersion = _bankMetadata.value.bankVersion,
+            config = adaptiveConfig
+        )
+
+        if (update.applied) {
+            val normalizedTopic = update.topicState.copy(examId = canonicalExamId)
+            val normalizedExposure = update.exposureState.copy(examId = canonicalExamId)
+            _storedTopicMastery.value = _storedTopicMastery.value + (normalizedTopic.topicKey to normalizedTopic)
+            _questionExposures.value = _questionExposures.value + (normalizedExposure.questionId to normalizedExposure)
+
+            if (db != null) {
+                db.adaptiveMasteryDao().upsertTopicMastery(
+                    TopicMasteryEntity.fromDomainModel(normalizedTopic, nowMillis)
+                )
+                db.adaptiveMasteryDao().upsertQuestionExposure(
+                    QuestionExposureEntity.fromDomainModel(normalizedExposure)
+                )
+            }
+            recomputeAdaptiveAnalytics(nowMillis)
+            return normalizedTopic
+        }
+        return currentTopic
     }
 
     /**
@@ -343,13 +537,19 @@ class ExamRepository(
         if (standaloneCsc && examId != initialExam.id) return
         val exam = ExamCatalog.getExamById(examId)
         _currentExam.value = exam
-        _questions.value = loadQuestions(exam.id)
+        val bank = loadBankResult(exam.id)
+        _bankMetadata.value = bank.metadata
+        _questions.value = bank.questions
         _sources.value = if (exam.id == "cissp") DefaultNotebookSources.CISSP_SOURCES else emptyList()
         _flashcards.value = if (exam.id == "cissp") DefaultNotebookSources.CISSP_FLASHCARDS else emptyList()
         _audioOverviews.value = if (exam.id == "cissp") DefaultNotebookSources.AUDIO_OVERVIEWS else emptyList()
         _simulationScores.value = emptyList()
+        _storedTopicMastery.value = emptyMap()
+        _questionExposures.value = emptyMap()
+        _initialBaselineSession.value = null
         _backendConfig.value = _backendConfig.value.copy(activeExamId = exam.id)
         bindDatabaseForExam(exam.id)
+        recomputeAdaptiveAnalytics()
         recomputeReadinessAndStudyPlan()
     }
 
@@ -416,40 +616,76 @@ class ExamRepository(
         return _savedActiveAttempt.value?.takeIf { ExamCatalog.matchesExamId(it.examId, canonicalExamId) }
     }
 
-    fun recordSession(session: ExamSession, optionSwitchCount: Int = 2) {
-        _sessions.value = listOf(session) + _sessions.value.filterNot { it.sessionId == session.sessionId }
+    fun recordSession(
+        session: ExamSession,
+        optionSwitchCount: Int = 2,
+        sessionQuestions: List<Question> = emptyList(),
+        attemptId: String = session.sessionId
+    ) {
+        val isFirstBaseline = session.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT &&
+            _initialBaselineSession.value == null &&
+            _simulationScores.value.none {
+                it.isInitialBaseline || it.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT.name
+            }
+
+        val resolvedQuestions = if (sessionQuestions.isNotEmpty()) {
+            sessionQuestions
+        } else {
+            val byId = _questions.value.associateBy { it.id }
+            session.questionIds.mapNotNull { byId[it] }
+        }
+        val topicScores = AdaptivePracticeEngine.buildTopicScoresFromSession(
+            questions = resolvedQuestions,
+            userAnswers = session.userAnswers,
+            config = adaptiveConfig
+        )
+        val enrichedSession = session.copy(
+            isInitialBaseline = isFirstBaseline || session.isInitialBaseline,
+            modelVersion = adaptiveConfig.modelVersion,
+            bankVersion = _bankMetadata.value.bankVersion,
+            topicScoresJson = SimulationScoreEntity.encodeTopicScoresJson(topicScores),
+            coverageSummary = session.coverageSummary.ifBlank { _bankCoverageAudit.value.coverageDescription }
+        )
+
+        if (enrichedSession.isInitialBaseline && _initialBaselineSession.value == null) {
+            _initialBaselineSession.value = enrichedSession
+        }
+
+        _sessions.value = listOf(enrichedSession) + _sessions.value.filterNot { it.sessionId == enrichedSession.sessionId }
         val attemptNo = (_simulationScores.value.maxOfOrNull { it.attemptNumber } ?: 0) + 1
-        val entity = SimulationScoreEntity.fromSession(session, attemptNo, optionSwitchCount)
+        val entity = SimulationScoreEntity.fromSession(enrichedSession, attemptNo, optionSwitchCount)
         _simulationScores.value = (_simulationScores.value.filterNot { it.id == entity.id } + entity)
             .sortedBy { it.timestampMillis }
-        clearActiveAttempt(session.examId)
+        clearActiveAttempt(enrichedSession.examId)
 
         // Calculate authoritative simulation stress score matching Web SimulatorScreen.tsx
         val simStress = AuthoritativeMetricsEngine.calculateSimulationBehavioralStress(
             totalSwitches = optionSwitchCount,
-            passed = session.isPassed
+            passed = enrichedSession.isPassed
         )
-        val totalElims = session.struckOptions.values.sumOf { it.size }
-        val avgLatency = if (session.totalQuestions > 0) {
-            (session.durationSeconds / session.totalQuestions).coerceAtLeast(1)
+        val totalElims = enrichedSession.struckOptions.values.sumOf { it.size }
+        val avgLatency = if (enrichedSession.totalQuestions > 0) {
+            (enrichedSession.durationSeconds / enrichedSession.totalQuestions).coerceAtLeast(1)
         } else {
             45
         }
 
-        // If this was an Initial Behavioral Assessment, also update behavioral archetype using authoritative engine
-        if (session.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT) {
-            recalibrateAssessmentWithTelemetry(
-                scorePct = session.scorePercent,
-                avgLatencySec = avgLatency,
-                totalSwitches = optionSwitchCount,
-                totalEliminations = totalElims,
-                totalQuestions = session.totalQuestions
-            )
+        // Preserve original Initial Assessment telemetry baseline; retakes create separate historical entries
+        if (enrichedSession.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT) {
+            if (enrichedSession.isInitialBaseline || !_userProfile.value.assessmentCompleted) {
+                recalibrateAssessmentWithTelemetry(
+                    scorePct = enrichedSession.scorePercent,
+                    avgLatencySec = avgLatency,
+                    totalSwitches = optionSwitchCount,
+                    totalEliminations = totalElims,
+                    totalQuestions = enrichedSession.totalQuestions
+                )
+            }
         } else {
             val current = _userProfile.value
             val updatedProfile = current.copy(
                 completedSimulationsCount = maxOf(current.completedSimulationsCount + 1, _simulationScores.value.size),
-                highestSimulationScore = maxOf(current.highestSimulationScore, session.scorePercent),
+                highestSimulationScore = maxOf(current.highestSimulationScore, enrichedSession.scorePercent),
                 cognitiveStressBaseline = simStress,
                 lastSyncTimestampMillis = System.currentTimeMillis()
             )
@@ -458,9 +694,42 @@ class ExamRepository(
         }
 
         val db = database
-        if (db != null) {
-            repositoryScope.launch {
-                db.simulationScoreDao().insertScore(entity)
+        repositoryScope.launch {
+            db?.simulationScoreDao()?.insertScore(entity)
+
+            // Idempotently apply any answered questions not yet recorded during the session
+            resolvedQuestions.forEachIndexed { idx, q ->
+                val chosen = enrichedSession.userAnswers[idx]
+                if (chosen != null) {
+                    recordAnswerEvidence(
+                        attemptId = attemptId,
+                        question = q,
+                        selectedIndex = chosen,
+                        mode = enrichedSession.mode,
+                        nowMillis = enrichedSession.completedTimeMillis
+                    )
+                }
+            }
+
+            // Lock in fixed per-topic baseline scores only on the very first Initial Assessment
+            if (enrichedSession.isInitialBaseline && topicScores.isNotEmpty()) {
+                val canonicalExamId = ExamCatalog.normalizeExamId(enrichedSession.examId)
+                val updatedMap = _storedTopicMastery.value.toMutableMap()
+                topicScores.forEach { tScore ->
+                    val existing = updatedMap[tScore.topicKey]
+                    if (existing != null && existing.baselineScorePercent == null) {
+                        val withBaseline = existing.copy(
+                            baselineScorePercent = tScore.percentage,
+                            baselineAttemptCount = tScore.totalCount
+                        )
+                        updatedMap[tScore.topicKey] = withBaseline
+                        db?.adaptiveMasteryDao()?.upsertTopicMastery(
+                            TopicMasteryEntity.fromDomainModel(withBaseline, enrichedSession.completedTimeMillis)
+                        )
+                    }
+                }
+                _storedTopicMastery.value = updatedMap
+                recomputeAdaptiveAnalytics(enrichedSession.completedTimeMillis)
             }
         }
 

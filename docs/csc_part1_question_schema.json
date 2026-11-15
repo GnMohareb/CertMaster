@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://certmaster.local/schemas/csc-part-1-question-bank-v2.json",
+  "title": "CertMaster CSC Part 1 Embedded Question Bank Schema v2",
+  "description": "Canonical JSON schema accepted by com.example.data.EmbeddedExamBank.parseWithMetadata for offline standalone CSC Part 1 APK builds.",
+  "type": "object",
+  "required": ["schemaVersion", "examId", "questions"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [1, 2],
+      "description": "Schema version supported by EmbeddedExamBank (use 2 for new banks)."
+    },
+    "examId": {
+      "type": "string",
+      "const": "csc-part-1",
+      "description": "Must match BuildConfig.TARGET_EXAM_ID ('csc-part-1'). Loader fails closed on mismatch."
+    },
+    "bankVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Semantic or date-based version identifier persisted with session and mastery records (e.g. '2026.1')."
+    },
+    "syllabusEdition": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Authoritative CSI CSC Volume 1 curriculum/textbook edition string verified by the content author (do not invent)."
+    },
+    "syllabusWeights": {
+      "type": "object",
+      "description": "Optional verified CSI domain exam weights keyed by verified domainId. Positive integers summing to ~100.",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "domainId",
+          "domainName",
+          "questionText",
+          "options",
+          "correctIndex",
+          "explanation",
+          "citation"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Globally unique, stable ID within csc-part-1 (never reuse or mutate across bank revisions)."
+          },
+          "domainId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Authoritative CSC Volume 1 domain identifier (must match verified syllabus domain ID; not pre-populated in ExamCatalog)."
+          },
+          "domainName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable CSC Volume 1 domain title matching domainId."
+          },
+          "topicId": {
+            "type": "string",
+            "description": "Canonical topic identifier inside domainId. Recommended required for v2; unmapped items fall back to unmapped:<domainId>."
+          },
+          "topicName": {
+            "type": "string",
+            "description": "Human-readable topic title matching topicId. Recommended required for v2."
+          },
+          "objectiveId": {
+            "type": "string",
+            "description": "Authoritative CSC Volume 1 learning objective identifier (optional; used for same-objective remediation matching when present)."
+          },
+          "learningObjective": {
+            "type": "string",
+            "description": "Human-readable syllabus learning objective text tested by this item."
+          },
+          "questionType": {
+            "type": "string",
+            "enum": ["MULTIPLE_CHOICE", "SCENARIO_MCQ", "CALCULATION_MCQ"],
+            "default": "MULTIPLE_CHOICE",
+            "description": "Single-best-answer question format accepted by EmbeddedExamBank.parseWithMetadata."
+          },
+          "questionPool": {
+            "type": "string",
+            "enum": ["GENERAL", "PRACTICE", "ASSESSMENT", "FULL_EXAM_RESERVED"],
+            "default": "GENERAL",
+            "description": "Controls pool eligibility. FULL_EXAM_RESERVED is excluded from Initial Assessment and Adaptive Practice."
+          },
+          "nearDuplicateGroupId": {
+            "type": "string",
+            "description": "Shared group ID for items testing the exact same stem/concept variant so the engine avoids back-to-back near-duplicates."
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": ["EASY", "MEDIUM", "HARD"],
+            "description": "Explicit difficulty label; omit when uncalibrated (engine uses neutral weight when omitted)."
+          },
+          "questionText": {
+            "type": "string",
+            "minLength": 1
+          },
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "correctIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based index into options array (0 <= correctIndex < options.length)."
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Comprehensive rationale explaining why the correct answer is right."
+          },
+          "optionAnalysis": {
+            "type": "object",
+            "description": "Per-option rationale keyed by zero-based index ('0','1','2','3') or option letter ('A','B','C','D'). Shown immediately in adaptive practice.",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "citation": {
+            "type": "object",
+            "required": ["title", "sectionOrPage", "standardOrFramework"],
+            "properties": {
+              "title": { "type": "string", "minLength": 1 },
+              "sectionOrPage": { "type": "string", "minLength": 1 },
+              "standardOrFramework": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

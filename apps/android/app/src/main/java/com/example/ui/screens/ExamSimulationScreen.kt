@@ -83,7 +83,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.domain.AdaptivePracticeEngine
 import com.example.model.ExamMode
+import com.example.model.PracticeAnswerFeedback
 import com.example.model.Question
 import com.example.ui.ExamViewModel
 import com.example.ui.theme.AccentBlue
@@ -111,6 +113,11 @@ fun ExamSimulationScreen(
     val remainingSeconds by viewModel.remainingSeconds.collectAsState()
     val isTimerPaused by viewModel.isTimerPaused.collectAsState()
     val activeMode by viewModel.activeMode.collectAsState()
+    val checkedIndices by viewModel.checkedQuestionIndices.collectAsState()
+    val practiceFeedback by viewModel.currentPracticeFeedback.collectAsState()
+    val selectionReasons by viewModel.selectionReasons.collectAsState()
+    val exhaustionNotice by viewModel.practiceExhaustionNotice.collectAsState()
+    val isAdaptivePractice = AdaptivePracticeEngine.isAdaptivePracticeMode(activeMode)
 
     var showQuestionGridSheet by remember { mutableStateOf(false) }
     var showConfirmFinishDialog by remember { mutableStateOf(false) }
@@ -481,14 +488,26 @@ fun ExamSimulationScreen(
             val activeQuestion = questions.getOrNull(targetIndex) ?: currentQ
             val activeSelectedOption = userAnswers[targetIndex]
             val activeStruck = struckOptionsMap[targetIndex] ?: emptySet()
+            val isChecked = isAdaptivePractice && checkedIndices.contains(targetIndex)
+            val feedbackForCard = if (isChecked && practiceFeedback?.questionIndex == targetIndex) {
+                practiceFeedback
+            } else {
+                null
+            }
 
             QuestionCardContent(
                 question = activeQuestion,
                 questionIndex = targetIndex,
                 selectedOptionIndex = activeSelectedOption,
                 struckOptions = activeStruck,
+                isAdaptivePractice = isAdaptivePractice,
+                isChecked = isChecked,
+                selectionReason = selectionReasons[activeQuestion.id],
+                exhaustionNotice = if (targetIndex == 0) exhaustionNotice else null,
+                practiceFeedback = feedbackForCard,
                 onSelectOption = { optIdx -> viewModel.selectOption(targetIndex, optIdx) },
-                onToggleStrike = { optIdx -> viewModel.toggleStrikeOption(targetIndex, optIdx) }
+                onToggleStrike = { optIdx -> viewModel.toggleStrikeOption(targetIndex, optIdx) },
+                onCheckAnswer = { viewModel.checkPracticeAnswer(targetIndex) }
             )
         }
 
@@ -1023,16 +1042,58 @@ private fun QuestionCardContent(
     questionIndex: Int,
     selectedOptionIndex: Int?,
     struckOptions: Set<Int>,
+    isAdaptivePractice: Boolean,
+    isChecked: Boolean,
+    selectionReason: String?,
+    exhaustionNotice: String?,
+    practiceFeedback: PracticeAnswerFeedback?,
     onSelectOption: (Int) -> Unit,
     onToggleStrike: (Int) -> Unit,
+    onCheckAnswer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val resolvedTopic = AdaptivePracticeEngine.resolveTopic(question)
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (!exhaustionNotice.isNullOrBlank()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().testTag("practice_exhaustion_notice"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(containerColor = WarningAmber.copy(alpha = 0.12f))
+                ) {
+                    Text(
+                        text = exhaustionNotice,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
+        }
+
+        if (isAdaptivePractice && !selectionReason.isNullOrBlank()) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AccentBlue.copy(alpha = 0.12f),
+                    modifier = Modifier.testTag("selection_reason_chip")
+                ) {
+                    Text(
+                        text = selectionReason,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AccentBlue,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
+        }
+
         // Domain & Difficulty Header Tag
         item {
             Row(
@@ -1044,8 +1105,7 @@ private fun QuestionCardContent(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                    Column(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
@@ -1054,20 +1114,29 @@ private fun QuestionCardContent(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
+                        if (resolvedTopic.hasExplicitMapping) {
+                            Text(
+                                text = resolvedTopic.topicName,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
                     }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Text(
-                        text = question.difficulty.name,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                if (question.difficultyExplicit) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Text(
+                            text = question.difficulty.name,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1120,15 +1189,20 @@ private fun QuestionCardContent(
             val optionText = question.options[optIndex]
             val isSelected = selectedOptionIndex == optIndex
             val isStruck = struckOptions.contains(optIndex)
+            val isCorrectOpt = optIndex == question.correctIndex
             val optionLetter = ('A'.code + optIndex).toChar().toString()
 
             val optionBorderColor = when {
+                isChecked && isCorrectOpt -> SuccessGreen
+                isChecked && isSelected && !isCorrectOpt -> ErrorRed
                 isSelected -> MaterialTheme.colorScheme.primary
                 isStruck -> MaterialTheme.colorScheme.surfaceVariant
                 else -> MaterialTheme.colorScheme.outlineVariant
             }
 
             val optionBgColor = when {
+                isChecked && isCorrectOpt -> SuccessGreen.copy(alpha = 0.14f)
+                isChecked && isSelected && !isCorrectOpt -> ErrorRed.copy(alpha = 0.12f)
                 isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                 isStruck -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
                 else -> MaterialTheme.colorScheme.surface
@@ -1139,11 +1213,11 @@ private fun QuestionCardContent(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
                     .border(
-                        width = if (isSelected) 2.dp else 1.dp,
+                        width = if (isSelected || (isChecked && isCorrectOpt)) 2.dp else 1.dp,
                         color = optionBorderColor,
                         shape = RoundedCornerShape(14.dp)
                     )
-                    .clickable {
+                    .clickable(enabled = !isChecked) {
                         if (!isStruck) {
                             onSelectOption(optIndex)
                         }
@@ -1161,7 +1235,12 @@ private fun QuestionCardContent(
                     // Option Letter Badge (A, B, C, D)
                     Surface(
                         shape = CircleShape,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        color = when {
+                            isChecked && isCorrectOpt -> SuccessGreen
+                            isChecked && isSelected && !isCorrectOpt -> ErrorRed
+                            isSelected -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        },
                         modifier = Modifier.size(28.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -1169,7 +1248,7 @@ private fun QuestionCardContent(
                                 text = optionLetter,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (isSelected || (isChecked && isCorrectOpt)) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -1180,12 +1259,16 @@ private fun QuestionCardContent(
                     RadioButton(
                         selected = isSelected,
                         onClick = {
-                            if (!isStruck) onSelectOption(optIndex)
+                            if (!isChecked && !isStruck) onSelectOption(optIndex)
                         },
                         colors = RadioButtonDefaults.colors(
-                            selectedColor = MaterialTheme.colorScheme.primary
+                            selectedColor = when {
+                                isChecked && isCorrectOpt -> SuccessGreen
+                                isChecked && !isCorrectOpt -> ErrorRed
+                                else -> MaterialTheme.colorScheme.primary
+                            }
                         ),
-                        enabled = !isStruck
+                        enabled = !isChecked && !isStruck
                     )
 
                     Spacer(modifier = Modifier.width(6.dp))
@@ -1202,7 +1285,7 @@ private fun QuestionCardContent(
 
                     // Distractor Elimination Button (Strike-through)
                     IconButton(
-                        onClick = { onToggleStrike(optIndex) },
+                        onClick = { if (!isChecked) onToggleStrike(optIndex) },
                         modifier = Modifier
                             .size(40.dp)
                             .testTag("strike_option_$optIndex")
@@ -1218,7 +1301,102 @@ private fun QuestionCardContent(
             }
         }
 
-        // NotebookLM Source Citation Card
+        // Immediate Practice Check Button (only in adaptive practice modes, hidden in strict exams)
+        if (isAdaptivePractice && selectedOptionIndex != null && !isChecked) {
+            item {
+                Button(
+                    onClick = onCheckAnswer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .testTag("btn_check_answer"),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Check Answer", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
+        }
+
+        // Immediate Feedback & Distractor Analysis Card (only after Check Answer in adaptive practice)
+        if (isAdaptivePractice && isChecked && practiceFeedback != null) {
+            item {
+                val feedbackColor = if (practiceFeedback.isCorrect) SuccessGreen else ErrorRed
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("practice_feedback_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = feedbackColor.copy(alpha = 0.08f)),
+                    border = BorderStroke(1.dp, feedbackColor.copy(alpha = 0.45f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (practiceFeedback.isCorrect) Icons.Default.Check else Icons.Default.Close,
+                                contentDescription = null,
+                                tint = feedbackColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (practiceFeedback.isCorrect) "Correct Answer" else "Incorrect — Review Rationale",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = feedbackColor
+                            )
+                        }
+
+                        if (!practiceFeedback.isCorrect && !practiceFeedback.selectedOptionAnalysis.isNullOrBlank()) {
+                            Text(
+                                text = "Why your choice was incorrect: ${practiceFeedback.selectedOptionAnalysis}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Text(
+                            text = practiceFeedback.explanation,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 19.sp
+                        )
+
+                        if (practiceFeedback.learningObjective.isNotBlank()) {
+                            Text(
+                                text = "Learning Objective: ${practiceFeedback.learningObjective}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (!practiceFeedback.remediationNotice.isNullOrBlank()) {
+                            Text(
+                                text = practiceFeedback.remediationNotice,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentBlue
+                            )
+                        }
+
+                        practiceFeedback.updatedTopicMastery?.let { tState ->
+                            Text(
+                                text = "Updated Topic Mastery (${tState.topicName}): ${tState.masteryPercent}% • ${tState.confidence.displayLabel()}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Authoritative Source Citation Card
         item {
             Card(
                 modifier = Modifier

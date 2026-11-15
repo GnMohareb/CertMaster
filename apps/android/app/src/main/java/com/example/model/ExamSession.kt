@@ -6,7 +6,8 @@ enum class ExamMode {
     AI_ADAPTIVE_DRILL,
     AI_STRESS_STUDY,
     FLASHCARDS,
-    INITIAL_BEHAVIORAL_ASSESSMENT
+    INITIAL_BEHAVIORAL_ASSESSMENT,
+    RETENTION_REVIEW
 }
 
 data class DomainScore(
@@ -31,5 +32,10 @@ data class ExamSession(
     val scorePercent: Int,
     val isPassed: Boolean,
     val domainScores: List<DomainScore>,
-    val questionIds: List<String> = emptyList()
+    val questionIds: List<String> = emptyList(),
+    val isInitialBaseline: Boolean = false,
+    val modelVersion: String = "offline-mastery-v1",
+    val bankVersion: String = "1",
+    val topicScoresJson: String = "[]",
+    val coverageSummary: String = ""
 )

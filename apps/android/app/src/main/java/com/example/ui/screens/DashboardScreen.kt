@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.model.EvidenceConfidence
 import com.example.model.ExamMode
 import com.example.model.StressLevel
 import com.example.model.SubStatus
@@ -95,6 +96,11 @@ fun DashboardScreen(
     val readinessReport by viewModel.readinessReport.collectAsState()
     val stressMetrics by viewModel.domainStressMetrics.collectAsState()
     val highestStress by viewModel.highestStressDomain.collectAsState()
+    val topicMasteryList by viewModel.topicMasteryList.collectAsState()
+    val domainMasteryList by viewModel.domainMasteryList.collectAsState()
+    val initialBaselineSession by viewModel.initialBaselineSession.collectAsState()
+    val recommendations by viewModel.recommendations.collectAsState()
+    val bankCoverageAudit by viewModel.bankCoverageAudit.collectAsState()
 
     // 0: Score Trajectory & Line Chart, 1: Readiness & Domain Mastery, 2: User Behavior & Stress Telemetry
     var dashboardTab by remember { mutableIntStateOf(0) }
@@ -381,6 +387,15 @@ fun DashboardScreen(
 
                     // Standalone CSC offline practice section (adapts cleanly once questions are installed).
                     if (isOfflineCsc) item {
+                        val assessedTopics = topicMasteryList.filter { it.isAssessed }
+                        val currentMasteryAvg = if (assessedTopics.isNotEmpty()) {
+                            assessedTopics.map { it.masteryPercent }.average().toInt()
+                        } else null
+                        val topRec = recommendations.firstOrNull()
+                        val dueCount = topicMasteryList.count {
+                            it.isAssessed && it.nextReviewDueAtMillis in 1L..System.currentTimeMillis()
+                        }
+
                         Card(
                             modifier = Modifier.fillMaxWidth().testTag("card_offline_exam_status"),
                             shape = RoundedCornerShape(16.dp),
@@ -389,40 +404,123 @@ fun DashboardScreen(
                             )
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "${currentExam.shortCode} Offline Practice",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${currentExam.shortCode} Study Plan",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                    if (dueCount > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(WarningAmber.copy(alpha = 0.15f))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Text(
+                                                text = "$dueCount DUE REVIEW",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = WarningAmber
+                                            )
+                                        }
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 if (questions.isNotEmpty()) {
                                     Text(
-                                        text = "${questions.size} offline questions installed • ${currentExam.durationMinutes} min timed simulation • Pass mark ${currentExam.passingScorePercent}%.",
+                                        text = "${questions.size} offline questions • ${bankCoverageAudit.domainsCount} domains • Pass mark ${currentExam.passingScorePercent}%.",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                    if (initialBaselineSession != null || currentMasteryAvg != null) {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        val baselinePart = initialBaselineSession?.let { "Initial Baseline: ${it.scorePercent}%" } ?: "Initial Baseline: Not taken"
+                                        val masteryPart = currentMasteryAvg?.let { "Current Mastery: $it%" } ?: "Practice Mastery: Not assessed"
+                                        Text(
+                                            text = "$baselinePart • $masteryPart",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    if (topRec != null) {
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("card_top_recommendation"),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                        ) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Text(
+                                                    text = "Recommended Next: ${topRec.title}",
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = topRec.reason,
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.startSimulation(
+                                                            mode = topRec.mode,
+                                                            domainFilterId = topRec.targetDomainId,
+                                                            topicFilterKey = topRec.targetTopicKey
+                                                        )
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth().testTag("btn_recommended_practice"),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                                ) {
+                                                    Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(topRec.title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Button(
-                                            onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
-                                            modifier = Modifier.weight(1f).testTag("btn_offline_exam"),
-                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                        OutlinedButton(
+                                            onClick = { viewModel.startSimulation(ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT) },
+                                            modifier = Modifier.weight(1f).testTag("btn_initial_assessment")
                                         ) {
-                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Timed Simulation", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                if (initialBaselineSession == null) "Initial Assessment" else "Retake Check",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1
+                                            )
                                         }
                                         OutlinedButton(
-                                            onClick = { viewModel.startSimulation(ExamMode.DOMAIN_PRACTICE) },
-                                            modifier = Modifier.weight(1f)
+                                            onClick = { viewModel.startAdaptivePractice() },
+                                            modifier = Modifier.weight(1f).testTag("btn_adaptive_practice")
                                         ) {
-                                            Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Quick Sprint", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text("Adaptive Drill", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                                         }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(
+                                        onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
+                                        modifier = Modifier.fillMaxWidth().testTag("btn_offline_exam"),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Slate800)
+                                    ) {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Full Timed Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                 } else {
                                     Text(
@@ -440,7 +538,7 @@ fun DashboardScreen(
                                             modifier = Modifier.weight(1f).testTag("btn_offline_exam"),
                                             enabled = false
                                         ) {
-                                            Text("Bank Not Installed", fontSize = 12.sp)
+                                            Text("Questions Not Installed", fontSize = 12.sp)
                                         }
                                         OutlinedButton(
                                             onClick = { viewModel.navigateTo(AppScreen.NOTEBOOK_SOURCES) },
@@ -742,17 +840,138 @@ fun DashboardScreen(
                         }
                     }
 
-                    // Domain Mastery Breakdown
+                    // Domain & Topic Mastery Breakdown
                     item {
                         Text(
-                            text = "Subject Performance & Accuracy",
+                            text = if (isOfflineCsc) "Domain & Topic Mastery" else "Subject Performance & Accuracy",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                     }
 
-                    if (effectiveDomains.isEmpty()) {
+                    if (isOfflineCsc && domainMasteryList.isNotEmpty()) {
+                        items(domainMasteryList) { dSummary ->
+                            val isAssessed = dSummary.isAssessed
+                            val barColor = when {
+                                !isAssessed -> Slate400
+                                dSummary.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> WarningAmber
+                                dSummary.masteryPercent >= currentExam.passingScorePercent -> SuccessGreen
+                                else -> ErrorRed
+                            }
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.startAdaptivePractice(domainFilterId = dSummary.domainId)
+                                    },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(1.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(dSummary.domainName, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            val subtitle = buildString {
+                                                append(dSummary.confidence.displayLabel())
+                                                if (isAssessed) {
+                                                    append(" • ${dSummary.correctCount}/${dSummary.attemptCount} correct")
+                                                }
+                                                dSummary.baselineScorePercent?.let {
+                                                    append(" • Baseline: $it%")
+                                                }
+                                            }
+                                            Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Text(
+                                            text = if (!isAssessed) "Not assessed" else "${dSummary.masteryPercent}%",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = if (!isAssessed) 11.sp else 14.sp,
+                                            color = barColor
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { if (isAssessed) (dSummary.masteryPercent / 100f).coerceIn(0f, 1f) else 0f },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = barColor,
+                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        if (topicMasteryList.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Topic Mastery & Practice Targets",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                            items(topicMasteryList) { topic ->
+                                val tColor = when {
+                                    !topic.isAssessed -> Slate400
+                                    topic.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> WarningAmber
+                                    topic.masteryPercent >= 80 -> SuccessGreen
+                                    topic.masteryPercent < 65 -> ErrorRed
+                                    else -> AccentBlue
+                                }
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.startAdaptivePractice(topicFilterKey = topic.topicKey)
+                                        },
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    elevation = CardDefaults.cardElevation(1.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(topic.topicName, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                            Text(
+                                                text = if (!topic.isAssessed) {
+                                                    "${topic.domainName} • Not assessed"
+                                                } else {
+                                                    val baseText = topic.baselineScorePercent?.let { " • Baseline $it%" } ?: ""
+                                                    "${topic.confidence.displayLabel()} • ${topic.correctCount}/${topic.attemptCount} (${topic.uniqueQuestionCount} unique)$baseText"
+                                                },
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(tColor.copy(alpha = 0.14f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (!topic.isAssessed) "Practice" else "${topic.masteryPercent}%",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = tColor
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if (effectiveDomains.isEmpty()) {
                         item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -767,46 +986,46 @@ fun DashboardScreen(
                                 )
                             }
                         }
-                    }
+                    } else {
+                        items(effectiveDomains) { domain ->
+                            val recordedPct = domainPerformanceMap[domain.id]
+                            val scorePct = recordedPct ?: if (isOfflineCsc) 0 else 75
+                            val isPassing = recordedPct != null && scorePct >= currentExam.passingScorePercent || (!isOfflineCsc && scorePct >= currentExam.passingScorePercent)
 
-                    items(effectiveDomains) { domain ->
-                        val recordedPct = domainPerformanceMap[domain.id]
-                        val scorePct = recordedPct ?: if (isOfflineCsc) 0 else 75
-                        val isPassing = recordedPct != null && scorePct >= currentExam.passingScorePercent || (!isOfflineCsc && scorePct >= currentExam.passingScorePercent)
-
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(1.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Domain ${domain.number}: ${domain.title}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text("Weight: ${domain.weightPercent}% of Exam", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(1.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Domain ${domain.number}: ${domain.title}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Text("Weight: ${domain.weightPercent}% of Exam", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Text(
+                                            text = if (isOfflineCsc && recordedPct == null) "Not assessed" else "$scorePct%",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = if (isOfflineCsc && recordedPct == null) 11.sp else 14.sp,
+                                            color = if (isOfflineCsc && recordedPct == null) Slate400 else if (isPassing) SuccessGreen else WarningAmber
+                                        )
                                     }
-                                    Text(
-                                        text = if (isOfflineCsc && recordedPct == null) "Not attempted" else "$scorePct%",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = if (isOfflineCsc && recordedPct == null) 11.sp else 14.sp,
-                                        color = if (isOfflineCsc && recordedPct == null) Slate400 else if (isPassing) SuccessGreen else WarningAmber
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { (scorePct / 100f).coerceIn(0f, 1f) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = if (isPassing) SuccessGreen else WarningAmber,
+                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                LinearProgressIndicator(
-                                    progress = { (scorePct / 100f).coerceIn(0f, 1f) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp)),
-                                    color = if (isPassing) SuccessGreen else WarningAmber,
-                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                )
                             }
                         }
                     }

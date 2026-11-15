@@ -21,12 +21,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Timer
@@ -49,15 +46,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.model.EvidenceConfidence
 import com.example.model.ExamMode
 import com.example.ui.AppScreen
 import com.example.ui.ExamViewModel
 import com.example.ui.theme.AccentBlue
 import com.example.ui.theme.AccentCyan
 import com.example.ui.theme.ErrorRed
-import com.example.ui.theme.GoldMastery
 import com.example.ui.theme.Slate400
-import com.example.ui.theme.Slate600
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarningAmber
 
@@ -70,6 +66,12 @@ fun ExamsHubScreen(
     val questions by viewModel.questions.collectAsState()
     val sessions by viewModel.sessions.collectAsState()
     val savedActiveAttempt by viewModel.savedActiveAttempt.collectAsState()
+    val topicMasteryList by viewModel.topicMasteryList.collectAsState()
+    val domainMasteryList by viewModel.domainMasteryList.collectAsState()
+    val initialBaselineSession by viewModel.initialBaselineSession.collectAsState()
+    val recommendations by viewModel.recommendations.collectAsState()
+    val bankCoverageAudit by viewModel.bankCoverageAudit.collectAsState()
+
     val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") ||
         currentExam.id.startsWith("csc-part-")
     val effectiveDomains = if (currentExam.domains.isNotEmpty()) {
@@ -77,6 +79,14 @@ fun ExamsHubScreen(
     } else {
         com.example.data.ExamCatalog.deriveDomainsFromQuestions(questions)
     }
+    val domainMasteryById = domainMasteryList.associateBy { it.domainId }
+    val nowMillis = System.currentTimeMillis()
+    val dueTopicsCount = topicMasteryList.count {
+        it.isAssessed && it.nextReviewDueAtMillis in 1L..nowMillis
+    }
+    val topAdaptiveRec = recommendations.firstOrNull {
+        it.mode == ExamMode.AI_ADAPTIVE_DRILL || it.mode == ExamMode.RETENTION_REVIEW
+    } ?: recommendations.firstOrNull()
 
     BackHandler {
         viewModel.navigateTo(AppScreen.DASHBOARD)
@@ -178,7 +188,7 @@ fun ExamsHubScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Resume Saved Simulation", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AccentBlue)
+                            Text("Resume Saved Session", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AccentBlue)
                             Text(
                                 text = "Q ${active.currentIndex + 1}/$qTotal • ${String.format("%02d:%02d", minsLeft, secsLeft)} remaining",
                                 fontSize = 12.sp,
@@ -198,14 +208,241 @@ fun ExamsHubScreen(
             }
         }
 
-        // Section: Primary Exam Modes
+        // Section: Guided Offline Modes (Initial Assessment, Adaptive Practice, Retention Review)
         item {
             Text(
-                text = "Simulation Modes",
+                text = "Study Modes",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
+        }
+
+        // 0a. Initial Assessment (Fixed Baseline + Balanced/Weighted Coverage)
+        item {
+            val eligibleAssessmentCount = bankCoverageAudit.assessmentEligibleCount
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("mode_initial_assessment")
+                    .clickable(enabled = !isOfflineCsc || eligibleAssessmentCount > 0) {
+                        viewModel.startSimulation(ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT)
+                    },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Assessment,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (initialBaselineSession == null) "Initial Assessment" else "Diagnostic Assessment Retake",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (initialBaselineSession != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(SuccessGreen.copy(alpha = 0.15f))
+                                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = "BASELINE ${initialBaselineSession!!.scorePercent}%",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SuccessGreen
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (eligibleAssessmentCount > 0) {
+                                val baselineNote = if (initialBaselineSession == null) {
+                                    "Sets your fixed starting baseline across domains."
+                                } else {
+                                    "Creates a new diagnostic record; original baseline stays saved."
+                                }
+                                "${bankCoverageAudit.coverageDescription} $baselineNote"
+                            } else {
+                                "Practice questions are not installed yet for ${currentExam.shortCode}."
+                            },
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        tint = if (!isOfflineCsc || eligibleAssessmentCount > 0) MaterialTheme.colorScheme.primary else Slate400
+                    )
+                }
+            }
+        }
+
+        // 0b. Adaptive Practice (Weak Topics + Insufficient Evidence + Immediate Feedback)
+        item {
+            val practiceEligibleCount = bankCoverageAudit.practiceEligibleCount
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("mode_adaptive_practice")
+                    .clickable(enabled = !isOfflineCsc || practiceEligibleCount > 0) {
+                        viewModel.startAdaptivePractice()
+                    },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(SuccessGreen.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(28.dp))
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Adaptive Practice",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (practiceEligibleCount > 0) {
+                                topAdaptiveRec?.reason
+                                    ?: "Targets weak and low-evidence topics with immediate feedback and follow-up review."
+                            } else {
+                                "Waiting for question bank installation."
+                            },
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        tint = if (!isOfflineCsc || practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else Slate400
+                    )
+                }
+            }
+        }
+
+        // 0c. Retention Review (Spaced Schedule)
+        item {
+            val practiceEligibleCount = bankCoverageAudit.practiceEligibleCount
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("mode_retention_review")
+                    .clickable(enabled = (!isOfflineCsc || practiceEligibleCount > 0)) {
+                        viewModel.startAdaptivePractice(mode = ExamMode.RETENTION_REVIEW)
+                    },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(WarningAmber.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.History, contentDescription = null, tint = WarningAmber, modifier = Modifier.size(26.dp))
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Retention Review",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (dueTopicsCount > 0) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(WarningAmber.copy(alpha = 0.18f))
+                                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = "$dueTopicsCount DUE",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = WarningAmber
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = when {
+                                practiceEligibleCount <= 0 -> "Waiting for question bank installation."
+                                dueTopicsCount > 0 -> "$dueTopicsCount topic(s) due for spaced retention check."
+                                else -> "No items due for review yet — start a quick mixed check anytime."
+                            },
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        tint = if (!isOfflineCsc || practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else Slate400
+                    )
+                }
+            }
         }
 
         // 1. Full Exam Simulation (Timed, test conditions)
@@ -243,7 +480,7 @@ fun ExamsHubScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (displayCount > 0) "Timed Simulation ($displayCount Qs)" else "Timed Simulation (Not Installed)",
+                                text = if (displayCount > 0) "Full Timed Simulation ($displayCount Qs)" else "Timed Simulation (Not Installed)",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -256,7 +493,7 @@ fun ExamsHubScreen(
                                     .padding(horizontal = 6.dp, vertical = 1.dp)
                             ) {
                                 Text(
-                                    text = if (isOfflineCsc) "OFFLINE" else "SAMPLE BANK",
+                                    text = if (isOfflineCsc) "EXAM MODE" else "SAMPLE BANK",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -266,7 +503,7 @@ fun ExamsHubScreen(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (displayCount > 0) {
-                                "$displayCount Qs • ${currentExam.durationMinutes} min • Countdown timer, flag matrix & strike-through"
+                                "$displayCount Qs • ${currentExam.durationMinutes} min • Strict exam conditions (answers revealed only on submit)"
                             } else {
                                 "Practice questions are not installed yet for ${currentExam.shortCode}."
                             },
@@ -286,12 +523,12 @@ fun ExamsHubScreen(
 
         // 2. Quick Practice Sprint
         item {
-            val displayCount = questions.size.takeIf { it > 0 } ?: currentExam.totalBankQuestions
+            val displayCount = bankCoverageAudit.practiceEligibleCount.takeIf { it > 0 } ?: currentExam.totalBankQuestions
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("mode_quick_sprint")
-                    .clickable(enabled = !isOfflineCsc || questions.isNotEmpty()) {
+                    .clickable(enabled = !isOfflineCsc || bankCoverageAudit.practiceEligibleCount > 0) {
                         viewModel.startSimulation(ExamMode.DOMAIN_PRACTICE)
                     },
                 shape = RoundedCornerShape(16.dp),
@@ -325,7 +562,7 @@ fun ExamsHubScreen(
                         )
                         Text(
                             text = if (displayCount > 0) {
-                                "Rapid $displayCount-question drill with instant rationale & explanations"
+                                "Focused practice drill with immediate answer check & explanations"
                             } else {
                                 "Waiting for question bank installation"
                             },
@@ -337,7 +574,7 @@ fun ExamsHubScreen(
                     Icon(
                         Icons.Default.ArrowForward,
                         contentDescription = null,
-                        tint = if (!isOfflineCsc || questions.isNotEmpty()) MaterialTheme.colorScheme.primary else Slate400
+                        tint = if (!isOfflineCsc || bankCoverageAudit.practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else Slate400
                     )
                 }
             }
@@ -383,11 +620,19 @@ fun ExamsHubScreen(
         }
 
         items(effectiveDomains) { domain ->
+            val domainMastery = domainMasteryById[domain.id]
+            val statusSubtitle = when {
+                domainMastery == null || !domainMastery.isAssessed ->
+                    "Not assessed yet • ${domain.description}"
+                else ->
+                    "Mastery: ${domainMastery.masteryPercent}% (${domainMastery.confidence.displayLabel()}) • ${domainMastery.attemptCount} Qs answered"
+            }
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .clickable {
+                    .clickable(enabled = !isOfflineCsc || questions.any { it.domainId == domain.id }) {
                         viewModel.startSimulation(ExamMode.DOMAIN_PRACTICE, domain.id)
                     }
                     .testTag("domain_practice_${domain.id}"),
@@ -431,7 +676,7 @@ fun ExamsHubScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Weight: ${domain.weightPercent}% • ${domain.description}",
+                                text = statusSubtitle,
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
@@ -446,11 +691,88 @@ fun ExamsHubScreen(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "Start Drill",
+                            text = if (domainMastery?.isWeak == true) "Strengthen" else "Start Drill",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
+                    }
+                }
+            }
+        }
+
+        // Section: Topic Practice Targets
+        if (topicMasteryList.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Topic Practice Targets (${topicMasteryList.size})",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+
+            items(topicMasteryList.take(10)) { topic ->
+                val badgeText = when {
+                    !topic.isAssessed -> "Not assessed"
+                    topic.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> "${topic.masteryPercent}% • Insufficient evidence"
+                    topic.masteryPercent < 65 -> "${topic.masteryPercent}% • Needs work"
+                    topic.masteryPercent >= 80 -> "${topic.masteryPercent}% • Strong"
+                    else -> "${topic.masteryPercent}% • Practicing"
+                }
+                val badgeColor = when {
+                    !topic.isAssessed -> Slate400
+                    topic.masteryPercent < 65 -> ErrorRed
+                    topic.masteryPercent < 80 -> WarningAmber
+                    else -> SuccessGreen
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            viewModel.startAdaptivePractice(topicFilterKey = topic.topicKey)
+                        }
+                        .testTag("topic_target_${topic.topicKey}"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(1.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = topic.topicName,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${topic.domainName} • ${topic.attemptCount} answered",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(badgeColor.copy(alpha = 0.14f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = badgeText,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = badgeColor
+                            )
+                        }
                     }
                 }
             }
@@ -480,6 +802,10 @@ fun ExamsHubScreen(
 
         items(sessions) { session ->
             val passed = session.isPassed
+            val modeLabel = when {
+                session.isInitialBaseline -> "INITIAL BASELINE"
+                else -> session.mode.name.replace("_", " ")
+            }
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -506,7 +832,7 @@ fun ExamsHubScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = session.mode.name.replace("_", " "),
+                                text = modeLabel,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )
@@ -529,3 +855,4 @@ fun ExamsHubScreen(
         }
     }
 }
+

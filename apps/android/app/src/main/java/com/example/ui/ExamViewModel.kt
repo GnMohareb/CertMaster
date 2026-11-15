@@ -7,19 +7,29 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.ExamCatalog
 import com.example.data.ExamRepository
 import com.example.data.SpeechManager
+import com.example.data.local.ActiveExamAttemptEntity
 import com.example.data.local.SimulationScoreEntity
+import com.example.domain.AdaptivePracticeEngine
 import com.example.model.AudioOverview
+import com.example.model.BankCoverageAudit
+import com.example.model.DomainMasterySummary
 import com.example.model.DomainScore
+import com.example.model.EmbeddedBankMetadata
 import com.example.model.ExamConfig
 import com.example.model.ExamMode
 import com.example.model.ExamReadinessReport
 import com.example.model.ExamSession
 import com.example.model.Flashcard
 import com.example.model.JourneyMilestone
+import com.example.model.PracticeAnswerFeedback
+import com.example.model.PracticeRecommendation
 import com.example.model.Question
+import com.example.model.QuestionExposureState
+import com.example.model.RemediationEntry
 import com.example.model.SourceDoc
 import com.example.model.SsoSessionInfo
 import com.example.model.SyncLogEntry
+import com.example.model.TopicMasteryState
 import com.example.model.UserCentralProfile
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -77,6 +87,15 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     val aiMessages = repository.aiMessages
     val backendConfig = repository.backendConfig
 
+    // Offline Adaptive Assessment, Mastery & Recommendations
+    val bankMetadata: StateFlow<EmbeddedBankMetadata> = repository.bankMetadata
+    val bankCoverageAudit: StateFlow<BankCoverageAudit> = repository.bankCoverageAudit
+    val topicMasteryList: StateFlow<List<TopicMasteryState>> = repository.topicMasteryList
+    val domainMasteryList: StateFlow<List<DomainMasterySummary>> = repository.domainMasteryList
+    val questionExposures: StateFlow<Map<String, QuestionExposureState>> = repository.questionExposures
+    val initialBaselineSession: StateFlow<ExamSession?> = repository.initialBaselineSession
+    val recommendations: StateFlow<List<PracticeRecommendation>> = repository.recommendations
+
     // Behavioral Domain Stress Metrics
     private val _domainStressMetrics = MutableStateFlow(repository.getDomainStressMetricsList())
     val domainStressMetrics: StateFlow<List<com.example.model.DomainStressMetrics>> = _domainStressMetrics.asStateFlow()
@@ -126,6 +145,25 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isTimerPaused = MutableStateFlow(false)
     val isTimerPaused: StateFlow<Boolean> = _isTimerPaused.asStateFlow()
+
+    // Adaptive Practice & Remediation Session State
+    private var activeAttemptId: String = ""
+    private val _checkedQuestionIndices = MutableStateFlow<Set<Int>>(emptySet())
+    val checkedQuestionIndices: StateFlow<Set<Int>> = _checkedQuestionIndices.asStateFlow()
+
+    private val _currentPracticeFeedback = MutableStateFlow<PracticeAnswerFeedback?>(null)
+    val currentPracticeFeedback: StateFlow<PracticeAnswerFeedback?> = _currentPracticeFeedback.asStateFlow()
+
+    private val _selectionReasons = MutableStateFlow<Map<String, String>>(emptyMap())
+    val selectionReasons: StateFlow<Map<String, String>> = _selectionReasons.asStateFlow()
+
+    private val _remediationQueue = MutableStateFlow<List<RemediationEntry>>(emptyList())
+    val remediationQueue: StateFlow<List<RemediationEntry>> = _remediationQueue.asStateFlow()
+
+    private val _globalStepCounter = MutableStateFlow(0)
+
+    private val _practiceExhaustionNotice = MutableStateFlow<String?>(null)
+    val practiceExhaustionNotice: StateFlow<String?> = _practiceExhaustionNotice.asStateFlow()
 
     private var timerJob: Job? = null
     private var simulationStartedAtMillis: Long = 0L
@@ -201,22 +239,27 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         return sub?.status == com.example.model.SubStatus.ACTIVE
     }
 
-    private fun buildActiveAttemptEntity(pausedOverride: Boolean? = null): com.example.data.local.ActiveExamAttemptEntity? {
+    private fun buildActiveAttemptEntity(pausedOverride: Boolean? = null): ActiveExamAttemptEntity? {
         val qList = _simulationQuestions.value
         if (qList.isEmpty()) return null
-        return com.example.data.local.ActiveExamAttemptEntity(
+        return ActiveExamAttemptEntity(
             examId = ExamCatalog.normalizeExamId(repository.currentExam.value.id),
             mode = _activeMode.value.name,
-            questionIdsJson = com.example.data.local.ActiveExamAttemptEntity.encodeStringList(qList.map { it.id }),
+            questionIdsJson = ActiveExamAttemptEntity.encodeStringList(qList.map { it.id }),
             currentIndex = _currentQuestionIndex.value.coerceIn(0, qList.lastIndex),
-            userAnswersJson = com.example.data.local.ActiveExamAttemptEntity.encodeIntIntMap(_userAnswers.value),
-            flaggedIndicesJson = com.example.data.local.ActiveExamAttemptEntity.encodeIntSet(_flaggedIndices.value),
-            struckOptionsJson = com.example.data.local.ActiveExamAttemptEntity.encodeIntSetMap(_struckOptions.value),
-            optionSwitchCountsJson = com.example.data.local.ActiveExamAttemptEntity.encodeIntIntMap(_optionSwitchCounts.value),
+            userAnswersJson = ActiveExamAttemptEntity.encodeIntIntMap(_userAnswers.value),
+            flaggedIndicesJson = ActiveExamAttemptEntity.encodeIntSet(_flaggedIndices.value),
+            struckOptionsJson = ActiveExamAttemptEntity.encodeIntSetMap(_struckOptions.value),
+            optionSwitchCountsJson = ActiveExamAttemptEntity.encodeIntIntMap(_optionSwitchCounts.value),
             remainingSeconds = _remainingSeconds.value.coerceAtLeast(0),
             isPaused = pausedOverride ?: _isTimerPaused.value,
             startedAtMillis = simulationStartedAtMillis,
-            updatedAtMillis = System.currentTimeMillis()
+            updatedAtMillis = System.currentTimeMillis(),
+            attemptId = activeAttemptId.ifBlank { UUID.randomUUID().toString() },
+            checkedIndicesJson = ActiveExamAttemptEntity.encodeIntSet(_checkedQuestionIndices.value),
+            remediationQueueJson = ActiveExamAttemptEntity.encodeRemediationList(_remediationQueue.value),
+            selectionReasonsJson = ActiveExamAttemptEntity.encodeStringMap(_selectionReasons.value),
+            globalStepCounter = _globalStepCounter.value
         )
     }
 
@@ -232,12 +275,31 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startSimulation(mode: ExamMode, domainFilterId: String? = null) {
+    fun startAdaptivePractice(
+        domainFilterId: String? = null,
+        topicFilterKey: String? = null,
+        mode: ExamMode = ExamMode.AI_ADAPTIVE_DRILL,
+        requestedCount: Int? = null
+    ) {
+        startSimulation(
+            mode = mode,
+            domainFilterId = domainFilterId,
+            topicFilterKey = topicFilterKey,
+            requestedCount = requestedCount
+        )
+    }
+
+    fun startSimulation(
+        mode: ExamMode,
+        domainFilterId: String? = null,
+        topicFilterKey: String? = null,
+        requestedCount: Int? = null
+    ) {
         val isSubscribed = isStandaloneCsc() || isCurrentExamSubscribed()
 
-        // If user is on Free Tier and requests Full Simulation, route to 50-Question Free Diagnostic Assessment
+        // If user is on Free Tier (non-standalone) and requests Full Simulation, route to 50-Question Free Diagnostic Assessment
         val effectiveMode = if (mode == ExamMode.FULL_SIMULATION && !isSubscribed) {
-            _statusMessage.value = "Starting 50-Question Free Assessment. Upgrade anytime to unlock all full simulations."
+            _statusMessage.value = "Starting Free Assessment. Unlock complete exams anytime."
             ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT
         } else {
             mode
@@ -245,17 +307,51 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
         _activeMode.value = effectiveMode
         val allQ = repository.questions.value
-        val filtered = if (domainFilterId != null) {
-            allQ.filter { it.domainId == domainFilterId }
-        } else {
-            allQ
-        }
+        val nowMillis = System.currentTimeMillis()
+        var selectionReasonsMap: Map<String, String> = emptyMap()
+        var exhaustionNotice: String? = null
 
-        // Free tier or diagnostic assessment caps at 50 questions
-        val questionsToUse = if (effectiveMode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT) {
-            filtered.shuffled().take(FREE_ASSESSMENT_QUESTION_LIMIT)
-        } else {
-            filtered.shuffled()
+        val questionsToUse = when {
+            effectiveMode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT -> {
+                val filteredByDomain = if (domainFilterId != null) {
+                    allQ.filter { it.domainId == domainFilterId }
+                } else {
+                    allQ
+                }
+                AdaptivePracticeEngine.selectInitialAssessmentQuestions(
+                    allQuestions = filteredByDomain,
+                    syllabusWeights = repository.bankMetadata.value.syllabusWeights,
+                    targetLength = requestedCount ?: repository.adaptiveConfig.initialAssessmentDefaultLength,
+                    maxLimit = FREE_ASSESSMENT_QUESTION_LIMIT
+                )
+            }
+            AdaptivePracticeEngine.isAdaptivePracticeMode(effectiveMode) -> {
+                val topicMap = repository.topicMasteryList.value.associateBy { it.topicKey }
+                val currentMaxOrder = repository.questionExposures.value.values.maxOfOrNull { it.lastGlobalOrder } ?: 0L
+                val selection = AdaptivePracticeEngine.selectAdaptivePracticeQuestions(
+                    allQuestions = allQ,
+                    mode = effectiveMode,
+                    topicStates = topicMap,
+                    exposures = repository.questionExposures.value,
+                    nowMillis = nowMillis,
+                    currentGlobalStep = currentMaxOrder,
+                    domainFilterId = domainFilterId,
+                    topicFilterKey = topicFilterKey,
+                    requestedCount = requestedCount,
+                    config = repository.adaptiveConfig
+                )
+                selectionReasonsMap = selection.selectionReasons
+                exhaustionNotice = selection.exhaustionNotice
+                selection.questions
+            }
+            else -> {
+                AdaptivePracticeEngine.eligibleQuestionsForMode(
+                    allQuestions = allQ,
+                    mode = effectiveMode,
+                    domainFilterId = domainFilterId,
+                    topicFilterKey = topicFilterKey
+                )
+            }
         }
 
         if (questionsToUse.isEmpty()) {
@@ -263,20 +359,27 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        activeAttemptId = UUID.randomUUID().toString()
         _simulationQuestions.value = questionsToUse
         _currentQuestionIndex.value = 0
         _userAnswers.value = emptyMap()
         _flaggedIndices.value = emptySet()
         _struckOptions.value = emptyMap()
         _optionSwitchCounts.value = emptyMap()
+        _checkedQuestionIndices.value = emptySet()
+        _currentPracticeFeedback.value = null
+        _selectionReasons.value = selectionReasonsMap
+        _remediationQueue.value = emptyList()
+        _globalStepCounter.value = 0
+        _practiceExhaustionNotice.value = exhaustionNotice
 
         val timeLimit = if (effectiveMode == ExamMode.FULL_SIMULATION) {
             repository.currentExam.value.durationMinutes * 60
         } else {
-            questionsToUse.size * 90 // 1.5 min per question (e.g. 75 min for 50 questions)
+            questionsToUse.size * 90 // 1.5 min per question
         }
         _remainingSeconds.value = timeLimit
-        simulationStartedAtMillis = System.currentTimeMillis()
+        simulationStartedAtMillis = nowMillis
         _isTimerPaused.value = false
 
         persistActiveAttempt(pausedOverride = false)
@@ -294,13 +397,31 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             return false
         }
 
+        activeAttemptId = saved.attemptId.ifBlank { UUID.randomUUID().toString() }
         _activeMode.value = saved.parseExamMode()
         _simulationQuestions.value = restoredQuestions
-        _currentQuestionIndex.value = saved.currentIndex.coerceIn(0, restoredQuestions.lastIndex)
+        val restoredIdx = saved.currentIndex.coerceIn(0, restoredQuestions.lastIndex)
+        _currentQuestionIndex.value = restoredIdx
         _userAnswers.value = saved.parseUserAnswers().filterKeys { it in restoredQuestions.indices }
         _flaggedIndices.value = saved.parseFlaggedIndices().filter { it in restoredQuestions.indices }.toSet()
         _struckOptions.value = saved.parseStruckOptions().filterKeys { it in restoredQuestions.indices }
         _optionSwitchCounts.value = saved.parseOptionSwitchCounts().filterKeys { it in restoredQuestions.indices }
+        val restoredChecked = saved.parseCheckedIndices().filter { it in restoredQuestions.indices }.toSet()
+        _checkedQuestionIndices.value = restoredChecked
+        _remediationQueue.value = saved.parseRemediationQueue()
+        _selectionReasons.value = saved.parseSelectionReasons()
+        _globalStepCounter.value = saved.globalStepCounter
+        _practiceExhaustionNotice.value = null
+
+        _currentPracticeFeedback.value = if (
+            AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value) &&
+            restoredChecked.contains(restoredIdx)
+        ) {
+            buildFeedbackForIndex(restoredIdx, remediationQuestionId = null, remediationNotice = null, updatedTopic = null)
+        } else {
+            null
+        }
+
         _remainingSeconds.value = saved.remainingSeconds.coerceAtLeast(1)
         simulationStartedAtMillis = saved.startedAtMillis
         _isTimerPaused.value = false
@@ -316,18 +437,25 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         persistActiveAttempt(pausedOverride = true)
         screenStack.clear()
         _currentScreen.value = AppScreen.DASHBOARD
-        _statusMessage.value = "Simulation saved locally. You can resume anytime from the Dashboard."
+        _statusMessage.value = "Session saved on this device. You can resume anytime from the Dashboard."
     }
 
     fun abandonSimulation() {
         timerJob?.cancel()
         _isTimerPaused.value = false
+        activeAttemptId = ""
         _simulationQuestions.value = emptyList()
         _currentQuestionIndex.value = 0
         _userAnswers.value = emptyMap()
         _flaggedIndices.value = emptySet()
         _struckOptions.value = emptyMap()
         _optionSwitchCounts.value = emptyMap()
+        _checkedQuestionIndices.value = emptySet()
+        _currentPracticeFeedback.value = null
+        _selectionReasons.value = emptyMap()
+        _remediationQueue.value = emptyList()
+        _globalStepCounter.value = 0
+        _practiceExhaustionNotice.value = null
         repository.clearActiveAttempt()
         if (!handleBackPress()) {
             _currentScreen.value = AppScreen.DASHBOARD
@@ -377,6 +505,11 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectOption(questionIndex: Int, optionIndex: Int) {
+        if (AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value) &&
+            _checkedQuestionIndices.value.contains(questionIndex)
+        ) {
+            return
+        }
         val current = _userAnswers.value.toMutableMap()
         val previous = current[questionIndex]
         if (previous != null && previous != optionIndex) {
@@ -413,23 +546,199 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         persistActiveAttempt()
     }
 
+    private fun buildFeedbackForIndex(
+        questionIndex: Int,
+        remediationQuestionId: String?,
+        remediationNotice: String?,
+        updatedTopic: TopicMasteryState?
+    ): PracticeAnswerFeedback? {
+        val question = _simulationQuestions.value.getOrNull(questionIndex) ?: return null
+        val selectedIndex = _userAnswers.value[questionIndex] ?: return null
+        val isCorrect = selectedIndex == question.correctIndex
+        val topicMeta = AdaptivePracticeEngine.resolveTopic(question)
+        val resolvedTopicState = updatedTopic
+            ?: repository.topicMasteryList.value.firstOrNull { it.topicKey == topicMeta.topicKey }
+        return PracticeAnswerFeedback(
+            questionId = question.id,
+            questionIndex = questionIndex,
+            selectedIndex = selectedIndex,
+            correctIndex = question.correctIndex,
+            isCorrect = isCorrect,
+            explanation = question.explanation,
+            selectedOptionAnalysis = question.optionAnalysis[selectedIndex],
+            correctOptionAnalysis = question.optionAnalysis[question.correctIndex],
+            learningObjective = question.learningObjective,
+            citationTitle = question.citation.title,
+            citationSection = question.citation.sectionOrPage,
+            remediationQuestionId = remediationQuestionId,
+            remediationNotice = remediationNotice,
+            updatedTopicMastery = resolvedTopicState
+        )
+    }
+
+    /**
+     * Checks the selected answer during adaptive practice modes, reveals explanation & distractor analysis,
+     * applies evidence idempotently to topic mastery, queues a different follow-up question on the same topic
+     * if incorrect, and schedules the missed original question for delayed revisit.
+     */
+    fun checkPracticeAnswer(questionIndex: Int = _currentQuestionIndex.value) {
+        if (!AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value)) return
+        val questionsList = _simulationQuestions.value
+        val question = questionsList.getOrNull(questionIndex) ?: return
+        val selectedIndex = _userAnswers.value[questionIndex] ?: return
+
+        val alreadyChecked = _checkedQuestionIndices.value.contains(questionIndex)
+        if (alreadyChecked) {
+            _currentPracticeFeedback.value = buildFeedbackForIndex(
+                questionIndex = questionIndex,
+                remediationQuestionId = null,
+                remediationNotice = null,
+                updatedTopic = null
+            )
+            return
+        }
+
+        _checkedQuestionIndices.value = _checkedQuestionIndices.value + questionIndex
+        val isCorrect = selectedIndex == question.correctIndex
+        var queuedRemediationId: String? = null
+        var notice: String? = null
+
+        if (!isCorrect) {
+            val nextIdx = questionIndex + 1
+            val remainingUpcomingIds = questionsList.drop(nextIdx).map { it.id }.toSet()
+            val followUp = AdaptivePracticeEngine.pickImmediateRemediationQuestion(
+                missedQuestion = question,
+                allQuestions = repository.questions.value,
+                excludeQuestionIds = remainingUpcomingIds + question.id,
+                exposures = repository.questionExposures.value
+            )
+            if (followUp != null) {
+                val updatedList = questionsList.toMutableList()
+                updatedList.add(nextIdx, followUp)
+                _simulationQuestions.value = updatedList
+                // Shift any maps keyed > questionIndex forward by 1 so indices stay aligned
+                _userAnswers.value = _userAnswers.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
+                _flaggedIndices.value = _flaggedIndices.value.map { k -> if (k >= nextIdx) k + 1 else k }.toSet()
+                _struckOptions.value = _struckOptions.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
+                _optionSwitchCounts.value = _optionSwitchCounts.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
+                _checkedQuestionIndices.value = _checkedQuestionIndices.value.map { k -> if (k >= nextIdx) k + 1 else k }.toSet()
+
+                val topicName = AdaptivePracticeEngine.resolveTopic(followUp).topicName
+                _selectionReasons.value = _selectionReasons.value + (followUp.id to "Follow-up on '$topicName' after missed item")
+                queuedRemediationId = followUp.id
+                notice = "Next: a different question on $topicName, plus this missed question is scheduled for delayed review."
+            } else {
+                notice = "This missed question is scheduled for delayed review later."
+            }
+
+            if (_remediationQueue.value.none { it.questionId == question.id }) {
+                val dueStep = _globalStepCounter.value + repository.adaptiveConfig.remediationInterveningQuestions
+                _remediationQueue.value = _remediationQueue.value + RemediationEntry(
+                    questionId = question.id,
+                    dueAfterStep = dueStep,
+                    reason = "Delayed review of previously missed question"
+                )
+            }
+        }
+
+        _currentPracticeFeedback.value = buildFeedbackForIndex(
+            questionIndex = questionIndex,
+            remediationQuestionId = queuedRemediationId,
+            remediationNotice = notice,
+            updatedTopic = null
+        )
+
+        val attemptKey = activeAttemptId.ifBlank { UUID.randomUUID().toString() }
+        activeAttemptId = attemptKey
+        persistActiveAttempt()
+
+        viewModelScope.launch {
+            val updatedTopic = repository.recordAnswerEvidence(
+                attemptId = attemptKey,
+                question = question,
+                selectedIndex = selectedIndex,
+                mode = _activeMode.value
+            )
+            if (_currentQuestionIndex.value == questionIndex && _currentPracticeFeedback.value?.questionId == question.id) {
+                _currentPracticeFeedback.value = _currentPracticeFeedback.value?.copy(
+                    updatedTopicMastery = updatedTopic
+                )
+            }
+        }
+    }
+
     fun goToQuestion(index: Int) {
         if (index in 0 until _simulationQuestions.value.size) {
             _currentQuestionIndex.value = index
+            _currentPracticeFeedback.value = if (
+                AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value) &&
+                _checkedQuestionIndices.value.contains(index)
+            ) {
+                buildFeedbackForIndex(index, null, null, null)
+            } else {
+                null
+            }
             persistActiveAttempt()
         }
     }
 
     fun nextQuestion() {
+        val currentIdx = _currentQuestionIndex.value
+        val currentQ = _simulationQuestions.value.getOrNull(currentIdx)
+        if (AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value)) {
+            val nextStep = _globalStepCounter.value + 1
+            _globalStepCounter.value = nextStep
+            val dueEntry = _remediationQueue.value.firstOrNull {
+                it.dueAfterStep <= nextStep && it.questionId != currentQ?.id
+            }
+            if (dueEntry != null) {
+                val revisitQuestion = repository.questions.value.firstOrNull { it.id == dueEntry.questionId }
+                _remediationQueue.value = _remediationQueue.value.filterNot { it.questionId == dueEntry.questionId }
+                if (revisitQuestion != null) {
+                    val insertIdx = (currentIdx + 1).coerceAtMost(_simulationQuestions.value.size)
+                    val alreadyImmediatelyNext = _simulationQuestions.value.getOrNull(insertIdx)?.id == revisitQuestion.id
+                    if (!alreadyImmediatelyNext) {
+                        val updatedList = _simulationQuestions.value.toMutableList()
+                        updatedList.add(insertIdx, revisitQuestion)
+                        _simulationQuestions.value = updatedList
+                        _userAnswers.value = _userAnswers.value.mapKeys { (k, _) -> if (k >= insertIdx) k + 1 else k }
+                        _flaggedIndices.value = _flaggedIndices.value.map { k -> if (k >= insertIdx) k + 1 else k }.toSet()
+                        _struckOptions.value = _struckOptions.value.mapKeys { (k, _) -> if (k >= insertIdx) k + 1 else k }
+                        _optionSwitchCounts.value = _optionSwitchCounts.value.mapKeys { (k, _) -> if (k >= insertIdx) k + 1 else k }
+                        _checkedQuestionIndices.value = _checkedQuestionIndices.value.map { k -> if (k >= insertIdx) k + 1 else k }.toSet()
+                    }
+                    _selectionReasons.value = _selectionReasons.value + (revisitQuestion.id to dueEntry.reason)
+                }
+            }
+        }
+
         if (_currentQuestionIndex.value < _simulationQuestions.value.size - 1) {
-            _currentQuestionIndex.value += 1
+            val nextIdx = _currentQuestionIndex.value + 1
+            _currentQuestionIndex.value = nextIdx
+            _currentPracticeFeedback.value = if (
+                AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value) &&
+                _checkedQuestionIndices.value.contains(nextIdx)
+            ) {
+                buildFeedbackForIndex(nextIdx, null, null, null)
+            } else {
+                null
+            }
             persistActiveAttempt()
         }
     }
 
     fun previousQuestion() {
         if (_currentQuestionIndex.value > 0) {
-            _currentQuestionIndex.value -= 1
+            val prevIdx = _currentQuestionIndex.value - 1
+            _currentQuestionIndex.value = prevIdx
+            _currentPracticeFeedback.value = if (
+                AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value) &&
+                _checkedQuestionIndices.value.contains(prevIdx)
+            ) {
+                buildFeedbackForIndex(prevIdx, null, null, null)
+            } else {
+                null
+            }
             persistActiveAttempt()
         }
     }
@@ -480,6 +789,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
                 .coerceAtMost(configuredSeconds.toLong().coerceAtLeast(1L))
                 .toInt()
 
+        val attemptKey = activeAttemptId.ifBlank { UUID.randomUUID().toString() }
         val session = ExamSession(
             sessionId = UUID.randomUUID().toString(),
             examId = repository.currentExam.value.id,
@@ -497,9 +807,20 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             questionIds = questionsList.map { it.id }
         )
 
-        repository.recordSession(session, optionSwitchCount = totalSwitches)
+        repository.recordSession(
+            session = session,
+            optionSwitchCount = totalSwitches,
+            sessionQuestions = questionsList,
+            attemptId = attemptKey
+        )
+        _checkedQuestionIndices.value = emptySet()
+        _currentPracticeFeedback.value = null
+        _remediationQueue.value = emptyList()
+        _selectionReasons.value = emptyMap()
+        _practiceExhaustionNotice.value = null
+        activeAttemptId = ""
         refreshStressMetrics()
-        _lastCompletedSession.value = session
+        _lastCompletedSession.value = repository.sessions.value.firstOrNull { it.sessionId == session.sessionId } ?: session
         navigateTo(AppScreen.SESSION_RESULT)
     }
 

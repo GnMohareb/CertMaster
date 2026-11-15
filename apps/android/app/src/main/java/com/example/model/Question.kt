@@ -4,6 +4,13 @@ enum class QuestionDifficulty {
     EASY, MEDIUM, HARD
 }
 
+enum class QuestionPool {
+    GENERAL,
+    PRACTICE,
+    ASSESSMENT,
+    FULL_EXAM_RESERVED
+}
+
 data class SourceCitation(
     val title: String,
     val sectionOrPage: String,
@@ -21,5 +28,13 @@ data class Question(
     val explanation: String,
     val optionAnalysis: Map<Int, String> = emptyMap(),
     val citation: SourceCitation,
-    val difficulty: QuestionDifficulty = QuestionDifficulty.MEDIUM
+    val difficulty: QuestionDifficulty = QuestionDifficulty.MEDIUM,
+    val topicId: String = "",
+    val topicName: String = "",
+    val objectiveId: String = "",
+    val learningObjective: String = "",
+    val questionType: String = "MULTIPLE_CHOICE",
+    val questionPool: QuestionPool = QuestionPool.GENERAL,
+    val nearDuplicateGroupId: String = "",
+    val difficultyExplicit: Boolean = false
 )

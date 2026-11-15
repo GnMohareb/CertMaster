@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MenuBook
@@ -51,6 +53,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.local.SimulationScoreEntity
+import com.example.model.EvidenceConfidence
 import com.example.model.ExamMode
 import com.example.ui.AppScreen
 import com.example.ui.ExamViewModel
@@ -58,7 +62,6 @@ import com.example.ui.theme.AccentBlue
 import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.GoldMastery
 import com.example.ui.theme.Slate400
-import com.example.ui.theme.Slate600
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarningAmber
 
@@ -72,6 +75,11 @@ fun ExamResultScreen(
     val currentExam by viewModel.currentExam.collectAsState()
     val questions by viewModel.simulationQuestions.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val topicMasteryList by viewModel.topicMasteryList.collectAsState()
+    val domainMasteryList by viewModel.domainMasteryList.collectAsState()
+    val initialBaselineSession by viewModel.initialBaselineSession.collectAsState()
+    val recommendations by viewModel.recommendations.collectAsState()
+    val bankCoverageAudit by viewModel.bankCoverageAudit.collectAsState()
 
     val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") ||
         currentExam.id.startsWith("csc-part-")
@@ -94,6 +102,12 @@ fun ExamResultScreen(
     val isPassed = session.isPassed
     val score = session.scorePercent
     val passing = currentExam.passingScorePercent
+    val topicScores = SimulationScoreEntity.parseTopicScoresJson(session.topicScoresJson)
+    val assessedTopics = topicMasteryList.filter { it.isAssessed }
+    val currentPracticeMasteryAvg = if (assessedTopics.isNotEmpty()) {
+        assessedTopics.map { it.masteryPercent }.average().toInt()
+    } else null
+    val unassessedDomains = domainMasteryList.filter { !it.isAssessed }
 
     val bannerColor = if (isPassed) SuccessGreen else ErrorRed
     val bannerTitle = if (isPassed) "PROVISIONAL PASS" else "NEEDS ADDITIONAL PREPARATION"
@@ -301,6 +315,51 @@ fun ExamResultScreen(
                 }
             }
 
+            // Coverage & Evidence Summary Card
+            item {
+                val answeredInAttempt = session.userAnswers.size
+                val baselineLabel = when {
+                    session.isInitialBaseline -> "Initial Baseline (Fixed)"
+                    session.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT -> "Assessment Retake (Historical)"
+                    else -> session.mode.name.replace("_", " ")
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth().testTag("card_result_coverage_summary"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(1.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Coverage & Evidence Summary",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Session Type: $baselineLabel • Answered $answeredInAttempt of ${session.totalQuestions} questions",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = session.coverageSummary.ifBlank { bankCoverageAudit.coverageDescription },
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (initialBaselineSession != null || currentPracticeMasteryAvg != null) {
+                            val bText = initialBaselineSession?.let { "Fixed Initial Baseline: ${it.scorePercent}%" } ?: "Fixed Initial Baseline: Not set"
+                            val cText = currentPracticeMasteryAvg?.let { "Current Topic Mastery: $it%" } ?: "Current Topic Mastery: Insufficient evidence"
+                            Text(
+                                text = "$bText • $cText",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
             // Domain-by-Domain Diagnostic Breakdown
             item {
                 Text(
@@ -359,6 +418,133 @@ fun ExamResultScreen(
                             color = barColor,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
+                    }
+                }
+            }
+
+            if (unassessedDomains.isNotEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().testTag("card_unassessed_domains"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "Not Assessed Yet (Excluded from Weak Areas)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = unassessedDomains.joinToString(", ") { it.domainName },
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Topic Breakdown & Evidence Confidence
+            if (topicScores.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Topic Breakdown & Evidence",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+
+                items(topicScores) { tScore ->
+                    val statusColor = when {
+                        tScore.confidence == EvidenceConfidence.UNASSESSED -> Slate400
+                        tScore.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> WarningAmber
+                        tScore.percentage >= passing -> SuccessGreen
+                        else -> ErrorRed
+                    }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = tScore.topicName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${tScore.correctCount} / ${tScore.totalCount} correct • ${tScore.confidence.displayLabel()}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                text = "${tScore.percentage}%",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = statusColor
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Recommended Practice Next
+            if (recommendations.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Recommended Practice Next",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+
+                items(recommendations.take(3)) { rec ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = rec.title,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = rec.reason,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Button(
+                                onClick = {
+                                    viewModel.startSimulation(
+                                        mode = rec.mode,
+                                        domainFilterId = rec.targetDomainId,
+                                        topicFilterKey = rec.targetTopicKey
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth().testTag("btn_result_rec_${rec.id}"),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(rec.title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }
