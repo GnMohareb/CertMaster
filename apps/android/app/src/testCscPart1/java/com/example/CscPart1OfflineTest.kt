@@ -280,7 +280,7 @@ class CscPart1OfflineTest {
     @Test
     fun dedicatedDiagnostic_preservesOrderAnswersBaselineAndRetakeHistoryAfterRestart() = runBlocking(Dispatchers.IO) {
         val expected = EmbeddedExamBank.loadWithMetadata(context, "csc-part-1").metadata.diagnosticQuestionIds
-        assertEquals(54, expected.size)
+        assertEquals((1..54).map { "csc1_dx_%03d".format(it) }, expected)
         var baselineId = ""
         val vm1 = ExamViewModel(application)
         try {
@@ -338,6 +338,36 @@ class CscPart1OfflineTest {
             val duplicate = org.json.JSONObject(json).put("diagnosticQuestionIds", org.json.JSONArray(listOf("csc1_dx_001", "csc1_dx_001")))
             assertTrue(runCatching { EmbeddedExamBank.parseWithMetadata(duplicate.toString(), "csc-part-1") }.isFailure)
         } finally { vm.closeForTesting() }
+    }
+
+    @Test
+    fun bundledTimedPaper_resumesExactPaperAndCanBeRetakenAfterCompletion() = runBlocking(Dispatchers.IO) {
+        val paper = EmbeddedExamBank.loadWithMetadata(context, "csc-part-1").metadata.simulationPapers.first { it.id == "csc1_exam_4" }
+        val vm1 = ExamViewModel(application)
+        try {
+            vm1.startSimulationPaper(paper.id)
+            vm1.selectOption(0, vm1.simulationQuestions.value.first().correctIndex)
+            vm1.nextQuestion()
+            vm1.pauseAndExitToDashboard()
+            awaitCondition { vm1.savedActiveAttempt.value?.isPaused == true }
+        } finally { vm1.closeForTesting() }
+        val vm2 = ExamViewModel(application)
+        try {
+            awaitCondition { vm2.savedActiveAttempt.value != null }
+            assertTrue(vm2.resumeSavedSimulation())
+            assertEquals(paper.questionIds, vm2.simulationQuestions.value.map { it.id })
+            assertEquals(paper.title, vm2.activeSimulationPaperTitle.value)
+            assertEquals(1, vm2.currentQuestionIndex.value)
+            assertTrue(vm2.remainingSeconds.value in 7195..7200)
+            vm2.finishSimulation()
+            awaitCondition { vm2.sessions.value.size == 1 }
+            assertEquals(paper.id, vm2.lastSimulationPaperId.value)
+            vm2.startSimulationPaper(vm2.lastSimulationPaperId.value!!)
+            assertEquals(paper.questionIds, vm2.simulationQuestions.value.map { it.id })
+            assertTrue(vm2.userAnswers.value.isEmpty())
+            assertEquals(7200, vm2.remainingSeconds.value)
+            vm2.abandonSimulation()
+        } finally { vm2.closeForTesting() }
     }
 
     @Test

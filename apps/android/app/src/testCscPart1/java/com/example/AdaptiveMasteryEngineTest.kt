@@ -400,7 +400,7 @@ class AdaptiveMasteryEngineTest {
                 vm1.selectOption(idx, choice)
             }
             vm1.finishSimulation()
-            awaitCondition { vm1.initialBaselineSession.value != null && vm1.sessions.value.size == 1 }
+            awaitCondition(failureMessage = { "First baseline: sessions=${vm1.sessions.value.size}, baseline=${vm1.initialBaselineSession.value?.sessionId}" }) { vm1.initialBaselineSession.value != null && vm1.sessions.value.size == 1 }
             assertEquals(50, vm1.initialBaselineSession.value!!.scorePercent)
             assertTrue(vm1.initialBaselineSession.value!!.isInitialBaseline)
 
@@ -410,7 +410,7 @@ class AdaptiveMasteryEngineTest {
                 vm1.selectOption(idx, question.correctIndex)
             }
             vm1.finishSimulation()
-            awaitCondition { vm1.sessions.value.size == 2 }
+            awaitCondition(failureMessage = { "Retake: sessions=${vm1.sessions.value.size}" }) { vm1.sessions.value.size == 2 }
             assertEquals(50, vm1.initialBaselineSession.value!!.scorePercent)
 
             // Start Adaptive Practice, check 1 answer, pause & save for restart
@@ -418,7 +418,7 @@ class AdaptiveMasteryEngineTest {
             val pq0 = vm1.simulationQuestions.value[0]
             vm1.selectOption(0, pq0.correctIndex)
             vm1.checkPracticeAnswer(0)
-            awaitCondition {
+            awaitCondition(failureMessage = { "Expected 9 evidence events; feedback=${vm1.currentPracticeFeedback.value}; selected=${vm1.userAnswers.value}; bank=${vm1.questions.value.size}" }) {
                 CertDatabase.getInstance(context).adaptiveMasteryDao().getAnswerEventCount("csc-part-1") >= 9
             }
             eventCountBeforeRestart = CertDatabase.getInstance(context).adaptiveMasteryDao().getAnswerEventCount("csc-part-1")
@@ -434,12 +434,12 @@ class AdaptiveMasteryEngineTest {
         val vm2 = ExamViewModel(application)
         try {
             vm2.repositoryForTesting().setQuestionsForTesting(bank, meta)
-            awaitCondition { vm2.savedActiveAttempt.value != null }
+            awaitCondition(failureMessage = { "Missing saved adaptive attempt after restart" }) { vm2.savedActiveAttempt.value != null }
             assertTrue(vm2.resumeSavedSimulation())
             assertTrue(vm2.checkedQuestionIndices.value.contains(0))
             vm2.finishSimulation()
 
-            awaitCondition {
+            awaitCondition(failureMessage = { "Finish restored practice: sessions=${vm2.sessions.value.size}, saved=${vm2.savedActiveAttempt.value?.attemptId}" }) {
                 CertDatabase.getInstance(context).activeExamAttemptDao().getAttemptForExam("csc-part-1") == null &&
                     vm2.sessions.value.size == 3
             }
