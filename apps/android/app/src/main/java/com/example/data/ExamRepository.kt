@@ -68,6 +68,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.atomic.AtomicLong
 
 class ExamRepository(
@@ -85,6 +86,7 @@ class ExamRepository(
     private val pendingSourceWrites = AtomicInteger(0)
     private val pendingFlashcardWrites = AtomicInteger(0)
     private val pendingSessionWrites = AtomicInteger(0)
+    private val sessionStateRevision = AtomicLong(0)
     private val pendingEvidenceWrites = AtomicInteger(0)
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeWriteJobs = Collections.synchronizedSet(mutableSetOf<Job>())
@@ -357,16 +359,22 @@ class ExamRepository(
             // Reactively observe simulation scores via Room Flow for history and performance line chart
             scoresCollectJob?.cancel()
             scoresCollectJob = repositoryScope.launch {
-                db.simulationScoreDao().getScoresByExam(canonicalExamId).collect { entities ->
-                    if (pendingSessionWrites.get() == 0) {
-                        _simulationScores.value = entities
-                        val reversedSessions = entities.reversed().map { it.toExamSession() }
-                        _sessions.value = reversedSessions
-                        val baselineEntity = entities.firstOrNull { it.isInitialBaseline }
-                            ?: entities.firstOrNull { it.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT.name }
-                        _initialBaselineSession.value = baselineEntity?.toExamSession()
-                        recomputeAdaptiveAnalytics()
-                        recomputeReadinessAndStudyPlan()
+                db.simulationScoreDao().getScoresByExam(canonicalExamId).collect {
+                    // A delayed Room emission can predate a just-completed session. Read current
+                    // rows and reject the snapshot if an optimistic update began during the read.
+                    val revision = sessionStateRevision.get()
+                    if (pendingSessionWrites.get() != 0) return@collect
+                    val entities = db.simulationScoreDao().getScoresByExam(canonicalExamId).first()
+                    synchronized(this@ExamRepository) {
+                        if (pendingSessionWrites.get() == 0 && sessionStateRevision.get() == revision) {
+                            _simulationScores.value = entities
+                            _sessions.value = entities.reversed().map { it.toExamSession() }
+                            val baselineEntity = entities.firstOrNull { it.isInitialBaseline }
+                                ?: entities.firstOrNull { it.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT.name }
+                            _initialBaselineSession.value = baselineEntity?.toExamSession()
+                            recomputeAdaptiveAnalytics()
+                            recomputeReadinessAndStudyPlan()
+                        }
                     }
                 }
             }
@@ -766,12 +774,14 @@ class ExamRepository(
         return _savedActiveAttempt.value?.takeIf { ExamCatalog.matchesExamId(it.examId, canonicalExamId) }
     }
 
+    @Synchronized
     fun recordSession(
         session: ExamSession,
         optionSwitchCount: Int = 2,
         sessionQuestions: List<Question> = emptyList(),
         attemptId: String = session.sessionId
     ) {
+        sessionStateRevision.incrementAndGet()
         val isFirstBaseline = session.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT &&
             _initialBaselineSession.value == null &&
             _simulationScores.value.none {
@@ -797,6 +807,7 @@ class ExamRepository(
             coverageSummary = session.coverageSummary.ifBlank { _bankCoverageAudit.value.coverageDescription }
         )
 
+        pendingSessionWrites.incrementAndGet()
         if (enrichedSession.isInitialBaseline && _initialBaselineSession.value == null) {
             _initialBaselineSession.value = enrichedSession
         }
@@ -844,7 +855,6 @@ class ExamRepository(
         }
 
         val db = database
-        pendingSessionWrites.incrementAndGet()
         pendingEvidenceWrites.incrementAndGet()
         launchWrite {
             try {
@@ -1604,3 +1614,4 @@ class ExamRepository(
         return getDomainStressMetricsList().firstOrNull()
     }
 }
+
