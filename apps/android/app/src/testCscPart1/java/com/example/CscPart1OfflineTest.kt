@@ -18,6 +18,9 @@ import com.example.network.CertMasterFirebaseSyncClient
 import com.example.ui.AppScreen
 import com.example.ui.ExamViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -33,6 +36,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class CscPart1OfflineTest {
@@ -42,6 +46,7 @@ class CscPart1OfflineTest {
 
     @Before
     fun setup() = runBlocking(Dispatchers.IO) {
+        Dispatchers.setMain(Dispatchers.Unconfined)
         application = ApplicationProvider.getApplicationContext()
         context = application
         CertDatabase.getInstance(context).clearAllTables()
@@ -50,6 +55,7 @@ class CscPart1OfflineTest {
     @After
     fun tearDown() = runBlocking(Dispatchers.IO) {
         CertDatabase.getInstance(context).clearAllTables()
+        Dispatchers.resetMain()
     }
 
     private suspend fun awaitCondition(timeoutMs: Long = 3000L, predicate: suspend () -> Boolean) {

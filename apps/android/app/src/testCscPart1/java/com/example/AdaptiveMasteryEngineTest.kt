@@ -18,6 +18,9 @@ import com.example.model.QuestionPool
 import com.example.model.SourceCitation
 import com.example.ui.ExamViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -36,6 +39,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class AdaptiveMasteryEngineTest {
@@ -45,6 +49,7 @@ class AdaptiveMasteryEngineTest {
 
     @Before
     fun setup() = runBlocking(Dispatchers.IO) {
+        Dispatchers.setMain(Dispatchers.Unconfined)
         application = ApplicationProvider.getApplicationContext()
         context = application
         CertDatabase.getInstance(context).clearAllTables()
@@ -53,6 +58,7 @@ class AdaptiveMasteryEngineTest {
     @After
     fun tearDown() = runBlocking(Dispatchers.IO) {
         CertDatabase.getInstance(context).clearAllTables()
+        Dispatchers.resetMain()
     }
 
     private suspend fun awaitCondition(timeoutMs: Long = 4000L, predicate: suspend () -> Boolean) {

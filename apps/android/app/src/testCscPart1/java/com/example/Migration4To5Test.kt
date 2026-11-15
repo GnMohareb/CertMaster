@@ -42,148 +42,18 @@ class Migration4To5Test {
 
     @Test
     fun migrate4To5_preservesExistingData_validatesRoomSchema_andSupportsNewTables() = runBlocking {
-        // 1. Create an authentic Room v4 SQLite database and populate it with pre-migration rows
+        // 1. Create an v4 SQLite fixture matching the released v4 entity declarations at c6cc472 and populate it with pre-migration rows
         val config = SupportSQLiteOpenHelper.Configuration.builder(context)
             .name(testDbName)
             .callback(object : SupportSQLiteOpenHelper.Callback(4) {
                 override fun onCreate(db: SupportSQLiteDatabase) {
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS `study_sources` (
-                            `id` TEXT NOT NULL,
-                            `examId` TEXT NOT NULL,
-                            `domainId` TEXT NOT NULL,
-                            `domainName` TEXT NOT NULL,
-                            `title` TEXT NOT NULL,
-                            `authorOrStandard` TEXT NOT NULL,
-                            `type` TEXT NOT NULL,
-                            `summary` TEXT NOT NULL,
-                            `keyTakeaways` TEXT NOT NULL,
-                            `fullContent` TEXT NOT NULL,
-                            PRIMARY KEY(`id`)
-                        )
-                        """.trimIndent()
-                    )
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS `flashcards` (
-                            `id` TEXT NOT NULL,
-                            `examId` TEXT NOT NULL,
-                            `domainId` TEXT NOT NULL,
-                            `domainName` TEXT NOT NULL,
-                            `frontPrompt` TEXT NOT NULL,
-                            `backAnswer` TEXT NOT NULL,
-                            `keyFormulaOrRule` TEXT NOT NULL,
-                            `sourceCitation` TEXT NOT NULL,
-                            `sourceDocId` TEXT NOT NULL,
-                            `boxLevel` INTEGER NOT NULL,
-                            `lastReviewedEpoch` INTEGER NOT NULL,
-                            PRIMARY KEY(`id`)
-                        )
-                        """.trimIndent()
-                    )
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS `simulation_scores` (
-                            `id` TEXT NOT NULL,
-                            `examId` TEXT NOT NULL,
-                            `timestampMillis` INTEGER NOT NULL,
-                            `overallScorePercent` INTEGER NOT NULL,
-                            `isPassed` INTEGER NOT NULL,
-                            `timeSpentSeconds` INTEGER NOT NULL,
-                            `totalQuestions` INTEGER NOT NULL,
-                            `attemptNumber` INTEGER NOT NULL,
-                            `domainScoresJson` TEXT NOT NULL,
-                            `mode` TEXT NOT NULL,
-                            `startTimeMillis` INTEGER NOT NULL,
-                            `questionIdsJson` TEXT NOT NULL,
-                            `userAnswersJson` TEXT NOT NULL,
-                            `flaggedIndicesJson` TEXT NOT NULL,
-                            `struckOptionsJson` TEXT NOT NULL,
-                            `optionSwitchCount` INTEGER NOT NULL,
-                            PRIMARY KEY(`id`)
-                        )
-                        """.trimIndent()
-                    )
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS `cached_user_profiles` (
-                            `userId` TEXT NOT NULL,
-                            `displayName` TEXT NOT NULL,
-                            `email` TEXT NOT NULL,
-                            `subscriptionTier` TEXT NOT NULL,
-                            `targetExamId` TEXT NOT NULL,
-                            `assessmentCompleted` INTEGER NOT NULL,
-                            `assessmentScorePercent` INTEGER NOT NULL,
-                            `behavioralArchetype` TEXT NOT NULL,
-                            `cognitiveStressBaseline` INTEGER NOT NULL,
-                            `averageDwellTimeSec` INTEGER NOT NULL,
-                            `distractorEliminationRate` INTEGER NOT NULL,
-                            `optionSwitchCountAvg` REAL NOT NULL,
-                            `hesitationNotes` TEXT NOT NULL,
-                            `completedSimulationsCount` INTEGER NOT NULL,
-                            `highestSimulationScore` INTEGER NOT NULL,
-                            `examTargetDate` TEXT NOT NULL,
-                            `subscriptionsJson` TEXT NOT NULL,
-                            `lastActivePlatform` TEXT NOT NULL,
-                            `lastSyncTimestampMillis` INTEGER NOT NULL,
-                            `pendingSyncCount` INTEGER NOT NULL,
-                            PRIMARY KEY(`userId`)
-                        )
-                        """.trimIndent()
-                    )
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS `study_plans` (
-                            `examId` TEXT NOT NULL,
-                            `userId` TEXT NOT NULL,
-                            `currentStage` INTEGER NOT NULL,
-                            `readinessPercent` INTEGER NOT NULL,
-                            `passProbabilityPercent` INTEGER NOT NULL,
-                            `passGuaranteeQualified` INTEGER NOT NULL,
-                            `weakestDomainId` TEXT NOT NULL,
-                            `weakestDomainName` TEXT NOT NULL,
-                            `weakestDomainScore` INTEGER NOT NULL,
-                            `targetDate` TEXT NOT NULL,
-                            `milestonesJson` TEXT NOT NULL,
-                            `updatedAtMillis` INTEGER NOT NULL,
-                            PRIMARY KEY(`examId`)
-                        )
-                        """.trimIndent()
-                    )
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS `pending_sync_queue` (
-                            `operationId` TEXT NOT NULL,
-                            `domainType` TEXT NOT NULL,
-                            `entityId` TEXT NOT NULL,
-                            `payloadJson` TEXT NOT NULL,
-                            `createdAtMillis` INTEGER NOT NULL,
-                            `retryCount` INTEGER NOT NULL,
-                            `lastError` TEXT,
-                            PRIMARY KEY(`operationId`)
-                        )
-                        """.trimIndent()
-                    )
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS `active_exam_attempt` (
-                            `examId` TEXT NOT NULL,
-                            `mode` TEXT NOT NULL,
-                            `questionIdsJson` TEXT NOT NULL,
-                            `currentIndex` INTEGER NOT NULL,
-                            `userAnswersJson` TEXT NOT NULL,
-                            `flaggedIndicesJson` TEXT NOT NULL,
-                            `struckOptionsJson` TEXT NOT NULL,
-                            `optionSwitchCountsJson` TEXT NOT NULL,
-                            `remainingSeconds` INTEGER NOT NULL,
-                            `isPaused` INTEGER NOT NULL,
-                            `startedAtMillis` INTEGER NOT NULL,
-                            `updatedAtMillis` INTEGER NOT NULL,
-                            PRIMARY KEY(`examId`)
-                        )
-                        """.trimIndent()
-                    )
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS `study_sources` (`id` TEXT NOT NULL, `examId` TEXT NOT NULL, `domainId` TEXT NOT NULL, `domainName` TEXT NOT NULL, `title` TEXT NOT NULL, `authorOrStandard` TEXT NOT NULL, `type` TEXT NOT NULL, `summary` TEXT NOT NULL, `keyTakeaways` TEXT NOT NULL, `fullContent` TEXT NOT NULL, `cachedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))""")
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS `cached_flashcards` (`id` TEXT NOT NULL, `examId` TEXT NOT NULL, `domainId` TEXT NOT NULL, `domainName` TEXT NOT NULL, `frontPrompt` TEXT NOT NULL, `backAnswer` TEXT NOT NULL, `keyFormulaOrRule` TEXT NOT NULL, `sourceCitation` TEXT NOT NULL, `sourceDocId` TEXT, `boxLevel` INTEGER NOT NULL, `status` TEXT NOT NULL, `lastReviewedEpoch` INTEGER NOT NULL, PRIMARY KEY(`id`))""")
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS `cached_user_profiles` (`userId` TEXT NOT NULL, `email` TEXT NOT NULL, `displayName` TEXT NOT NULL, `avatarUrl` TEXT NOT NULL, `subscriptionTier` TEXT NOT NULL, `centralPortalUrl` TEXT NOT NULL, `assessmentCompleted` INTEGER NOT NULL, `assessmentScorePercent` INTEGER NOT NULL, `cognitiveStressBaseline` INTEGER NOT NULL, `behavioralArchetype` TEXT NOT NULL, `hesitationNotes` TEXT NOT NULL, `averageDwellTimeSec` INTEGER NOT NULL, `distractorEliminationRate` REAL NOT NULL, `optionSwitchCountAvg` REAL NOT NULL, `deviceSyncedCount` INTEGER NOT NULL, `currentJourneyStage` INTEGER NOT NULL, `completedSimulationsCount` INTEGER NOT NULL, `highestSimulationScore` INTEGER NOT NULL, `examTargetDate` TEXT NOT NULL, `subscriptionsJson` TEXT NOT NULL, `lastSyncTimestampMillis` INTEGER NOT NULL, PRIMARY KEY(`userId`))""")
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS `cached_study_plans` (`examId` TEXT NOT NULL, `userId` TEXT NOT NULL, `currentStage` INTEGER NOT NULL, `readinessPercent` INTEGER NOT NULL, `passProbabilityPercent` INTEGER NOT NULL, `passGuaranteeQualified` INTEGER NOT NULL, `weakestDomainId` TEXT NOT NULL, `weakestDomainName` TEXT NOT NULL, `weakestDomainScore` INTEGER NOT NULL, `targetDate` TEXT NOT NULL, `milestonesJson` TEXT NOT NULL, `updatedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`examId`))""")
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS `pending_sync_queue` (`operationId` TEXT NOT NULL, `domainType` TEXT NOT NULL, `entityId` TEXT NOT NULL, `payloadJson` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL, `retryCount` INTEGER NOT NULL, `lastError` TEXT, PRIMARY KEY(`operationId`))""")
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS `simulation_scores` (`id` TEXT NOT NULL, `examId` TEXT NOT NULL, `timestampMillis` INTEGER NOT NULL, `overallScorePercent` INTEGER NOT NULL, `isPassed` INTEGER NOT NULL, `timeSpentSeconds` INTEGER NOT NULL, `totalQuestions` INTEGER NOT NULL, `attemptNumber` INTEGER NOT NULL, `domainScoresJson` TEXT NOT NULL, `mode` TEXT NOT NULL, `startTimeMillis` INTEGER NOT NULL, `questionIdsJson` TEXT NOT NULL, `userAnswersJson` TEXT NOT NULL, `flaggedIndicesJson` TEXT NOT NULL, `struckOptionsJson` TEXT NOT NULL, `optionSwitchCount` INTEGER NOT NULL, PRIMARY KEY(`id`))""")
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS `active_exam_attempt` (`examId` TEXT NOT NULL, `mode` TEXT NOT NULL, `questionIdsJson` TEXT NOT NULL, `currentIndex` INTEGER NOT NULL, `userAnswersJson` TEXT NOT NULL, `flaggedIndicesJson` TEXT NOT NULL, `struckOptionsJson` TEXT NOT NULL, `optionSwitchCountsJson` TEXT NOT NULL, `remainingSeconds` INTEGER NOT NULL, `isPaused` INTEGER NOT NULL, `startedAtMillis` INTEGER NOT NULL, `updatedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`examId`))""")
                 }
 
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
@@ -210,8 +80,8 @@ class Migration4To5Test {
         )
         v4Db.execSQL(
             """
-            INSERT INTO `flashcards` VALUES (
-                'fc_v4_1', 'csc-part-1', 'csc-d1', 'Capital Markets', 'Prompt', 'Answer', 'Rule', 'Ref', '', 3, 1700000000000
+            INSERT INTO `cached_flashcards` VALUES (
+                'fc_v4_1', 'csc-part-1', 'csc-d1', 'Capital Markets', 'Prompt', 'Answer', 'Rule', 'Ref', '', 3, 'LEARNING', 1700000000000
             )
             """.trimIndent()
         )
