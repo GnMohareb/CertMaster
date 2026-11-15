@@ -3,6 +3,8 @@ package com.example
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.room.Room
+import com.example.data.ExamRepository
 import com.example.data.EmbeddedExamBank
 import com.example.data.local.CertDatabase
 import com.example.domain.AdaptivePracticeEngine
@@ -16,6 +18,9 @@ import com.example.model.QuestionPool
 import com.example.model.SourceCitation
 import com.example.ui.ExamViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -517,4 +522,53 @@ class AdaptiveMasteryEngineTest {
         }.exceptionOrNull()
         assertTrue(badTypeThrown is IllegalArgumentException)
     }
+
+    @Test
+    fun concurrentEvidenceUsesLatestStoredMastery_andRejectsDuplicateEvents() = runBlocking(Dispatchers.IO) {
+        val db = Room.inMemoryDatabaseBuilder(context, CertDatabase::class.java).build()
+        try {
+            val repo = ExamRepository(context = context, database = db)
+            val questions = (1..12).map { q("atomic_$it", "csc-d1", "Capital Markets", "atomic-topic", "Atomic topic") }
+            coroutineScope {
+                questions.map { item ->
+                    async { repo.recordAnswerEvidence("atomic-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL) }
+                }.awaitAll()
+            }
+            assertEquals(12, db.adaptiveMasteryDao().getAnswerEventCount("csc-part-1"))
+            assertEquals(12, db.adaptiveMasteryDao().getTopicMasteryList("csc-part-1").single().attemptCount)
+            coroutineScope {
+                (1..12).map {
+                    async { repo.recordAnswerEvidence("atomic-attempt", questions.first(), 0, ExamMode.AI_ADAPTIVE_DRILL) }
+                }.awaitAll()
+            }
+            assertEquals(12, db.adaptiveMasteryDao().getAnswerEventCount("csc-part-1"))
+            assertEquals(12, db.adaptiveMasteryDao().getTopicMasteryList("csc-part-1").single().attemptCount)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun failedExposureWriteRollsBackAnswerAndMastery_andCanBeRetried() = runBlocking(Dispatchers.IO) {
+        val db = Room.inMemoryDatabaseBuilder(context, CertDatabase::class.java).build()
+        try {
+            val repo = ExamRepository(context = context, database = db)
+            val item = q("rollback_1", "csc-d1", "Capital Markets", "rollback-topic", "Rollback topic")
+            db.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER fail_exposure BEFORE INSERT ON question_exposure BEGIN SELECT RAISE(ABORT, 'injected test failure'); END"
+            )
+            assertTrue(runCatching {
+                repo.recordAnswerEvidence("rollback-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL)
+            }.isFailure)
+            assertEquals(0, db.adaptiveMasteryDao().getAnswerEventCount("csc-part-1"))
+            assertTrue(db.adaptiveMasteryDao().getTopicMasteryList("csc-part-1").isEmpty())
+            db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_exposure")
+            repo.recordAnswerEvidence("rollback-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL)
+            assertEquals(1, db.adaptiveMasteryDao().getAnswerEventCount("csc-part-1"))
+            assertEquals(1, db.adaptiveMasteryDao().getTopicMasteryList("csc-part-1").single().attemptCount)
+        } finally {
+            db.close()
+        }
+    }
+
 }

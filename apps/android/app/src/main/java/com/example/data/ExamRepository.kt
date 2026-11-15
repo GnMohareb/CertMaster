@@ -1,6 +1,7 @@
 package com.example.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.example.auth.SharedAuthManager
 import com.example.data.local.ActiveExamAttemptEntity
 import com.example.data.local.AnswerEventEntity
@@ -55,6 +56,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -69,6 +72,7 @@ class ExamRepository(
     val firebaseSyncClient: CertMasterFirebaseSyncClient = CertMasterFirebaseSyncClient(context)
 ) {
 
+    private val answerEvidenceMutex = Mutex()
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val standaloneCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
     private var sourcesCollectJob: Job? = null
@@ -384,6 +388,24 @@ class ExamRepository(
         mode: ExamMode,
         viewedExplanationOnly: Boolean = false,
         nowMillis: Long = System.currentTimeMillis()
+    ): TopicMasteryState? = answerEvidenceMutex.withLock {
+        val db = database
+        if (db != null) {
+            db.withTransaction {
+                recordAnswerEvidenceLocked(attemptId, question, selectedIndex, mode, viewedExplanationOnly, nowMillis)
+            }
+        } else {
+            recordAnswerEvidenceLocked(attemptId, question, selectedIndex, mode, viewedExplanationOnly, nowMillis)
+        }
+    }
+
+    private suspend fun recordAnswerEvidenceLocked(
+        attemptId: String,
+        question: Question,
+        selectedIndex: Int,
+        mode: ExamMode,
+        viewedExplanationOnly: Boolean = false,
+        nowMillis: Long = System.currentTimeMillis()
     ): TopicMasteryState? {
         val canonicalExamId = ExamCatalog.normalizeExamId(_currentExam.value.id)
         val safeAttemptId = attemptId.ifBlank { "session_${nowMillis}" }
@@ -422,8 +444,15 @@ class ExamRepository(
             return _storedTopicMastery.value[topicMeta.topicKey]
         }
 
-        val currentTopic = _storedTopicMastery.value[topicMeta.topicKey]
-        val currentExposure = _questionExposures.value[question.id]
+        val currentTopic = if (db != null) {
+            db.adaptiveMasteryDao().getTopicMasteryList(canonicalExamId)
+                .firstOrNull { it.topicKey == topicMeta.topicKey }?.toDomainModel()
+        } else _storedTopicMastery.value[topicMeta.topicKey]
+        val currentExposure = if (db != null) {
+            db.adaptiveMasteryDao().getQuestionExposure(
+                QuestionExposureEntity.keyFor(canonicalExamId, question.id)
+            )?.toDomainModel()
+        } else _questionExposures.value[question.id]
         val nextOrder = ((db?.adaptiveMasteryDao()?.getMaxGlobalOrder(canonicalExamId) ?: 0L)
             .coerceAtLeast(_questionExposures.value.values.maxOfOrNull { it.lastGlobalOrder } ?: 0L)) + 1L
 
