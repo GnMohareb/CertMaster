@@ -98,9 +98,20 @@ Implemented full offline adaptive assessment, adaptive practice, deterministic t
    - Added `AdaptiveMasteryEngineTest.kt` and `Migration4To5Test.kt` in `apps/android/app/src/testCscPart1/java/com/example/`.
    - Added `docs/adaptive_mastery_model.md`, `docs/csc_part1_question_schema.json`, `docs/csc_part1_question_schema_for_perplexity.md`, and `docs/csc_part1_coverage_audit.md` (covering `schemaVersion` 1–2, `bankVersion`, `syllabusEdition`, `syllabusWeights`, `topicId`/`topicName`, `objectiveId`/`learningObjective`, `questionType`, `questionPool`, `nearDuplicateGroupId`, `optionAnalysis`, and fail-closed citation/type checks without inventing CSI syllabus IDs or weights).
 
-### Verification & Sync Status (Sandbox Constraints)
-- **Not Executed Locally**: JDK and Gradle are not installed in this Linux sandbox (`java` and `gradle` missing), so `:app:testCscPart1DebugUnitTest` and `:app:assembleCscPart1Debug` could **not** execute locally and remain **PENDING** GitHub Actions CI on `GnMohareb/CertMaster` branch `feature/standalone-android-offline-exams` via `.github/workflows/csc-part1-android.yml`.
-- **GitHub Sync Blocker**: Neither `gh` CLI nor GitHub credentials (`~/.ssh`, `~/.git-credentials`, `~/.netrc`, `GITHUB_TOKEN`, `GH_TOKEN`) are configured in this sandbox; non-interactive `git push origin feature/standalone-android-offline-exams` failed (`could not read Username`). Remote `origin/feature/standalone-android-offline-exams` remains at `c6cc4726f1d5f9a2660fd01d278628f2ca1af15`.
-- **Transfer Package Ready**: Updated `exports/csc-part1-transfer.json`, `exports/csc-part1-changes.patch`, `exports/csc-part1-changes.txt`, `exports/csc-part1-offline.bundle`, and `exports/csc-part1-android-complete.zip` generated from `/tmp/gh_current` relative to `c6cc4726f1d5f9a2660fd01d278628f2ca1af15`.
+### Verification & Sync Status (Reconciled with Remote `12d7201e9f739f950d65fb53d70f8be01ca64230`)
+- **Upstream GitHub Recovery & Follow-ups Preserved**:
+  - Recovered branch commit `e0dd472` plus remote fixes `d76700c` (no destructive DB fallback), `23ed576` (atomic `recordAnswerEvidence` `withTransaction` + `Mutex` + concurrency/rollback tests), `b877657` (matched v4 Room schema in `Migration4To5Test` & `Dispatchers.setMain`), `8a8b54f` (`activeAttemptRevision` / `activeAttemptMutex` + `compareAndSet`), and `12d7201` (offline APK permission/runtime dependency verification + app-owned ID clarification).
+- **Executed GitHub Actions CI History (`.github/workflows/csc-part1-android.yml`)**:
+  - Run `43632287764` (`ce31d0c`): **PASS** (baseline before adaptive learning merge).
+  - Run `43731087024` (`b877657`): **24 tests ran, 23 passed, 1 failed** (`CscPart1OfflineTest.inProgressAttemptCompletedSessionFlashcardsAndNotes_surviveAppRestart`); `Migration4To5Test` and `AdaptiveMasteryEngineTest` (including concurrent/idempotent & rollback tests) passed.
+  - Run `43731322396` (`8a8b54f`) & Run `43731397096` (`12d7201`): **FAIL** at Step 7 (`:app:testCscPart1DebugUnitTest`).
+- **Post-`12d7201` Concurrency & Lifecycle Fixes Applied Locally**:
+  - `ExamRepository.kt`: Added `contentWriteMutex` serializing `addSourceDoc`/`addFlashcard`/`updateFlashcardBox`, `pendingSourceWrites`/`pendingFlashcardWrites`/`pendingSessionWrites` Flow-collector guards so initial Room emissions cannot overwrite optimistic in-flight writes, `startupBindJob` + `launchWrite`/`activeWriteJobs`, `awaitPendingWritesForTesting()`, and `shutdown()`.
+  - `ExamViewModel.kt`: Deduplicated `pauseAndExitToDashboard()` DB persistence via `pauseTimer(persistAttempt = false)`, tracked `checkPracticeEvidenceJob`, added `closeForTesting()`, and wired `repository.shutdown()` in `onCleared()`.
+  - `CscPart1OfflineTest.kt` & `AdaptiveMasteryEngineTest.kt`: Updated restart and cleanup blocks to call `closeForTesting()` / `awaitPendingWritesForTesting()` + `shutdown()` before restarting VMs or closing Room tables.
+- **Unverified / External Blockers**:
+  - JDK, Gradle, and ADB are **not** installed in this sandbox, so `:app:testCscPart1DebugUnitTest`, `:app:assembleCscPart1Debug`, and physical-device installation remain **NOT EXECUTED** for the post-`12d7201` fix.
+  - Non-interactive `git push` fails in this sandbox due to missing GitHub credentials (`fatal: could not read Username`). Updated transfer artifacts (`exports/csc-part1-transfer.json`, `exports/csc-part1-changes.patch`, `exports/csc-part1-changes.txt`, `exports/csc-part1-offline.bundle`, `exports/csc-part1-android-complete.zip`) are generated against base commit `12d7201e9f739f950d65fb53d70f8be01ca64230` for external push and CI execution.
 - **Untouched Guardrails Verified**: `apps/web/` and `main` unmodified; no Firebase, auth, cloud sync, backend, or runtime AI dependencies added to `cscPart1`; no question bank JSON bundled in `apps/android/app/src/cscPart1/assets/`.
+
 

@@ -151,24 +151,28 @@ class CscPart1OfflineTest {
         val db = Room.inMemoryDatabaseBuilder(context, CertDatabase::class.java)
             .allowMainThreadQueries()
             .build()
+        var repo: ExamRepository? = null
         try {
-            val repo = ExamRepository(context = context, database = db)
+            val repository = ExamRepository(context = context, database = db)
+            repo = repository
             awaitCondition {
-                repo.userProfile.value.userId == "local_csc_part_1"
+                repository.userProfile.value.userId == "local_csc_part_1"
             }
 
-            assertEquals("csc-part-1", repo.currentExam.value.id)
-            assertEquals(60, repo.currentExam.value.passingScorePercent)
-            assertTrue("Expected empty question bank before import", repo.questions.value.isEmpty())
-            assertTrue("Expected no CISSP flashcards in CSC Part 1", repo.flashcards.value.isEmpty())
-            assertTrue("Expected no CISSP study guides in CSC Part 1", repo.sources.value.isEmpty())
-            assertTrue("Expected no CISSP audio briefings in CSC Part 1", repo.audioOverviews.value.isEmpty())
-            assertFalse(repo.backendConfig.value.isOnline)
-            assertFalse(repo.backendConfig.value.isConnected)
-            assertEquals(0, repo.readinessReport.value.readinessPercent)
-            assertEquals(0, repo.readinessReport.value.passProbabilityPercent)
-            assertTrue(repo.getDomainStressMetricsList().isEmpty())
+            assertEquals("csc-part-1", repository.currentExam.value.id)
+            assertEquals(60, repository.currentExam.value.passingScorePercent)
+            assertTrue("Expected empty question bank before import", repository.questions.value.isEmpty())
+            assertTrue("Expected no CISSP flashcards in CSC Part 1", repository.flashcards.value.isEmpty())
+            assertTrue("Expected no CISSP study guides in CSC Part 1", repository.sources.value.isEmpty())
+            assertTrue("Expected no CISSP audio briefings in CSC Part 1", repository.audioOverviews.value.isEmpty())
+            assertFalse(repository.backendConfig.value.isOnline)
+            assertFalse(repository.backendConfig.value.isConnected)
+            assertEquals(0, repository.readinessReport.value.readinessPercent)
+            assertEquals(0, repository.readinessReport.value.passProbabilityPercent)
+            assertTrue(repository.getDomainStressMetricsList().isEmpty())
         } finally {
+            repo?.awaitPendingWritesForTesting()
+            repo?.shutdown()
             db.close()
         }
     }
@@ -289,7 +293,7 @@ class CscPart1OfflineTest {
             assertTrue(viewModel.readinessReport.value.readinessPercent > 0)
             assertTrue(viewModel.domainStressMetrics.value.isNotEmpty())
         } finally {
-            viewModel.speechManager.shutdown()
+            viewModel.closeForTesting()
         }
     }
 
@@ -339,7 +343,7 @@ class CscPart1OfflineTest {
             // Finish a second simulation on another session or inspect active attempt first
             assertEquals(orderedIdsBeforeRestart, vm1.savedActiveAttempt.value!!.parseQuestionIds())
         } finally {
-            vm1.speechManager.shutdown()
+            vm1.closeForTesting()
         }
 
         // Launch 2 (Simulated App Restart on same persisted Room DB):
@@ -374,7 +378,7 @@ class CscPart1OfflineTest {
                     CertDatabase.getInstance(context).activeExamAttemptDao().getAttemptForExam("csc-part-1") == null
             }
         } finally {
-            vm2.speechManager.shutdown()
+            vm2.closeForTesting()
         }
 
         // Launch 3: Verify completed session + question IDs + domain breakdown restore cleanly
@@ -392,7 +396,7 @@ class CscPart1OfflineTest {
             assertEquals(AppScreen.SESSION_RESULT, vm3.currentScreen.value)
             assertEquals(5, vm3.simulationQuestions.value.size)
         } finally {
-            vm3.speechManager.shutdown()
+            vm3.closeForTesting()
         }
     }
 
@@ -413,12 +417,12 @@ class CscPart1OfflineTest {
                 CertDatabase.getInstance(context).activeExamAttemptDao().getAttemptForExam("csc-part-1") == null
             }
         } finally {
-            viewModel.speechManager.shutdown()
+            viewModel.closeForTesting()
         }
     }
 
     @Test
-    fun offlineGuardrails_blockCloudRoutesAndExamSwitchingGracefully() {
+    fun offlineGuardrails_blockCloudRoutesAndExamSwitchingGracefully() = runBlocking(Dispatchers.IO) {
         val viewModel = ExamViewModel(application)
         try {
             viewModel.sendAIPrompt("Explain bond duration")
@@ -428,7 +432,7 @@ class CscPart1OfflineTest {
             assertEquals("csc-part-1", viewModel.currentExam.value.id)
             assertEquals("This offline edition contains one certification.", viewModel.statusMessage.value)
         } finally {
-            viewModel.speechManager.shutdown()
+            viewModel.closeForTesting()
         }
     }
 }

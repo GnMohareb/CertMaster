@@ -55,15 +55,19 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
+import java.util.Collections
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 class ExamRepository(
@@ -75,14 +79,43 @@ class ExamRepository(
 
     private val answerEvidenceMutex = Mutex()
     private val activeAttemptMutex = Mutex()
+    private val contentWriteMutex = Mutex()
     private val activeAttemptRevision = AtomicLong(0)
+    private val pendingSourceWrites = AtomicInteger(0)
+    private val pendingFlashcardWrites = AtomicInteger(0)
+    private val pendingSessionWrites = AtomicInteger(0)
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val activeWriteJobs = Collections.synchronizedSet(mutableSetOf<Job>())
     private val standaloneCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
+    private var startupBindJob: Job? = null
     private var sourcesCollectJob: Job? = null
     private var flashcardsCollectJob: Job? = null
     private var scoresCollectJob: Job? = null
     private var topicMasteryCollectJob: Job? = null
     private var exposuresCollectJob: Job? = null
+
+    private fun launchWrite(block: suspend () -> Unit): Job {
+        lateinit var job: Job
+        job = repositoryScope.launch {
+            block()
+        }
+        activeWriteJobs.add(job)
+        job.invokeOnCompletion { activeWriteJobs.remove(job) }
+        return job
+    }
+
+    internal suspend fun awaitPendingWritesForTesting() {
+        startupBindJob?.join()
+        while (true) {
+            val snapshot = synchronized(activeWriteJobs) { activeWriteJobs.toList() }
+            if (snapshot.isEmpty()) break
+            snapshot.joinAll()
+        }
+    }
+
+    fun shutdown() {
+        repositoryScope.cancel()
+    }
 
     val adaptiveConfig: AdaptiveConfig = AdaptiveConfig()
     private val inMemoryAppliedEventIds = mutableSetOf<String>()
@@ -258,7 +291,8 @@ class ExamRepository(
     private fun bindDatabaseForExam(examId: String) {
         val db = database ?: return
         val canonicalExamId = if (examId == "cissp") "cissp" else ExamCatalog.normalizeExamId(examId)
-        repositoryScope.launch {
+        startupBindJob?.cancel()
+        startupBindJob = repositoryScope.launch {
             // Load or seed UserCentralProfile in Room
             val cachedProfile = db.userProfileDao().getProfileById(_userProfile.value.userId)
             if (cachedProfile != null) {
@@ -299,39 +333,45 @@ class ExamRepository(
 
             // Reactively observe cached sources via Room Flow
             sourcesCollectJob?.cancel()
-            sourcesCollectJob = launch {
+            sourcesCollectJob = repositoryScope.launch {
                 db.studySourceDao().getSourcesByExam(canonicalExamId).collect { entities ->
-                    _sources.value = entities.map { it.toSourceDoc() }
+                    if (pendingSourceWrites.get() == 0) {
+                        _sources.value = entities.map { it.toSourceDoc() }
+                    }
                 }
             }
 
             // Reactively observe cached flashcards via Room Flow
             flashcardsCollectJob?.cancel()
-            flashcardsCollectJob = launch {
+            flashcardsCollectJob = repositoryScope.launch {
                 db.flashcardDao().getFlashcardsByExam(canonicalExamId).collect { entities ->
-                    _flashcards.value = entities.map { it.toFlashcard() }
-                    recomputeReadinessAndStudyPlan()
+                    if (pendingFlashcardWrites.get() == 0) {
+                        _flashcards.value = entities.map { it.toFlashcard() }
+                        recomputeReadinessAndStudyPlan()
+                    }
                 }
             }
 
             // Reactively observe simulation scores via Room Flow for history and performance line chart
             scoresCollectJob?.cancel()
-            scoresCollectJob = launch {
+            scoresCollectJob = repositoryScope.launch {
                 db.simulationScoreDao().getScoresByExam(canonicalExamId).collect { entities ->
-                    _simulationScores.value = entities
-                    val reversedSessions = entities.reversed().map { it.toExamSession() }
-                    _sessions.value = reversedSessions
-                    val baselineEntity = entities.firstOrNull { it.isInitialBaseline }
-                        ?: entities.firstOrNull { it.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT.name }
-                    _initialBaselineSession.value = baselineEntity?.toExamSession()
-                    recomputeAdaptiveAnalytics()
-                    recomputeReadinessAndStudyPlan()
+                    if (pendingSessionWrites.get() == 0) {
+                        _simulationScores.value = entities
+                        val reversedSessions = entities.reversed().map { it.toExamSession() }
+                        _sessions.value = reversedSessions
+                        val baselineEntity = entities.firstOrNull { it.isInitialBaseline }
+                            ?: entities.firstOrNull { it.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT.name }
+                        _initialBaselineSession.value = baselineEntity?.toExamSession()
+                        recomputeAdaptiveAnalytics()
+                        recomputeReadinessAndStudyPlan()
+                    }
                 }
             }
 
             // Reactively observe topic mastery states
             topicMasteryCollectJob?.cancel()
-            topicMasteryCollectJob = launch {
+            topicMasteryCollectJob = repositoryScope.launch {
                 db.adaptiveMasteryDao().observeTopicMastery(canonicalExamId).collect { entities ->
                     _storedTopicMastery.value = entities.associate { it.topicKey to it.toDomainModel() }
                     recomputeAdaptiveAnalytics()
@@ -340,7 +380,7 @@ class ExamRepository(
 
             // Reactively observe per-question exposure & review schedules
             exposuresCollectJob?.cancel()
-            exposuresCollectJob = launch {
+            exposuresCollectJob = repositoryScope.launch {
                 db.adaptiveMasteryDao().observeQuestionExposures(canonicalExamId).collect { entities ->
                     _questionExposures.value = entities.associate { it.questionId to it.toDomainModel() }
                     recomputeAdaptiveAnalytics()
@@ -536,7 +576,7 @@ class ExamRepository(
         // Persist study plan in Room if attached
         val db = database
         if (db != null) {
-            repositoryScope.launch {
+            launchWrite {
                 val arr = JSONArray()
                 milestones.forEach { m ->
                     val obj = JSONObject()
@@ -624,7 +664,7 @@ class ExamRepository(
         val revision = activeAttemptRevision.incrementAndGet()
         _savedActiveAttempt.value = attempt
         val db = database ?: return
-        repositoryScope.launch {
+        launchWrite {
             activeAttemptMutex.withLock {
                 if (revision == activeAttemptRevision.get()) {
                     db.activeExamAttemptDao().saveAttempt(attempt)
@@ -648,7 +688,7 @@ class ExamRepository(
         _savedActiveAttempt.value = null
         val canonicalExamId = ExamCatalog.normalizeExamId(examId)
         val db = database ?: return
-        repositoryScope.launch {
+        launchWrite {
             activeAttemptMutex.withLock {
                 if (revision == activeAttemptRevision.get()) {
                     db.activeExamAttemptDao().deleteAttemptForExam(canonicalExamId)
@@ -745,42 +785,46 @@ class ExamRepository(
         }
 
         val db = database
-        repositoryScope.launch {
-            db?.simulationScoreDao()?.insertScore(entity)
+        pendingSessionWrites.incrementAndGet()
+        launchWrite {
+            try {
+                db?.simulationScoreDao()?.insertScore(entity)
 
-            // Idempotently apply any answered questions not yet recorded during the session
-            resolvedQuestions.forEachIndexed { idx, q ->
-                val chosen = enrichedSession.userAnswers[idx]
-                if (chosen != null) {
-                    recordAnswerEvidence(
-                        attemptId = attemptId,
-                        question = q,
-                        selectedIndex = chosen,
-                        mode = enrichedSession.mode,
-                        nowMillis = enrichedSession.completedTimeMillis
-                    )
-                }
-            }
-
-            // Lock in fixed per-topic baseline scores only on the very first Initial Assessment
-            if (enrichedSession.isInitialBaseline && topicScores.isNotEmpty()) {
-                val canonicalExamId = ExamCatalog.normalizeExamId(enrichedSession.examId)
-                val updatedMap = _storedTopicMastery.value.toMutableMap()
-                topicScores.forEach { tScore ->
-                    val existing = updatedMap[tScore.topicKey]
-                    if (existing != null && existing.baselineScorePercent == null) {
-                        val withBaseline = existing.copy(
-                            baselineScorePercent = tScore.percentage,
-                            baselineAttemptCount = tScore.totalCount
-                        )
-                        updatedMap[tScore.topicKey] = withBaseline
-                        db?.adaptiveMasteryDao()?.upsertTopicMastery(
-                            TopicMasteryEntity.fromDomainModel(withBaseline, enrichedSession.completedTimeMillis)
+                // Idempotently apply any answered questions not yet recorded during the session
+                resolvedQuestions.forEachIndexed { idx, q ->
+                    val chosen = enrichedSession.userAnswers[idx]
+                    if (chosen != null) {
+                        recordAnswerEvidence(
+                            attemptId = attemptId,
+                            question = q,
+                            selectedIndex = chosen,
+                            mode = enrichedSession.mode,
+                            nowMillis = enrichedSession.completedTimeMillis
                         )
                     }
                 }
-                _storedTopicMastery.value = updatedMap
-                recomputeAdaptiveAnalytics(enrichedSession.completedTimeMillis)
+
+                // Lock in fixed per-topic baseline scores only on the very first Initial Assessment
+                if (enrichedSession.isInitialBaseline && topicScores.isNotEmpty()) {
+                    val updatedMap = _storedTopicMastery.value.toMutableMap()
+                    topicScores.forEach { tScore ->
+                        val existing = updatedMap[tScore.topicKey]
+                        if (existing != null && existing.baselineScorePercent == null) {
+                            val withBaseline = existing.copy(
+                                baselineScorePercent = tScore.percentage,
+                                baselineAttemptCount = tScore.totalCount
+                            )
+                            updatedMap[tScore.topicKey] = withBaseline
+                            db?.adaptiveMasteryDao()?.upsertTopicMastery(
+                                TopicMasteryEntity.fromDomainModel(withBaseline, enrichedSession.completedTimeMillis)
+                            )
+                        }
+                    }
+                    _storedTopicMastery.value = updatedMap
+                    recomputeAdaptiveAnalytics(enrichedSession.completedTimeMillis)
+                }
+            } finally {
+                pendingSessionWrites.decrementAndGet()
             }
         }
 
@@ -845,7 +889,7 @@ class ExamRepository(
 
     private fun persistProfileLocally(profile: UserCentralProfile) {
         val db = database ?: return
-        repositoryScope.launch {
+        launchWrite {
             db.userProfileDao().insertProfile(UserProfileEntity.fromUserCentralProfile(profile))
         }
     }
@@ -1073,8 +1117,15 @@ class ExamRepository(
         _sources.value = listOf(doc) + _sources.value
         val db = database
         if (db != null) {
-            repositoryScope.launch {
-                db.studySourceDao().insertSource(StudySourceEntity.fromSourceDoc(doc))
+            pendingSourceWrites.incrementAndGet()
+            launchWrite {
+                try {
+                    contentWriteMutex.withLock {
+                        db.studySourceDao().insertSource(StudySourceEntity.fromSourceDoc(doc))
+                    }
+                } finally {
+                    pendingSourceWrites.decrementAndGet()
+                }
             }
         }
         enqueueOrSyncOperation(
@@ -1119,8 +1170,15 @@ class ExamRepository(
         _flashcards.value = listOf(card) + _flashcards.value
         val db = database
         if (db != null) {
-            repositoryScope.launch {
-                db.flashcardDao().insertFlashcard(FlashcardEntity.fromFlashcard(card))
+            pendingFlashcardWrites.incrementAndGet()
+            launchWrite {
+                try {
+                    contentWriteMutex.withLock {
+                        db.flashcardDao().insertFlashcard(FlashcardEntity.fromFlashcard(card))
+                    }
+                } finally {
+                    pendingFlashcardWrites.decrementAndGet()
+                }
             }
         }
         enqueueOrSyncOperation(
@@ -1145,8 +1203,15 @@ class ExamRepository(
         }
         val db = database
         if (db != null) {
-            repositoryScope.launch {
-                db.flashcardDao().updateBoxLevel(flashcardId, safeBox, now)
+            pendingFlashcardWrites.incrementAndGet()
+            launchWrite {
+                try {
+                    contentWriteMutex.withLock {
+                        db.flashcardDao().updateBoxLevel(flashcardId, safeBox, now)
+                    }
+                } finally {
+                    pendingFlashcardWrites.decrementAndGet()
+                }
             }
         }
         enqueueOrSyncOperation(

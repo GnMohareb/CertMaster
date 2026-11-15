@@ -166,6 +166,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     val practiceExhaustionNotice: StateFlow<String?> = _practiceExhaustionNotice.asStateFlow()
 
     private var timerJob: Job? = null
+    private var checkPracticeEvidenceJob: Job? = null
     private var simulationStartedAtMillis: Long = 0L
 
     private fun isStandaloneCsc(): Boolean =
@@ -433,7 +434,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun pauseAndExitToDashboard() {
-        pauseTimer()
+        pauseTimer(persistAttempt = false)
         persistActiveAttempt(pausedOverride = true)
         screenStack.clear()
         _currentScreen.value = AppScreen.DASHBOARD
@@ -490,10 +491,12 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun pauseTimer() {
+    fun pauseTimer(persistAttempt: Boolean = true) {
         _isTimerPaused.value = true
         timerJob?.cancel()
-        persistActiveAttempt(pausedOverride = true)
+        if (persistAttempt) {
+            persistActiveAttempt(pausedOverride = true)
+        }
     }
 
     fun resumeTimer() {
@@ -652,7 +655,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         activeAttemptId = attemptKey
         persistActiveAttempt()
 
-        viewModelScope.launch {
+        checkPracticeEvidenceJob = viewModelScope.launch {
             val updatedTopic = repository.recordAnswerEvidence(
                 attemptId = attemptKey,
                 question = question,
@@ -965,9 +968,22 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _statusMessage.value = null
     }
 
+    internal suspend fun closeForTesting(awaitWrites: Boolean = true) {
+        speechManager.shutdown()
+        timerJob?.cancel()
+        if (awaitWrites) {
+            checkPracticeEvidenceJob?.join()
+            repository.awaitPendingWritesForTesting()
+        } else {
+            checkPracticeEvidenceJob?.cancel()
+        }
+        repository.shutdown()
+    }
+
     override fun onCleared() {
         super.onCleared()
         speechManager.shutdown()
         timerJob?.cancel()
+        repository.shutdown()
     }
 }

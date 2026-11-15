@@ -362,7 +362,7 @@ class AdaptiveMasteryEngineTest {
                 vm.simulationQuestions.value.drop(1).any { it.id == firstQ.id }
             )
         } finally {
-            vm.speechManager.shutdown()
+            vm.closeForTesting()
         }
     }
 
@@ -372,6 +372,7 @@ class AdaptiveMasteryEngineTest {
         val meta = EmbeddedBankMetadata(schemaVersion = 2, examId = "csc-part-1", bankVersion = "2")
 
         // Launch 1: Complete first Initial Assessment -> becomes fixed baseline
+        var eventCountBeforeRestart = 0
         val vm1 = ExamViewModel(application)
         try {
             vm1.repositoryForTesting().setQuestionsForTesting(bank, meta)
@@ -403,38 +404,38 @@ class AdaptiveMasteryEngineTest {
             awaitCondition {
                 CertDatabase.getInstance(context).adaptiveMasteryDao().getAnswerEventCount("csc-part-1") >= 9
             }
-            val eventCountBeforeRestart = CertDatabase.getInstance(context).adaptiveMasteryDao().getAnswerEventCount("csc-part-1")
+            eventCountBeforeRestart = CertDatabase.getInstance(context).adaptiveMasteryDao().getAnswerEventCount("csc-part-1")
             vm1.pauseAndExitToDashboard()
             awaitCondition {
                 CertDatabase.getInstance(context).activeExamAttemptDao().getAttemptForExam("csc-part-1")?.isPaused == true
             }
-
-            // Simulate app restart (vm2) -> resume saved adaptive session & finish without double-applying checked item
-            val vm2 = ExamViewModel(application)
-            try {
-                vm2.repositoryForTesting().setQuestionsForTesting(bank, meta)
-                awaitCondition { vm2.savedActiveAttempt.value != null }
-                assertTrue(vm2.resumeSavedSimulation())
-                assertTrue(vm2.checkedQuestionIndices.value.contains(0))
-                vm2.finishSimulation()
-
-                awaitCondition {
-                    CertDatabase.getInstance(context).activeExamAttemptDao().getAttemptForExam("csc-part-1") == null &&
-                        vm2.sessions.value.size == 3
-                }
-                // Delay briefly for any background recordAnswerEvidence coroutine and confirm eventCount did NOT duplicate checked pq0
-                delay(150)
-                val eventCountAfterResumeFinish = CertDatabase.getInstance(context).adaptiveMasteryDao().getAnswerEventCount("csc-part-1")
-                assertEquals(
-                    "Resuming and finishing must never double-record the already-checked question",
-                    eventCountBeforeRestart,
-                    eventCountAfterResumeFinish
-                )
-            } finally {
-                vm2.speechManager.shutdown()
-            }
         } finally {
-            vm1.speechManager.shutdown()
+            vm1.closeForTesting()
+        }
+
+        // Simulate app restart (vm2) -> resume saved adaptive session & finish without double-applying checked item
+        val vm2 = ExamViewModel(application)
+        try {
+            vm2.repositoryForTesting().setQuestionsForTesting(bank, meta)
+            awaitCondition { vm2.savedActiveAttempt.value != null }
+            assertTrue(vm2.resumeSavedSimulation())
+            assertTrue(vm2.checkedQuestionIndices.value.contains(0))
+            vm2.finishSimulation()
+
+            awaitCondition {
+                CertDatabase.getInstance(context).activeExamAttemptDao().getAttemptForExam("csc-part-1") == null &&
+                    vm2.sessions.value.size == 3
+            }
+            // Delay briefly for any background recordAnswerEvidence coroutine and confirm eventCount did NOT duplicate checked pq0
+            delay(150)
+            val eventCountAfterResumeFinish = CertDatabase.getInstance(context).adaptiveMasteryDao().getAnswerEventCount("csc-part-1")
+            assertEquals(
+                "Resuming and finishing must never double-record the already-checked question",
+                eventCountBeforeRestart,
+                eventCountAfterResumeFinish
+            )
+        } finally {
+            vm2.closeForTesting()
         }
     }
 
@@ -532,24 +533,28 @@ class AdaptiveMasteryEngineTest {
     @Test
     fun concurrentEvidenceUsesLatestStoredMastery_andRejectsDuplicateEvents() = runBlocking(Dispatchers.IO) {
         val db = Room.inMemoryDatabaseBuilder(context, CertDatabase::class.java).build()
+        var repo: ExamRepository? = null
         try {
-            val repo = ExamRepository(context = context, database = db)
+            val repository = ExamRepository(context = context, database = db)
+            repo = repository
             val questions = (1..12).map { q("atomic_$it", "csc-d1", "Capital Markets", "atomic-topic", "Atomic topic") }
             coroutineScope {
                 questions.map { item ->
-                    async { repo.recordAnswerEvidence("atomic-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL) }
+                    async { repository.recordAnswerEvidence("atomic-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL) }
                 }.awaitAll()
             }
             assertEquals(12, db.adaptiveMasteryDao().getAnswerEventCount("csc-part-1"))
             assertEquals(12, db.adaptiveMasteryDao().getTopicMasteryList("csc-part-1").single().attemptCount)
             coroutineScope {
                 (1..12).map {
-                    async { repo.recordAnswerEvidence("atomic-attempt", questions.first(), 0, ExamMode.AI_ADAPTIVE_DRILL) }
+                    async { repository.recordAnswerEvidence("atomic-attempt", questions.first(), 0, ExamMode.AI_ADAPTIVE_DRILL) }
                 }.awaitAll()
             }
             assertEquals(12, db.adaptiveMasteryDao().getAnswerEventCount("csc-part-1"))
             assertEquals(12, db.adaptiveMasteryDao().getTopicMasteryList("csc-part-1").single().attemptCount)
         } finally {
+            repo?.awaitPendingWritesForTesting()
+            repo?.shutdown()
             db.close()
         }
     }
@@ -557,22 +562,26 @@ class AdaptiveMasteryEngineTest {
     @Test
     fun failedExposureWriteRollsBackAnswerAndMastery_andCanBeRetried() = runBlocking(Dispatchers.IO) {
         val db = Room.inMemoryDatabaseBuilder(context, CertDatabase::class.java).build()
+        var repo: ExamRepository? = null
         try {
-            val repo = ExamRepository(context = context, database = db)
+            val repository = ExamRepository(context = context, database = db)
+            repo = repository
             val item = q("rollback_1", "csc-d1", "Capital Markets", "rollback-topic", "Rollback topic")
             db.openHelper.writableDatabase.execSQL(
                 "CREATE TRIGGER fail_exposure BEFORE INSERT ON question_exposure BEGIN SELECT RAISE(ABORT, 'injected test failure'); END"
             )
             assertTrue(runCatching {
-                repo.recordAnswerEvidence("rollback-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL)
+                repository.recordAnswerEvidence("rollback-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL)
             }.isFailure)
             assertEquals(0, db.adaptiveMasteryDao().getAnswerEventCount("csc-part-1"))
             assertTrue(db.adaptiveMasteryDao().getTopicMasteryList("csc-part-1").isEmpty())
             db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_exposure")
-            repo.recordAnswerEvidence("rollback-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL)
+            repository.recordAnswerEvidence("rollback-attempt", item, 0, ExamMode.AI_ADAPTIVE_DRILL)
             assertEquals(1, db.adaptiveMasteryDao().getAnswerEventCount("csc-part-1"))
             assertEquals(1, db.adaptiveMasteryDao().getTopicMasteryList("csc-part-1").single().attemptCount)
         } finally {
+            repo?.awaitPendingWritesForTesting()
+            repo?.shutdown()
             db.close()
         }
     }
