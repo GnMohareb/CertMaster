@@ -163,7 +163,6 @@ abstract class CertDatabase : RoomDatabase() {
                     "certmaster_cache.db"
                 )
                     .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
-                    .fallbackToDestructiveMigrationFrom(1, 2)
                     .build()
                 INSTANCE = instance
                 instance
