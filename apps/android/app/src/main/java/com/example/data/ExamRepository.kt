@@ -360,22 +360,7 @@ class ExamRepository(
             scoresCollectJob?.cancel()
             scoresCollectJob = repositoryScope.launch {
                 db.simulationScoreDao().getScoresByExam(canonicalExamId).collect {
-                    // A delayed Room emission can predate a just-completed session. Read current
-                    // rows and reject the snapshot if an optimistic update began during the read.
-                    val revision = sessionStateRevision.get()
-                    if (pendingSessionWrites.get() != 0) return@collect
-                    val entities = db.simulationScoreDao().getScoresByExam(canonicalExamId).first()
-                    synchronized(this@ExamRepository) {
-                        if (pendingSessionWrites.get() == 0 && sessionStateRevision.get() == revision) {
-                            _simulationScores.value = entities
-                            _sessions.value = entities.reversed().map { it.toExamSession() }
-                            val baselineEntity = entities.firstOrNull { it.isInitialBaseline }
-                                ?: entities.firstOrNull { it.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT.name }
-                            _initialBaselineSession.value = baselineEntity?.toExamSession()
-                            recomputeAdaptiveAnalytics()
-                            recomputeReadinessAndStudyPlan()
-                        }
-                    }
+                    refreshSessionHistoryFromDatabase(canonicalExamId)
                 }
             }
 
@@ -411,6 +396,24 @@ class ExamRepository(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private suspend fun refreshSessionHistoryFromDatabase(examId: String) {
+        val db = database ?: return
+        val revision = sessionStateRevision.get()
+        if (pendingSessionWrites.get() != 0) return
+        val entities = db.simulationScoreDao().getScoresByExam(examId).first()
+        synchronized(this) {
+            if (pendingSessionWrites.get() == 0 && sessionStateRevision.get() == revision) {
+                _simulationScores.value = entities
+                _sessions.value = entities.reversed().map { it.toExamSession() }
+                val baseline = entities.firstOrNull { it.isInitialBaseline }
+                    ?: entities.firstOrNull { it.mode == ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT.name }
+                _initialBaselineSession.value = baseline?.toExamSession()
+                recomputeAdaptiveAnalytics()
+                recomputeReadinessAndStudyPlan()
             }
         }
     }
@@ -904,7 +907,12 @@ class ExamRepository(
                 }
             } finally {
                 pendingEvidenceWrites.decrementAndGet()
-                pendingSessionWrites.decrementAndGet()
+                if (pendingSessionWrites.decrementAndGet() == 0) {
+                    // Room can emit while writes are pending (including initial history load).
+                    // Explicitly reconcile after the last write so skipped emissions cannot leave
+                    // only the new optimistic session and hide pre-existing history after restart.
+                    refreshSessionHistoryFromDatabase(enrichedSession.examId)
+                }
             }
         }
 
