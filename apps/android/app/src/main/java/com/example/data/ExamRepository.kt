@@ -64,6 +64,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 class ExamRepository(
     private val context: Context? = null,
@@ -73,6 +74,8 @@ class ExamRepository(
 ) {
 
     private val answerEvidenceMutex = Mutex()
+    private val activeAttemptMutex = Mutex()
+    private val activeAttemptRevision = AtomicLong(0)
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val standaloneCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
     private var sourcesCollectJob: Job? = null
@@ -286,7 +289,11 @@ class ExamRepository(
             db.simulationScoreDao().deleteSeededHistoricalScores()
 
             // Load any in-progress exam attempt for immediate restart recovery
-            _savedActiveAttempt.value = db.activeExamAttemptDao().getAttemptForExam(canonicalExamId)
+            val startupRevision = activeAttemptRevision.get()
+            val startupAttempt = db.activeExamAttemptDao().getAttemptForExam(canonicalExamId)
+            if (startupRevision == 0L && activeAttemptRevision.get() == startupRevision) {
+                _savedActiveAttempt.compareAndSet(null, startupAttempt)
+            }
 
             _pendingSyncCount.value = db.userProfileDao().getPendingSyncCount()
 
@@ -614,33 +621,48 @@ class ExamRepository(
     }
 
     fun saveActiveAttempt(attempt: ActiveExamAttemptEntity) {
+        val revision = activeAttemptRevision.incrementAndGet()
         _savedActiveAttempt.value = attempt
         val db = database ?: return
         repositoryScope.launch {
-            db.activeExamAttemptDao().saveAttempt(attempt)
+            activeAttemptMutex.withLock {
+                if (revision == activeAttemptRevision.get()) {
+                    db.activeExamAttemptDao().saveAttempt(attempt)
+                }
+            }
         }
     }
 
     suspend fun saveActiveAttemptImmediate(attempt: ActiveExamAttemptEntity) {
+        val revision = activeAttemptRevision.incrementAndGet()
         _savedActiveAttempt.value = attempt
-        database?.activeExamAttemptDao()?.saveAttempt(attempt)
+        activeAttemptMutex.withLock {
+            if (revision == activeAttemptRevision.get()) {
+                database?.activeExamAttemptDao()?.saveAttempt(attempt)
+            }
+        }
     }
 
     fun clearActiveAttempt(examId: String = _currentExam.value.id) {
+        val revision = activeAttemptRevision.incrementAndGet()
         _savedActiveAttempt.value = null
         val canonicalExamId = ExamCatalog.normalizeExamId(examId)
         val db = database ?: return
         repositoryScope.launch {
-            db.activeExamAttemptDao().deleteAttemptForExam(canonicalExamId)
+            activeAttemptMutex.withLock {
+                if (revision == activeAttemptRevision.get()) {
+                    db.activeExamAttemptDao().deleteAttemptForExam(canonicalExamId)
+                }
+            }
         }
     }
 
     suspend fun getSavedActiveAttempt(examId: String = _currentExam.value.id): ActiveExamAttemptEntity? {
         val canonicalExamId = ExamCatalog.normalizeExamId(examId)
+        val revision = activeAttemptRevision.get()
         val fromDb = database?.activeExamAttemptDao()?.getAttemptForExam(canonicalExamId)
-        if (fromDb != null) {
-            _savedActiveAttempt.value = fromDb
-            return fromDb
+        if (revision == activeAttemptRevision.get() && revision == 0L && fromDb != null) {
+            _savedActiveAttempt.compareAndSet(null, fromDb)
         }
         return _savedActiveAttempt.value?.takeIf { ExamCatalog.matchesExamId(it.examId, canonicalExamId) }
     }
