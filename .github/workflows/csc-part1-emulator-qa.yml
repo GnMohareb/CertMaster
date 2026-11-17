@@ -1,0 +1,77 @@
+name: CSC Part 1 Android Emulator Visual QA
+
+on:
+  push:
+    branches:
+      - feature/standalone-android-offline-exams
+    paths:
+      - '.github/workflows/csc-part1-emulator-qa.yml'
+      - 'apps/android/scripts/emulator-visual-qa.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  emulator-visual-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=-Xmx1024m"
+    steps:
+      - name: Check out CSC offline branch
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Prepare CI debug signing key
+        working-directory: apps/android
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -noprompt -keystore debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          fi
+
+      - name: Assemble CSC Part 1 debug APK
+        working-directory: apps/android
+        run: gradle :app:assembleCscPart1Debug --stacktrace --no-daemon --max-workers=2
+
+      - name: Enable KVM permissions if present
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
+
+      - name: Boot emulator, launch CSC Part 1 offline, and capture light + system-dark screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash apps/android/scripts/emulator-visual-qa.sh
+
+      - name: Upload emulator visual QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSC-Part1-Emulator-Visual-QA
+          path: qa-artifacts/
+          if-no-files-found: ignore

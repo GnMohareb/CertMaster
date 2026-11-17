@@ -164,7 +164,10 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
+            ) {
                 Box(
                     modifier = Modifier
                         .size(26.dp)
@@ -182,7 +185,7 @@ fun DashboardScreen(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isOfflineCsc) "${currentExam.shortCode} • Offline study" else if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
+                    text = if (isOfflineCsc) "${currentExam.shortCode} • Offline v${com.example.BuildConfig.VERSION_NAME} (${com.example.BuildConfig.VERSION_CODE})" else if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
                     fontSize = if (isOfflineCsc) 13.sp else 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
