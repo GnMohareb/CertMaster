@@ -1,0 +1,198 @@
+name: CSC Part 1 Android Production Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-csc-part-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=-Xmx1024m"
+    steps:
+      - name: Validate required signing secrets
+        shell: bash
+        env:
+          HAS_KEYSTORE: ${{ secrets.CSC_UPLOAD_KEYSTORE_BASE64 != '' }}
+          HAS_STORE_PASS: ${{ secrets.CSC_UPLOAD_STORE_PASSWORD != '' }}
+          HAS_KEY_PASS: ${{ secrets.CSC_UPLOAD_KEY_PASSWORD != '' }}
+        run: |
+          set -euo pipefail
+          missing=()
+          if [ "$HAS_KEYSTORE" != "true" ]; then missing+=("CSC_UPLOAD_KEYSTORE_BASE64"); fi
+          if [ "$HAS_STORE_PASS" != "true" ]; then missing+=("CSC_UPLOAD_STORE_PASSWORD"); fi
+          if [ "$HAS_KEY_PASS" != "true" ]; then missing+=("CSC_UPLOAD_KEY_PASSWORD"); fi
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "ERROR: Missing required GitHub Actions secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Check out CSC offline branch
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Run CSC Part 1 Android unit tests
+        working-directory: apps/android
+        run: gradle :app:testCscPart1DebugUnitTest --stacktrace --no-daemon --max-workers=2
+
+      - name: Decode upload keystore to runner temp
+        shell: bash
+        env:
+          CSC_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CSC_UPLOAD_KEYSTORE_BASE64 }}
+          CSC_UPLOAD_STORE_PASSWORD: ${{ secrets.CSC_UPLOAD_STORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYSTORE_FILE="$RUNNER_TEMP/csc-upload-keystore.jks"
+          rm -f "$KEYSTORE_FILE"
+          printf '%s' "$CSC_UPLOAD_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 --decode > "$KEYSTORE_FILE"
+          chmod 600 "$KEYSTORE_FILE"
+          if [ ! -s "$KEYSTORE_FILE" ]; then
+            echo "ERROR: Decoded CSC_UPLOAD_KEYSTORE_BASE64 produced an empty keystore file."
+            exit 1
+          fi
+          export STORE_PASS="$CSC_UPLOAD_STORE_PASSWORD"
+          if ! keytool -list -keystore "$KEYSTORE_FILE" -alias upload -storepass:env STORE_PASS >/dev/null 2>&1; then
+            echo "ERROR: Upload keystore could not be opened or does not contain required alias 'upload'."
+            exit 1
+          fi
+          echo "KEYSTORE_PATH=$KEYSTORE_FILE" >> "$GITHUB_ENV"
+
+      - name: Build signed CSC Part 1 release AAB and APK
+        working-directory: apps/android
+        env:
+          STORE_PASSWORD: ${{ secrets.CSC_UPLOAD_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.CSC_UPLOAD_KEY_PASSWORD }}
+        run: |
+          gradle :app:bundleCscPart1Release :app:assembleCscPart1Release --stacktrace --no-daemon --max-workers=2
+
+      - name: Verify signed offline release AAB, APK, and bank packaging
+        working-directory: apps/android
+        run: |
+          set -euo pipefail
+          AAB_PATH=$(find app/build/outputs/bundle/cscPart1Release -name '*.aab' -print -quit)
+          APK_PATH=$(find app/build/outputs/apk/cscPart1/release -name '*.apk' ! -name '*-unsigned.apk' -print -quit)
+          test -n "$AAB_PATH"
+          test -n "$APK_PATH"
+
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+
+          "$APKSIGNER" verify --print-certs "$APK_PATH" > release-apk-signature.txt
+          if grep -qi "CN=Android Debug" release-apk-signature.txt; then
+            echo "ERROR: Release APK is signed with a debug certificate."
+            cat release-apk-signature.txt
+            exit 1
+          fi
+
+          jarsigner -verify -verbose -certs "$AAB_PATH" > release-aab-signature.txt
+          if ! grep -q "jar verified." release-aab-signature.txt; then
+            echo "ERROR: Release AAB failed jarsigner verification."
+            exit 1
+          fi
+          if grep -qi "CN=Android Debug" release-aab-signature.txt; then
+            echo "ERROR: Release AAB is signed with a debug certificate."
+            exit 1
+          fi
+
+          "$AAPT" dump badging "$APK_PATH" > release-apk-badging.txt
+          "$AAPT" dump permissions "$APK_PATH" > release-apk-permissions.txt
+          grep -q "package: name='com.certmaster.cscpart1'" release-apk-badging.txt
+          grep -q "versionCode='2'" release-apk-badging.txt
+          grep -q "versionName='1.0.1'" release-apk-badging.txt
+          if grep -Eq "android.permission.(INTERNET|ACCESS_NETWORK_STATE)" release-apk-permissions.txt; then
+            cat release-apk-permissions.txt
+            exit 1
+          fi
+
+          gradle :app:dependencies --configuration cscPart1ReleaseRuntimeClasspath --no-daemon --max-workers=2 > release-offline-runtime-dependencies.txt
+          if grep -Eq 'com.google.firebase:|com.squareup.retrofit2:|com.squareup.okhttp3:|androidx.credentials:|com.google.android.libraries.identity.googleid:' release-offline-runtime-dependencies.txt; then
+            echo "Unexpected cloud dependency in offline release runtime"
+            exit 1
+          fi
+
+          SOURCE_BANK="app/src/cscPart1/assets/exams/csc-part-1.json"
+          TMP_BANK_APK="$RUNNER_TEMP/apk-csc-part-1.json"
+          TMP_BANK_AAB="$RUNNER_TEMP/aab-csc-part-1.json"
+          unzip -p "$APK_PATH" assets/exams/csc-part-1.json > "$TMP_BANK_APK"
+          unzip -p "$AAB_PATH" base/assets/exams/csc-part-1.json > "$TMP_BANK_AAB"
+          cmp -s "$SOURCE_BANK" "$TMP_BANK_APK"
+          cmp -s "$SOURCE_BANK" "$TMP_BANK_AAB"
+
+          python3 - "$TMP_BANK_AAB" > release-bank-packaging.txt <<'PY'
+          import json, sys
+          with open(sys.argv[1], 'r', encoding='utf-8') as f:
+              bank = json.load(f)
+          questions = bank.get('questions', [])
+          dx = bank.get('diagnosticQuestionIds', [])
+          papers = bank.get('simulationPapers', [])
+          assert len(questions) == 474, f"Expected 474 questions, got {len(questions)}"
+          assert len(dx) == 54, f"Expected 54 diagnostic IDs, got {len(dx)}"
+          assert len(papers) == 4, f"Expected 4 simulation papers, got {len(papers)}"
+          for p in papers:
+              assert len(p.get('questionIds', [])) == 100, f"Paper {p.get('id')} question count != 100"
+              assert p.get('durationMinutes') == 120, f"Paper {p.get('id')} duration != 120"
+          print(f"Verified packaged bank: examId={bank.get('examId')}, bankVersion={bank.get('bankVersion')}, questions={len(questions)}, dx={len(dx)}, papers={len(papers)}")
+          PY
+          rm -f "$TMP_BANK_APK" "$TMP_BANK_AAB"
+
+          sha256sum "$AAB_PATH" "$APK_PATH" > release-artifacts-checksums.txt
+          stat --printf='AAB bytes: %s\n' "$AAB_PATH" >> release-artifacts-checksums.txt
+          stat --printf='APK bytes: %s\n' "$APK_PATH" >> release-artifacts-checksums.txt
+
+      - name: Clean temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/csc-upload-keystore.jks"
+          rm -f apps/android/my-upload-key.jks apps/android/debug.keystore
+
+      - name: Upload release verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSC-Part1-Release-Verification-Reports
+          path: |
+            apps/android/app/build/reports/tests/
+            apps/android/app/build/test-results/
+            apps/android/release-apk-signature.txt
+            apps/android/release-aab-signature.txt
+            apps/android/release-apk-badging.txt
+            apps/android/release-apk-permissions.txt
+            apps/android/release-offline-runtime-dependencies.txt
+            apps/android/release-bank-packaging.txt
+            apps/android/release-artifacts-checksums.txt
+          if-no-files-found: ignore
+
+      - name: Upload CSC Part 1 release AAB
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSC-Part1-Release-AAB
+          path: apps/android/app/build/outputs/bundle/cscPart1Release/*.aab
+          if-no-files-found: error
+
+      - name: Upload CSC Part 1 release APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSC-Part1-Release-APK
+          path: apps/android/app/build/outputs/apk/cscPart1/release/*.apk
+          if-no-files-found: error
