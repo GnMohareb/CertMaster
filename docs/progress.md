@@ -124,3 +124,27 @@ Integrated AI Studio 474-question/four-paper export; corrected dedicated 54-ques
 ## Verified content-bearing delivery — 2026-11-15
 
 Build 64bf5f4, run 43742543897 succeeded: 29/29 tests, Android APK assembly and offline checks. APK artifact 14173476181 contains the full 474-question bank, dedicated 54-question diagnostic and four timed practice papers. Fixed history reconciliation after restart. Physical-device QA remains unperformed. See csc_part1_verified_report.md and csc_part1_build_evidence.json.
+
+---
+
+## CSC Part 1 Warm Off-White, White, and Cream Visual Redesign — 2026-11-17
+
+Applied the agreed **Warm Off-White, White, and Cream** visual design system to the standalone offline CSC Part 1 Android application (`apps/android/`) on top of remote commit `cd3ca35d1b8698a7d2834bfc190bf877f6bc9c71` (`feature/standalone-android-offline-exams`). Preserved 100% of the existing 474-question bank, dedicated ordered 54-question diagnostic, four 100-question/120-minute timed practice papers (`csc1_exam_3`..`csc1_exam_6`), baseline/retake history, adaptive remediation/mastery/retention engine, Room v5 persistence/migration, all `29` unit/Robolectric tests, `apps/web/`, and `main`.
+
+### Updated Android UI & Theme Files (15 files)
+- **Theme, Palette & System Bars**:
+  - `apps/android/app/src/main/java/com/example/ui/theme/Color.kt` — Added `CscWarmBackground` (`#FAF9F6`), `CscCardSurface` (`#FFFFFF`), `CscCreamSecondary` (`#F3EFE6`), `CscBorder` (`#E3DED5`), `CscTextPrimary` (`#252525`), `CscTextSecondary` (`#5F5B55`), `CscPrimaryBlue` (`#365D85`), `CscSelectedBg` (`#EDF2F7`), `CscDisabledBg` (`#ECE8DF`), and dark-on-pale semantic tokens (`CscSuccess*`, `CscWarning*`, `CscError*`).
+  - `apps/android/app/src/main/java/com/example/ui/theme/Theme.kt` — Added `CscLightColorScheme` and `forceWarmLight = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")`.
+  - `apps/android/app/src/main/java/com/example/data/ExamCatalog.kt` — Updated `CSC_PART_1.primaryColorHex` to `0xFF365D85`.
+  - `apps/android/app/src/main/java/com/example/MainActivity.kt` — Light edge-to-edge system bars (`#FAF9F6` status bar / `#FFFFFF` nav bar) and `MaterialTheme.colorScheme.background` root container for `csc-part-*`.
+  - `apps/android/app/src/cscPart1/res/values/colors.xml` & `themes.xml` — Added `Theme.MyApplication` (`android:Theme.DeviceDefault.Light.NoActionBar`) with `#FAF9F6` `windowBackground` for warm light launch framing.
+- **Navigation, Components & Screens (CSC-scoped)**:
+  - `CommonComponents.kt`, `PerformanceLineChart.kt`, `DashboardScreen.kt`, `ExamsHubScreen.kt`, `ExamSimulationScreen.kt`, `ExamResultScreen.kt`, `NotebookSourcesScreen.kt`, `FlashcardsScreen.kt`, `AudioOverviewScreen.kt`:
+    - Flat `#FFFFFF` cards & `#F3EFE6` secondary panels separated by `1.dp` `#E3DED5` borders (`0.dp` card shadows); `2.dp` `#365D85` outline + `#EDF2F7` fill for selected choices.
+    - High-contrast dark-on-pale semantic badges & status indicators (`#1F5E38` on `#EAF4EC`, `#8A5300` on `#FBF3E2`, `#9E2A2B` on `#FCECEC`), explicit `"Correct"` / `"Incorrect"` feedback pills on checked practice items, `>= 48.dp` touch targets, readable font sizing (`>= 12.sp`), and clean text wrapping without `maxLines = 1` clipping.
+    - Removed `AccentCyan`, `GoldMastery`, `Slate800`, and decorative hero gradients from active CSC flows.
+
+### Verification Status
+- **Verified Locally**: Static Kotlin brace/parenthesis balance, import audit, banned-token grep across CSC flows, unmodified `474`-question / `54`-DX / `4`-paper bank JSON integrity, and `apps/web/` / `main` non-modification.
+- **Pending (Requires GitHub Actions CI & Device/Emulator)**: Java/Gradle/ADB are not available in this sandbox container. Pushing the synchronized commit to `feature/standalone-android-offline-exams` is required to execute `:app:testCscPart1DebugUnitTest`, `:app:assembleCscPart1Debug`, offline APK checks, and visual QA across light and system-dark modes.
+

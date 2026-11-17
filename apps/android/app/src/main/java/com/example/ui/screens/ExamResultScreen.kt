@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,6 +36,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -59,6 +62,19 @@ import com.example.model.ExamMode
 import com.example.ui.AppScreen
 import com.example.ui.ExamViewModel
 import com.example.ui.theme.AccentBlue
+import com.example.ui.theme.CscBorder
+import com.example.ui.theme.CscCardSurface
+import com.example.ui.theme.CscCreamSecondary
+import com.example.ui.theme.CscErrorBg
+import com.example.ui.theme.CscErrorBorder
+import com.example.ui.theme.CscErrorDark
+import com.example.ui.theme.CscPrimaryBlue
+import com.example.ui.theme.CscSelectedBg
+import com.example.ui.theme.CscSuccessBg
+import com.example.ui.theme.CscSuccessBorder
+import com.example.ui.theme.CscSuccessDark
+import com.example.ui.theme.CscTextSecondary
+import com.example.ui.theme.CscWarningDark
 import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.GoldMastery
 import com.example.ui.theme.Slate400
@@ -111,7 +127,21 @@ fun ExamResultScreen(
     } else null
     val unassessedDomains = domainMasteryList.filter { !it.isAssessed }
 
-    val bannerColor = if (isPassed) SuccessGreen else ErrorRed
+    val bannerColor = if (isOfflineCsc) {
+        if (isPassed) CscSuccessDark else CscErrorDark
+    } else {
+        if (isPassed) SuccessGreen else ErrorRed
+    }
+    val bannerBgColor = if (isOfflineCsc) {
+        if (isPassed) CscSuccessBg else CscErrorBg
+    } else {
+        bannerColor.copy(alpha = 0.12f)
+    }
+    val bannerBorderColor = if (isOfflineCsc) {
+        if (isPassed) CscSuccessBorder else CscErrorBorder
+    } else {
+        bannerColor.copy(alpha = 0.5f)
+    }
     val bannerTitle = if (isPassed) "PROVISIONAL PASS" else "NEEDS ADDITIONAL PREPARATION"
 
     val correctCount = if (questions.isNotEmpty()) {
@@ -146,6 +176,9 @@ fun ExamResultScreen(
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
         )
+        if (isOfflineCsc) {
+            HorizontalDivider(thickness = 1.dp, color = CscBorder)
+        }
 
         LazyColumn(
             modifier = Modifier
@@ -160,9 +193,10 @@ fun ExamResultScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("score_report_banner"),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = bannerColor.copy(alpha = 0.12f)),
-                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(bannerColor.copy(alpha = 0.5f)))
+                    shape = RoundedCornerShape(if (isOfflineCsc) 16.dp else 20.dp),
+                    colors = CardDefaults.cardColors(containerColor = bannerBgColor),
+                    border = BorderStroke(if (isOfflineCsc) 1.5.dp else 1.dp, bannerBorderColor),
+                    elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -206,7 +240,7 @@ fun ExamResultScreen(
 
                         Text(
                             text = "Target Threshold: $passing% • $correctCount of ${session.totalQuestions} Correct • $formattedDuration",
-                            fontSize = 12.sp,
+                            fontSize = if (isOfflineCsc) 13.sp else 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
@@ -232,22 +266,44 @@ fun ExamResultScreen(
                                         viewModel.startAdaptivePractice()
                                     }
                                 },
-                                modifier = Modifier.weight(1f)
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, if (isOfflineCsc) CscBorder else MaterialTheme.colorScheme.outline),
+                                colors = if (isOfflineCsc) {
+                                    ButtonDefaults.outlinedButtonColors(
+                                        containerColor = CscCardSurface,
+                                        contentColor = CscPrimaryBlue
+                                    )
+                                } else {
+                                    ButtonDefaults.outlinedButtonColors()
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
                             ) {
                                 Icon(Icons.Default.Replay, contentDescription = "Retake", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(if (canRetakeSameMode) "Retake Test" else "Practice Drill", fontSize = 12.sp)
+                                Text(
+                                    text = if (canRetakeSameMode) "Retake Test" else "Practice Drill",
+                                    fontSize = if (isOfflineCsc) 13.sp else 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
 
                             if (isOfflineCsc) {
                                 Button(
                                     onClick = { viewModel.navigateTo(AppScreen.EXAM_HUB) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 48.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CscPrimaryBlue,
+                                        contentColor = Color.White
+                                    )
                                 ) {
                                     Icon(Icons.Default.MenuBook, contentDescription = "Exams Hub", modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Exams Hub", fontSize = 12.sp)
+                                    Text("Exams Hub", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             } else {
                                 Button(
@@ -344,23 +400,25 @@ fun ExamResultScreen(
                     modifier = Modifier.fillMaxWidth().testTag("card_result_coverage_summary"),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                    elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
                             text = "Coverage & Evidence Summary",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
+                            fontSize = if (isOfflineCsc) 15.sp else 14.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Session Type: $baselineLabel • Answered $answeredInAttempt of ${session.totalQuestions} questions",
-                            fontSize = 12.sp,
+                            fontSize = if (isOfflineCsc) 13.sp else 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = session.coverageSummary.ifBlank { bankCoverageAudit.coverageDescription },
-                            fontSize = 12.sp,
+                            fontSize = if (isOfflineCsc) 13.sp else 12.sp,
+                            lineHeight = 19.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (initialBaselineSession != null || currentPracticeMasteryAvg != null) {
@@ -368,7 +426,7 @@ fun ExamResultScreen(
                             val cText = currentPracticeMasteryAvg?.let { "Current Topic Mastery: $it%" } ?: "Current Topic Mastery: Insufficient evidence"
                             Text(
                                 text = "$bText • $cText",
-                                fontSize = 12.sp,
+                                fontSize = if (isOfflineCsc) 13.sp else 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -381,7 +439,7 @@ fun ExamResultScreen(
             item {
                 Text(
                     text = "Domain Mastery Breakdown",
-                    fontSize = 16.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -389,13 +447,18 @@ fun ExamResultScreen(
 
             itemsIndexed(session.domainScores) { _, domainScore ->
                 val isDomainPassing = domainScore.percentage >= passing
-                val barColor = if (isDomainPassing) SuccessGreen else WarningAmber
+                val barColor = if (isOfflineCsc) {
+                    if (isDomainPassing) CscSuccessDark else CscWarningDark
+                } else {
+                    if (isDomainPassing) SuccessGreen else WarningAmber
+                }
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                    elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
@@ -407,19 +470,19 @@ fun ExamResultScreen(
                                 Text(
                                     text = domainScore.domainName,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
+                                    fontSize = if (isOfflineCsc) 14.sp else 13.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "${domainScore.correctCount} / ${domainScore.totalCount} correct",
-                                    fontSize = 11.sp,
+                                    fontSize = if (isOfflineCsc) 12.sp else 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
                                 text = "${domainScore.percentage}%",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
+                                fontSize = 15.sp,
                                 color = barColor
                             )
                         }
@@ -433,7 +496,7 @@ fun ExamResultScreen(
                                 .height(6.dp)
                                 .clip(RoundedCornerShape(3.dp)),
                             color = barColor,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            trackColor = if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant
                         )
                     }
                 }
@@ -444,18 +507,23 @@ fun ExamResultScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth().testTag("card_unassessed_domains"),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        ),
+                        border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                        elevation = CardDefaults.cardElevation(0.dp)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 text = "Not Assessed Yet (Excluded from Weak Areas)",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
+                                fontSize = if (isOfflineCsc) 13.sp else 12.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = unassessedDomains.joinToString(", ") { it.domainName },
-                                fontSize = 11.sp,
+                                fontSize = if (isOfflineCsc) 12.sp else 11.sp,
+                                lineHeight = 18.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -463,29 +531,39 @@ fun ExamResultScreen(
                 }
             }
 
-            // Topic Breakdown & Evidence Confidence
+            // Topic Breakdown & Evidence
             if (topicScores.isNotEmpty()) {
                 item {
                     Text(
                         text = "Topic Breakdown & Evidence",
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                 }
 
                 items(topicScores) { tScore ->
-                    val statusColor = when {
-                        tScore.confidence == EvidenceConfidence.UNASSESSED -> Slate400
-                        tScore.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> WarningAmber
-                        tScore.percentage >= passing -> SuccessGreen
-                        else -> ErrorRed
+                    val statusColor = if (isOfflineCsc) {
+                        when {
+                            tScore.confidence == EvidenceConfidence.UNASSESSED -> CscTextSecondary
+                            tScore.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> CscWarningDark
+                            tScore.percentage >= passing -> CscSuccessDark
+                            else -> CscErrorDark
+                        }
+                    } else {
+                        when {
+                            tScore.confidence == EvidenceConfidence.UNASSESSED -> Slate400
+                            tScore.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> WarningAmber
+                            tScore.percentage >= passing -> SuccessGreen
+                            else -> ErrorRed
+                        }
                     }
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(1.dp)
+                        border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                        elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -496,19 +574,20 @@ fun ExamResultScreen(
                                 Text(
                                     text = tScore.topicName,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
+                                    fontSize = if (isOfflineCsc) 14.sp else 13.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "${tScore.correctCount} / ${tScore.totalCount} correct • ${tScore.confidence.displayLabel()}",
-                                    fontSize = 11.sp,
+                                    fontSize = if (isOfflineCsc) 12.sp else 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "${tScore.percentage}%",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
+                                fontSize = 15.sp,
                                 color = statusColor
                             )
                         }
@@ -521,7 +600,7 @@ fun ExamResultScreen(
                 item {
                     Text(
                         text = "Recommended Practice Next",
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
@@ -532,18 +611,20 @@ fun ExamResultScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(1.dp)
+                        border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                        elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
                     ) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 text = rec.title,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
+                                fontSize = if (isOfflineCsc) 14.sp else 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = rec.reason,
-                                fontSize = 12.sp,
+                                fontSize = if (isOfflineCsc) 13.sp else 12.sp,
+                                lineHeight = 19.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Button(
@@ -554,12 +635,19 @@ fun ExamResultScreen(
                                         topicFilterKey = rec.targetTopicKey
                                     )
                                 },
-                                modifier = Modifier.fillMaxWidth().testTag("btn_result_rec_${rec.id}"),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .testTag("btn_result_rec_${rec.id}"),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = Color.White
+                                )
                             ) {
                                 Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(rec.title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(rec.title, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -571,7 +659,7 @@ fun ExamResultScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Question-by-Question Analysis",
-                    fontSize = 16.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -583,14 +671,15 @@ fun ExamResultScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(1.dp)
+                        border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                        elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
                     ) {
                         Text(
                             text = "Detailed question-by-question breakdown is available when the questions from this attempt are installed in the local bank.",
-                            fontSize = 13.sp,
+                            fontSize = if (isOfflineCsc) 14.sp else 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp),
-                            lineHeight = 19.sp
+                            lineHeight = 20.sp
                         )
                     }
                 }
@@ -599,12 +688,16 @@ fun ExamResultScreen(
             itemsIndexed(questions) { qIdx, question ->
                 val userChoice = session.userAnswers[qIdx]
                 val isCorrect = userChoice == question.correctIndex
+                val qSuccessColor = if (isOfflineCsc) CscSuccessDark else SuccessGreen
+                val qErrorColor = if (isOfflineCsc) CscErrorDark else ErrorRed
+                val citationColor = if (isOfflineCsc) CscPrimaryBlue else AccentBlue
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                    elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -617,12 +710,12 @@ fun ExamResultScreen(
                                     modifier = Modifier
                                         .size(24.dp)
                                         .clip(CircleShape)
-                                        .background(if (isCorrect) SuccessGreen else ErrorRed),
+                                        .background(if (isCorrect) qSuccessColor else qErrorColor),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = if (isCorrect) Icons.Default.Check else Icons.Default.Close,
-                                        contentDescription = null,
+                                        contentDescription = if (isCorrect) "Correct" else "Incorrect",
                                         tint = Color.White,
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -631,15 +724,19 @@ fun ExamResultScreen(
                                 Text(
                                     text = "Question ${qIdx + 1}",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
+                                    fontSize = if (isOfflineCsc) 14.sp else 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
 
+                            Spacer(modifier = Modifier.width(8.dp))
+
                             Text(
                                 text = question.domainName,
-                                fontSize = 10.sp,
+                                fontSize = if (isOfflineCsc) 12.sp else 10.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
+                                modifier = if (isOfflineCsc) Modifier.weight(1f, fill = false) else Modifier,
+                                maxLines = if (isOfflineCsc) 2 else 1
                             )
                         }
 
@@ -647,9 +744,9 @@ fun ExamResultScreen(
 
                         Text(
                             text = question.questionText,
-                            fontSize = 13.sp,
+                            fontSize = if (isOfflineCsc) 16.sp else 13.sp,
                             fontWeight = FontWeight.Medium,
-                            lineHeight = 18.sp,
+                            lineHeight = if (isOfflineCsc) 23.sp else 18.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
 
@@ -658,71 +755,81 @@ fun ExamResultScreen(
                         // User Answer
                         Text(
                             text = "Your Answer: " + (if (userChoice != null) question.options.getOrNull(userChoice) else "Unanswered"),
-                            fontSize = 12.sp,
+                            fontSize = if (isOfflineCsc) 14.sp else 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isCorrect) SuccessGreen else ErrorRed
+                            lineHeight = 20.sp,
+                            color = if (isCorrect) qSuccessColor else qErrorColor
                         )
 
                         if (!isCorrect) {
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "Correct Answer: " + question.options[question.correctIndex],
-                                fontSize = 12.sp,
+                                fontSize = if (isOfflineCsc) 14.sp else 12.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = SuccessGreen
+                                lineHeight = 20.sp,
+                                color = qSuccessColor
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         // Explanation
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                .padding(10.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .then(
+                                    if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(10.dp)) else Modifier
+                                )
+                                .padding(12.dp)
                         ) {
                             Column {
                                 Text(
                                     text = "Rationale:",
-                                    fontSize = 11.sp,
+                                    fontSize = if (isOfflineCsc) 12.sp else 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = question.explanation,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    lineHeight = 16.sp
+                                    fontSize = if (isOfflineCsc) 14.sp else 12.sp,
+                                    color = if (isOfflineCsc) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = if (isOfflineCsc) 20.sp else 16.sp
                                 )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // NotebookLM Grounded Source Citation
+                        // Grounded Source Citation
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(AccentBlue.copy(alpha = 0.08f))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isOfflineCsc) CscSelectedBg else AccentBlue.copy(alpha = 0.08f))
+                                .then(
+                                    if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier
+                                )
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MenuBook,
                                 contentDescription = "Citation",
-                                tint = AccentBlue,
-                                modifier = Modifier.size(14.dp)
+                                tint = citationColor,
+                                modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Source: ${question.citation.title} (${question.citation.sectionOrPage})",
-                                fontSize = 11.sp,
-                                color = AccentBlue,
+                                fontSize = if (isOfflineCsc) 13.sp else 11.sp,
+                                lineHeight = 18.sp,
+                                color = citationColor,
                                 fontWeight = FontWeight.Medium,
-                                maxLines = 1
+                                maxLines = if (isOfflineCsc) Int.MAX_VALUE else 1
                             )
                         }
 

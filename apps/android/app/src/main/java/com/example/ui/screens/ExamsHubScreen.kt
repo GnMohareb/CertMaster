@@ -1,7 +1,9 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +34,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -56,6 +60,23 @@ import com.example.ui.AppScreen
 import com.example.ui.ExamViewModel
 import com.example.ui.theme.AccentBlue
 import com.example.ui.theme.AccentCyan
+import com.example.ui.theme.CscBorder
+import com.example.ui.theme.CscCardSurface
+import com.example.ui.theme.CscCreamSecondary
+import com.example.ui.theme.CscErrorBg
+import com.example.ui.theme.CscErrorBorder
+import com.example.ui.theme.CscErrorDark
+import com.example.ui.theme.CscPrimaryBlue
+import com.example.ui.theme.CscSelectedBg
+import com.example.ui.theme.CscSuccessBg
+import com.example.ui.theme.CscSuccessBorder
+import com.example.ui.theme.CscSuccessDark
+import com.example.ui.theme.CscTextPrimary
+import com.example.ui.theme.CscTextSecondary
+import com.example.ui.theme.CscWarmBackground
+import com.example.ui.theme.CscWarningBg
+import com.example.ui.theme.CscWarningBorder
+import com.example.ui.theme.CscWarningDark
 import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.SuccessGreen
@@ -83,6 +104,14 @@ fun ExamsHubScreen(
 
     val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") ||
         currentExam.id.startsWith("csc-part-")
+    val successAccent = if (isOfflineCsc) CscSuccessDark else SuccessGreen
+    val warningAccent = if (isOfflineCsc) CscWarningDark else WarningAmber
+    val errorAccent = if (isOfflineCsc) CscErrorDark else ErrorRed
+    val primaryAccent = if (isOfflineCsc) CscPrimaryBlue else AccentBlue
+    val cardBorder = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null
+    val cardElevationPrimary = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 2.dp)
+    val cardElevationSecondary = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
+
     val effectiveDomains = if (currentExam.domains.isNotEmpty()) {
         currentExam.domains
     } else {
@@ -115,9 +144,10 @@ fun ExamsHubScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("exams_hub_header"),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(2.dp)
+                border = cardBorder,
+                elevation = cardElevationPrimary
             ) {
                 Row(
                     modifier = Modifier
@@ -126,33 +156,37 @@ fun ExamsHubScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(currentExam.primaryColorHex))
+                                    .background(if (isOfflineCsc) CscSelectedBg else Color(currentExam.primaryColorHex))
+                                    .then(
+                                        if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(6.dp)) else Modifier
+                                    )
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
                                     text = currentExam.shortCode,
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = if (isOfflineCsc) CscPrimaryBlue else Color.White
                                 )
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Practice & Simulations",
-                                fontSize = 16.sp,
+                                fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "${currentExam.title} • Pass Score ${currentExam.passingScorePercent}%",
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -171,10 +205,11 @@ fun ExamsHubScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(SuccessGreen.copy(alpha = 0.15f))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .background(CscSuccessBg)
+                                .border(1.dp, CscSuccessBorder, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Text("OFFLINE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SuccessGreen)
+                            Text("OFFLINE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CscSuccessDark)
                         }
                     }
                 }
@@ -190,28 +225,39 @@ fun ExamsHubScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth().testTag("hub_resume_card"),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = AccentBlue.copy(alpha = 0.12f))
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isOfflineCsc) CscSelectedBg else AccentBlue.copy(alpha = 0.12f)
+                    ),
+                    border = if (isOfflineCsc) BorderStroke(1.5.dp, CscPrimaryBlue) else null
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Resume Saved Session", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AccentBlue)
+                        Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                            Text(
+                                text = "Resume Saved Session",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = primaryAccent
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Q ${active.currentIndex + 1}/$qTotal • ${String.format("%02d:%02d", minsLeft, secsLeft)} remaining",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                fontSize = 13.sp,
+                                color = if (isOfflineCsc) CscTextPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Button(
                             onClick = { viewModel.resumeSavedSimulation() },
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryAccent, contentColor = Color.White),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.heightIn(min = 48.dp)
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Resume", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Resume", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -222,7 +268,7 @@ fun ExamsHubScreen(
         item {
             Text(
                 text = "Study Modes",
-                fontSize = 16.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
@@ -240,7 +286,8 @@ fun ExamsHubScreen(
                     },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(2.dp)
+                border = cardBorder,
+                elevation = cardElevationPrimary
             ) {
                 Row(
                     modifier = Modifier
@@ -252,7 +299,8 @@ fun ExamsHubScreen(
                         modifier = Modifier
                             .size(50.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                            .background(if (isOfflineCsc) CscSelectedBg else MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                            .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, CircleShape) else Modifier),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -265,32 +313,31 @@ fun ExamsHubScreen(
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (initialBaselineSession == null) "Initial Assessment" else "Diagnostic Assessment Retake",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            if (initialBaselineSession != null) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(SuccessGreen.copy(alpha = 0.15f))
-                                        .padding(horizontal = 6.dp, vertical = 1.dp)
-                                ) {
-                                    Text(
-                                        text = "BASELINE ${initialBaselineSession!!.scorePercent}%",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SuccessGreen
-                                    )
-                                }
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text(
+                            text = if (initialBaselineSession == null) "Initial Assessment" else "Diagnostic Assessment Retake",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (initialBaselineSession != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isOfflineCsc) CscSuccessBg else SuccessGreen.copy(alpha = 0.15f))
+                                    .then(if (isOfflineCsc) Modifier.border(1.dp, CscSuccessBorder, RoundedCornerShape(6.dp)) else Modifier)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "BASELINE ${initialBaselineSession!!.scorePercent}%",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = successAccent
+                                )
                             }
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (eligibleAssessmentCount > 0) {
                                 val baselineNote = if (initialBaselineSession == null) {
@@ -306,7 +353,8 @@ fun ExamsHubScreen(
                             } else {
                                 "Practice questions are not installed yet for ${currentExam.shortCode}."
                             },
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -314,7 +362,7 @@ fun ExamsHubScreen(
                     Icon(
                         Icons.Default.ArrowForward,
                         contentDescription = null,
-                        tint = if (!isOfflineCsc || eligibleAssessmentCount > 0) MaterialTheme.colorScheme.primary else Slate400
+                        tint = if (!isOfflineCsc || eligibleAssessmentCount > 0) MaterialTheme.colorScheme.primary else (if (isOfflineCsc) CscTextSecondary else Slate400)
                     )
                 }
             }
@@ -332,7 +380,8 @@ fun ExamsHubScreen(
                     },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(2.dp)
+                border = cardBorder,
+                elevation = cardElevationPrimary
             ) {
                 Row(
                     modifier = Modifier
@@ -344,22 +393,23 @@ fun ExamsHubScreen(
                         modifier = Modifier
                             .size(50.dp)
                             .clip(CircleShape)
-                            .background(SuccessGreen.copy(alpha = 0.14f)),
+                            .background(if (isOfflineCsc) CscSuccessBg else SuccessGreen.copy(alpha = 0.14f))
+                            .then(if (isOfflineCsc) Modifier.border(1.dp, CscSuccessBorder, CircleShape) else Modifier),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(28.dp))
+                        Icon(Icons.Default.Bolt, contentDescription = null, tint = successAccent, modifier = Modifier.size(28.dp))
                     }
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Text(
                             text = "Adaptive Practice",
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (practiceEligibleCount > 0) {
                                 topAdaptiveRec?.reason
@@ -367,7 +417,8 @@ fun ExamsHubScreen(
                             } else {
                                 "Waiting for question bank installation."
                             },
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -375,7 +426,7 @@ fun ExamsHubScreen(
                     Icon(
                         Icons.Default.ArrowForward,
                         contentDescription = null,
-                        tint = if (!isOfflineCsc || practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else Slate400
+                        tint = if (!isOfflineCsc || practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else (if (isOfflineCsc) CscTextSecondary else Slate400)
                     )
                 }
             }
@@ -393,7 +444,8 @@ fun ExamsHubScreen(
                     },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(2.dp)
+                border = cardBorder,
+                elevation = cardElevationPrimary
             ) {
                 Row(
                     modifier = Modifier
@@ -405,47 +457,50 @@ fun ExamsHubScreen(
                         modifier = Modifier
                             .size(50.dp)
                             .clip(CircleShape)
-                            .background(WarningAmber.copy(alpha = 0.15f)),
+                            .background(if (isOfflineCsc) CscWarningBg else WarningAmber.copy(alpha = 0.15f))
+                            .then(if (isOfflineCsc) Modifier.border(1.dp, CscWarningBorder, CircleShape) else Modifier),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.History, contentDescription = null, tint = WarningAmber, modifier = Modifier.size(26.dp))
+                        Icon(Icons.Default.History, contentDescription = null, tint = warningAccent, modifier = Modifier.size(26.dp))
                     }
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Retention Review",
-                                fontSize = 15.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             if (dueTopicsCount > 0) {
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(WarningAmber.copy(alpha = 0.18f))
-                                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isOfflineCsc) CscWarningBg else WarningAmber.copy(alpha = 0.18f))
+                                        .then(if (isOfflineCsc) Modifier.border(1.dp, CscWarningBorder, RoundedCornerShape(6.dp)) else Modifier)
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
                                     Text(
                                         text = "$dueTopicsCount DUE",
-                                        fontSize = 9.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = WarningAmber
+                                        color = warningAccent
                                     )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = when {
                                 practiceEligibleCount <= 0 -> "Waiting for question bank installation."
                                 dueTopicsCount > 0 -> "$dueTopicsCount topic(s) due for spaced retention check."
                                 else -> "No items due for review yet — start a quick mixed check anytime."
                             },
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -453,7 +508,7 @@ fun ExamsHubScreen(
                     Icon(
                         Icons.Default.ArrowForward,
                         contentDescription = null,
-                        tint = if (!isOfflineCsc || practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else Slate400
+                        tint = if (!isOfflineCsc || practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else (if (isOfflineCsc) CscTextSecondary else Slate400)
                     )
                 }
             }
@@ -479,7 +534,8 @@ fun ExamsHubScreen(
                     },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(2.dp)
+                border = cardBorder,
+                elevation = cardElevationPrimary
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
                     Row(
@@ -490,58 +546,80 @@ fun ExamsHubScreen(
                             modifier = Modifier
                                 .size(50.dp)
                                 .clip(CircleShape)
-                                .background((if (fullSimEnabled) AccentBlue else Slate400).copy(alpha = 0.15f)),
+                                .background(
+                                    if (isOfflineCsc) {
+                                        if (fullSimEnabled) CscSelectedBg else CscCreamSecondary
+                                    } else {
+                                        (if (fullSimEnabled) AccentBlue else Slate400).copy(alpha = 0.15f)
+                                    }
+                                )
+                                .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, CircleShape) else Modifier),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Default.Timer,
                                 contentDescription = null,
-                                tint = if (fullSimEnabled) AccentBlue else Slate400,
+                                tint = if (fullSimEnabled) primaryAccent else (if (isOfflineCsc) CscTextSecondary else Slate400),
                                 modifier = Modifier.size(28.dp)
                             )
                         }
 
                         Spacer(modifier = Modifier.width(14.dp))
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = when {
-                                        hasSimulationPapers -> "Timed Practice Simulations (${simulationPapers.size} Papers)"
-                                        displayCount > 0 -> "Full Timed Simulation ($displayCount Qs)"
-                                        isOfflineCsc && questions.isNotEmpty() -> "Full Timed Exam Simulation"
-                                        else -> "Timed Simulation (Not Installed)"
-                                    },
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (fullSimEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(
+                                text = when {
+                                    hasSimulationPapers -> "Timed Practice Simulations (${simulationPapers.size} Papers)"
+                                    displayCount > 0 -> "Full Timed Simulation ($displayCount Qs)"
+                                    isOfflineCsc && questions.isNotEmpty() -> "Full Timed Exam Simulation"
+                                    else -> "Timed Simulation (Not Installed)"
+                                },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (fullSimEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        if (isOfflineCsc) {
+                                            if (!hasReservedMockBank && !hasSimulationPapers) CscWarningBg else CscSelectedBg
+                                        } else {
                                             when {
                                                 isOfflineCsc && !hasReservedMockBank && !hasSimulationPapers -> WarningAmber
                                                 isOfflineCsc -> SuccessGreen
                                                 else -> AccentBlue
                                             }
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 1.dp)
-                                ) {
-                                    Text(
-                                        text = when {
-                                            isOfflineCsc && !hasReservedMockBank && !hasSimulationPapers -> "COMING SOON"
-                                            isOfflineCsc -> "EXAM MODE"
-                                            else -> "SAMPLE BANK"
-                                        },
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
+                                        }
                                     )
-                                }
+                                    .then(
+                                        if (isOfflineCsc) {
+                                            Modifier.border(
+                                                1.dp,
+                                                if (!hasReservedMockBank && !hasSimulationPapers) CscWarningBorder else CscBorder,
+                                                RoundedCornerShape(6.dp)
+                                            )
+                                        } else Modifier
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = when {
+                                        isOfflineCsc && !hasReservedMockBank && !hasSimulationPapers -> "COMING SOON"
+                                        isOfflineCsc -> "EXAM MODE"
+                                        else -> "SAMPLE BANK"
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isOfflineCsc) {
+                                        if (!hasReservedMockBank && !hasSimulationPapers) CscWarningDark else CscPrimaryBlue
+                                    } else {
+                                        Color.White
+                                    }
+                                )
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = when {
                                     hasSimulationPapers ->
@@ -553,7 +631,8 @@ fun ExamsHubScreen(
                                     else ->
                                         "Practice questions are not installed yet for ${currentExam.shortCode}."
                                 },
-                                fontSize = 12.sp,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -561,51 +640,66 @@ fun ExamsHubScreen(
                         Icon(
                             Icons.Default.ArrowForward,
                             contentDescription = null,
-                            tint = if (fullSimEnabled) MaterialTheme.colorScheme.primary else Slate400
+                            tint = if (fullSimEnabled) MaterialTheme.colorScheme.primary else (if (isOfflineCsc) CscTextSecondary else Slate400)
                         )
                     }
 
                     if (hasSimulationPapers) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        simulationPapers.forEach { paper ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(AccentBlue.copy(alpha = 0.08f))
-                                    .clickable { viewModel.startSimulationPaper(paper.id) }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp)
-                                    .testTag("simulation_paper_${paper.id}"),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                    Text(
-                                        text = paper.title,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "${paper.questionIds.size} Qs • ${paper.durationMinutes} min • ${paper.questionIds.count { (questionExposures[it]?.exposureCount ?: 0) > 0 }} previously practised • Shared practice questions",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isOfflineCsc) CscCreamSecondary else AccentBlue.copy(alpha = 0.06f))
+                                .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(12.dp)) else Modifier)
+                        ) {
+                            simulationPapers.forEachIndexed { idx, paper ->
+                                val overlapCount = paper.questionIds.count { (questionExposures[it]?.exposureCount ?: 0) > 0 }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 56.dp)
+                                        .clickable { viewModel.startSimulationPaper(paper.id) }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                                        .testTag("simulation_paper_${paper.id}"),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                                        Text(
+                                            text = paper.title,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${paper.questionIds.size} Qs • ${paper.durationMinutes} min • $overlapCount previously practised",
+                                            fontSize = 13.sp,
+                                            lineHeight = 18.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Start Exam",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = primaryAccent
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            Icons.Default.PlayArrow,
+                                            contentDescription = null,
+                                            tint = primaryAccent,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "Start Exam",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentBlue
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(
-                                        Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        tint = AccentBlue,
-                                        modifier = Modifier.size(16.dp)
+                                if (idx < simulationPapers.lastIndex) {
+                                    HorizontalDivider(
+                                        thickness = 1.dp,
+                                        color = if (isOfflineCsc) CscBorder else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                                     )
                                 }
                             }
@@ -627,7 +721,8 @@ fun ExamsHubScreen(
                     },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(2.dp)
+                border = cardBorder,
+                elevation = cardElevationPrimary
             ) {
                 Row(
                     modifier = Modifier
@@ -639,28 +734,36 @@ fun ExamsHubScreen(
                         modifier = Modifier
                             .size(50.dp)
                             .clip(CircleShape)
-                            .background(AccentCyan.copy(alpha = 0.15f)),
+                            .background(if (isOfflineCsc) CscCreamSecondary else AccentCyan.copy(alpha = 0.15f))
+                            .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, CircleShape) else Modifier),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(28.dp))
+                        Icon(
+                            Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = if (isOfflineCsc) CscPrimaryBlue else AccentCyan,
+                            modifier = Modifier.size(28.dp)
+                        )
                     }
 
                     Spacer(modifier = Modifier.width(14.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Text(
                             text = "Quick Practice Sprint",
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (displayCount > 0) {
                                 "Focused practice drill with immediate answer check & explanations"
                             } else {
                                 "Waiting for question bank installation"
                             },
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -668,7 +771,7 @@ fun ExamsHubScreen(
                     Icon(
                         Icons.Default.ArrowForward,
                         contentDescription = null,
-                        tint = if (!isOfflineCsc || bankCoverageAudit.practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else Slate400
+                        tint = if (!isOfflineCsc || bankCoverageAudit.practiceEligibleCount > 0) MaterialTheme.colorScheme.primary else (if (isOfflineCsc) CscTextSecondary else Slate400)
                     )
                 }
             }
@@ -684,13 +787,13 @@ fun ExamsHubScreen(
             ) {
                 Text(
                     text = "Domain-Specific Practice",
-                    fontSize = 16.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Tap to practice domain",
-                    fontSize = 11.sp,
+                    text = "Tap to practice",
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -701,11 +804,13 @@ fun ExamsHubScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = cardBorder
                 ) {
                     Text(
                         text = "Topic-specific drills will unlock automatically once CSC Part 1 questions are installed.",
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp)
                     )
@@ -734,7 +839,8 @@ fun ExamsHubScreen(
                     .testTag("domain_practice_${domain.id}"),
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(1.dp)
+                border = cardBorder,
+                elevation = cardElevationSecondary
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                     Row(
@@ -748,15 +854,16 @@ fun ExamsHubScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(38.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    .background(if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant)
+                                    .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = "D${domain.number}",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
+                                    fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -767,14 +874,16 @@ fun ExamsHubScreen(
                                 Text(
                                     text = domain.title,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
+                                    fontSize = 15.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = statusSubtitle,
-                                    fontSize = 11.sp,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2
+                                    maxLines = 3
                                 )
                             }
                         }
@@ -785,33 +894,37 @@ fun ExamsHubScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .background(if (isOfflineCsc) CscSelectedBg else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                    .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(6.dp)) else Modifier)
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
                             ) {
                                 Text(
                                     text = if (domainMastery?.isWeak == true) "Strengthen" else "Start Drill",
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
                             if (domainTopics.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Box(
                                     modifier = Modifier
+                                        .heightIn(min = 36.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .background(if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant)
+                                        .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(6.dp)) else Modifier)
                                         .clickable {
                                             expandedDomainId = if (isExpanded) null else domain.id
                                         }
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                                        .testTag("toggle_domain_topics_${domain.id}")
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        .testTag("toggle_domain_topics_${domain.id}"),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = if (isExpanded) "Hide Topics ▲" else "${domainTopics.size} Topics ▼",
-                                        fontSize = 10.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isOfflineCsc) CscTextPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -819,41 +932,59 @@ fun ExamsHubScreen(
                     }
 
                     if (isExpanded && domainTopics.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        domainTopics.forEach { topic ->
-                            val tBadge = when {
-                                !topic.isAssessed -> "Practice"
-                                topic.masteryPercent < 65 -> "${topic.masteryPercent}% • Weak"
-                                topic.masteryPercent >= 80 -> "${topic.masteryPercent}% • Strong"
-                                else -> "${topic.masteryPercent}%"
-                            }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 3.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                    .clickable {
-                                        viewModel.startAdaptivePractice(topicFilterKey = topic.topicKey)
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 8.dp)
-                                    .testTag("domain_topic_item_${topic.topicKey}"),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = topic.topicName,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
-                                )
-                                Text(
-                                    text = tBadge,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isOfflineCsc) CscWarmBackground else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(10.dp)) else Modifier)
+                        ) {
+                            domainTopics.forEachIndexed { idx, topic ->
+                                val tBadge = when {
+                                    !topic.isAssessed -> "Practice"
+                                    topic.masteryPercent < 65 -> "${topic.masteryPercent}% • Weak"
+                                    topic.masteryPercent >= 80 -> "${topic.masteryPercent}% • Strong"
+                                    else -> "${topic.masteryPercent}%"
+                                }
+                                val tBadgeColor = when {
+                                    !topic.isAssessed -> primaryAccent
+                                    topic.masteryPercent < 65 -> errorAccent
+                                    topic.masteryPercent >= 80 -> successAccent
+                                    else -> warningAccent
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .clickable {
+                                            viewModel.startAdaptivePractice(topicFilterKey = topic.topicKey)
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                                        .testTag("domain_topic_item_${topic.topicKey}"),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = topic.topicName,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                    )
+                                    Text(
+                                        text = tBadge,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = tBadgeColor
+                                    )
+                                }
+                                if (idx < domainTopics.lastIndex) {
+                                    HorizontalDivider(
+                                        thickness = 1.dp,
+                                        color = if (isOfflineCsc) CscBorder else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                                    )
+                                }
                             }
                         }
                     }
@@ -872,7 +1003,7 @@ fun ExamsHubScreen(
                 ) {
                     Text(
                         text = "Topic Practice Targets (${topicMasteryList.size})",
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
@@ -880,7 +1011,7 @@ fun ExamsHubScreen(
                         TextButton(onClick = { showAllTopics = !showAllTopics }) {
                             Text(
                                 text = if (showAllTopics) "Show Top 10" else "Show All ${topicMasteryList.size}",
-                                fontSize = 12.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -897,11 +1028,24 @@ fun ExamsHubScreen(
                     topic.masteryPercent >= 80 -> "${topic.masteryPercent}% • Strong"
                     else -> "${topic.masteryPercent}% • Practicing"
                 }
-                val badgeColor = when {
-                    !topic.isAssessed -> Slate400
-                    topic.masteryPercent < 65 -> ErrorRed
-                    topic.masteryPercent < 80 -> WarningAmber
-                    else -> SuccessGreen
+                val badgeTextColor = when {
+                    !topic.isAssessed -> if (isOfflineCsc) CscTextSecondary else Slate400
+                    topic.masteryPercent < 65 -> errorAccent
+                    topic.masteryPercent < 80 -> warningAccent
+                    else -> successAccent
+                }
+                val badgeBg = when {
+                    !isOfflineCsc -> badgeTextColor.copy(alpha = 0.14f)
+                    !topic.isAssessed -> CscCreamSecondary
+                    topic.masteryPercent < 65 -> CscErrorBg
+                    topic.masteryPercent < 80 -> CscWarningBg
+                    else -> CscSuccessBg
+                }
+                val badgeBorder = when {
+                    !topic.isAssessed -> CscBorder
+                    topic.masteryPercent < 65 -> CscErrorBorder
+                    topic.masteryPercent < 80 -> CscWarningBorder
+                    else -> CscSuccessBorder
                 }
 
                 Card(
@@ -914,7 +1058,8 @@ fun ExamsHubScreen(
                         .testTag("topic_target_${topic.topicKey}"),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    border = cardBorder,
+                    elevation = cardElevationSecondary
                 ) {
                     Row(
                         modifier = Modifier
@@ -923,30 +1068,32 @@ fun ExamsHubScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Text(
                                 text = topic.topicName,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
+                                fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${topic.domainName} • ${topic.attemptCount} answered",
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(badgeColor.copy(alpha = 0.14f))
+                                .background(badgeBg)
+                                .then(if (isOfflineCsc) Modifier.border(1.dp, badgeBorder, RoundedCornerShape(6.dp)) else Modifier)
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = badgeText,
-                                fontSize = 10.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = badgeColor
+                                color = badgeTextColor
                             )
                         }
                     }
@@ -964,13 +1111,13 @@ fun ExamsHubScreen(
             ) {
                 Text(
                     text = "Recent Simulation History (${sessions.size})",
-                    fontSize = 16.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Tap attempt to review",
-                    fontSize = 11.sp,
+                    text = "Tap to review",
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -989,7 +1136,8 @@ fun ExamsHubScreen(
                     .clickable { viewModel.openHistoricalSession(session) },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(1.dp)
+                border = cardBorder,
+                elevation = cardElevationSecondary
             ) {
                 Row(
                     modifier = Modifier
@@ -998,24 +1146,26 @@ fun ExamsHubScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
                                     .size(10.dp)
                                     .clip(CircleShape)
-                                    .background(if (passed) SuccessGreen else ErrorRed)
+                                    .background(if (passed) successAccent else errorAccent)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = modeLabel,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "${session.totalQuestions} Questions • ${session.durationSeconds / 60} min spent",
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1024,7 +1174,7 @@ fun ExamsHubScreen(
                         text = "${session.scorePercent}%",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (passed) SuccessGreen else ErrorRed
+                        color = if (passed) successAccent else errorAccent
                     )
                 }
             }

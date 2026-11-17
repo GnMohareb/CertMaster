@@ -2,6 +2,7 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,6 +13,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -43,7 +45,17 @@ import com.example.ui.theme.MyApplicationTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        val isCscFlavor = BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
+        if (isCscFlavor) {
+            val warmScrim = android.graphics.Color.rgb(0xFA, 0xF9, 0xF6)
+            val navScrim = android.graphics.Color.rgb(0xFF, 0xFF, 0xFF)
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.light(warmScrim, warmScrim),
+                navigationBarStyle = SystemBarStyle.light(navScrim, navScrim)
+            )
+        } else {
+            enableEdgeToEdge()
+        }
         setContent {
             MyApplicationTheme {
                 CertMasterApp()
@@ -117,6 +129,7 @@ fun CertMasterApp(viewModel: ExamViewModel = viewModel()) {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             if (isRootScreen) {
                 CertTopAppBar(

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,6 +53,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -79,19 +81,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.AdaptivePracticeEngine
-import com.example.model.ExamMode
 import com.example.model.PracticeAnswerFeedback
 import com.example.model.Question
 import com.example.ui.ExamViewModel
 import com.example.ui.theme.AccentBlue
+import com.example.ui.theme.CscBorder
+import com.example.ui.theme.CscCardSurface
+import com.example.ui.theme.CscCreamSecondary
+import com.example.ui.theme.CscDisabledBg
+import com.example.ui.theme.CscErrorBg
+import com.example.ui.theme.CscErrorBorder
+import com.example.ui.theme.CscErrorDark
+import com.example.ui.theme.CscPrimaryBlue
+import com.example.ui.theme.CscSelectedBg
+import com.example.ui.theme.CscSuccessBg
+import com.example.ui.theme.CscSuccessBorder
+import com.example.ui.theme.CscSuccessDark
+import com.example.ui.theme.CscTextPrimary
+import com.example.ui.theme.CscTextSecondary
+import com.example.ui.theme.CscWarmBackground
+import com.example.ui.theme.CscWarningBg
+import com.example.ui.theme.CscWarningBorder
+import com.example.ui.theme.CscWarningDark
 import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.Slate400
-import com.example.ui.theme.Slate600
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarningAmber
 
@@ -170,10 +188,26 @@ fun ExamSimulationScreen(
         String.format("%02d:%02d", minutes, seconds)
     }
 
+    val isCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
+    val successAccent = if (isCsc) CscSuccessDark else SuccessGreen
+    val warningAccent = if (isCsc) CscWarningDark else WarningAmber
+    val errorAccent = if (isCsc) CscErrorDark else ErrorRed
+
     val timerColor = when {
-        remainingSeconds < 300 -> ErrorRed
-        remainingSeconds < 600 -> WarningAmber
+        remainingSeconds < 300 -> errorAccent
+        remainingSeconds < 600 -> warningAccent
         else -> MaterialTheme.colorScheme.primary
+    }
+    val timerBgColor = when {
+        !isCsc -> timerColor.copy(alpha = 0.12f)
+        remainingSeconds < 300 -> CscErrorBg
+        remainingSeconds < 600 -> CscWarningBg
+        else -> CscCreamSecondary
+    }
+    val timerBorderColor = when {
+        remainingSeconds < 300 -> CscErrorBorder
+        remainingSeconds < 600 -> CscWarningBorder
+        else -> CscBorder
     }
 
     val answeredCount = userAnswers.size
@@ -209,19 +243,22 @@ fun ExamSimulationScreen(
                         } else {
                             currentQ.domainName
                         },
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             },
             actions = {
                 // Interactive Countdown Timer Pill
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = timerColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = timerBgColor,
+                    border = if (isCsc) BorderStroke(1.dp, timerBorderColor) else null,
                     modifier = Modifier
+                        .heightIn(min = 38.dp)
                         .clickable {
                             viewModel.pauseTimer()
                             showPauseDialog = true
@@ -230,7 +267,7 @@ fun ExamSimulationScreen(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Icon(
                             imageVector = if (isTimerPaused) Icons.Default.Pause else Icons.Default.Timer,
@@ -271,7 +308,7 @@ fun ExamSimulationScreen(
                     Icon(
                         imageVector = if (isFlagged) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                         contentDescription = if (isFlagged) "Unmark Review" else "Mark for Review",
-                        tint = if (isFlagged) WarningAmber else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (isFlagged) warningAccent else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -291,7 +328,7 @@ fun ExamSimulationScreen(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(WarningAmber)
+                                    .background(warningAccent)
                             )
                         }
                     }
@@ -301,13 +338,16 @@ fun ExamSimulationScreen(
                 containerColor = MaterialTheme.colorScheme.surface
             )
         )
+        if (isCsc) {
+            HorizontalDivider(thickness = 1.dp, color = CscBorder)
+        }
 
         // --- PROGRESS TRACKING SECTION ---
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             // Linear progress indicator
             LinearProgressIndicator(
@@ -318,7 +358,7 @@ fun ExamSimulationScreen(
                     .clip(RoundedCornerShape(3.dp))
                     .testTag("progress_bar"),
                 color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                trackColor = if (isCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant
             )
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -329,19 +369,19 @@ fun ExamSimulationScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     // Answered Count Pill
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(SuccessGreen)
+                                .background(successAccent)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = "$answeredCount Answered",
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -354,12 +394,12 @@ fun ExamSimulationScreen(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(WarningAmber)
+                                    .background(warningAccent)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = "${flaggedIndices.size} Flagged",
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -372,12 +412,12 @@ fun ExamSimulationScreen(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(Slate400)
+                                .background(if (isCsc) CscTextSecondary else Slate400)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = "$unansweredCount Remaining",
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -387,7 +427,7 @@ fun ExamSimulationScreen(
                 // Completion percentage
                 Text(
                     text = "${(completionFraction * 100).toInt()}% Done",
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -397,76 +437,102 @@ fun ExamSimulationScreen(
         // --- HORIZONTAL QUICK-JUMP NAVIGATION RIBBON ---
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-            tonalElevation = 1.dp
+            color = if (isCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            tonalElevation = if (isCsc) 0.dp else 1.dp
         ) {
-            LazyRow(
-                state = ribbonListState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .testTag("question_quick_ribbon"),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) {
-                items(totalCount) { qIndex ->
-                    val isCurrent = qIndex == currentIndex
-                    val isAnswered = userAnswers.containsKey(qIndex)
-                    val isFlaggedItem = flaggedIndices.contains(qIndex)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isCsc) {
+                    HorizontalDivider(thickness = 1.dp, color = CscBorder)
+                }
+                LazyRow(
+                    state = ribbonListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .testTag("question_quick_ribbon"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp)
+                ) {
+                    items(totalCount) { qIndex ->
+                        val isCurrent = qIndex == currentIndex
+                        val isAnswered = userAnswers.containsKey(qIndex)
+                        val isFlaggedItem = flaggedIndices.contains(qIndex)
 
-                    val pillBg = when {
-                        isCurrent -> MaterialTheme.colorScheme.primary
-                        isFlaggedItem -> WarningAmber.copy(alpha = 0.2f)
-                        isAnswered -> SuccessGreen.copy(alpha = 0.15f)
-                        else -> MaterialTheme.colorScheme.surface
-                    }
+                        val pillBg = if (isCsc) {
+                            when {
+                                isCurrent -> CscPrimaryBlue
+                                isFlaggedItem -> CscWarningBg
+                                isAnswered -> CscSuccessBg
+                                else -> CscCardSurface
+                            }
+                        } else {
+                            when {
+                                isCurrent -> MaterialTheme.colorScheme.primary
+                                isFlaggedItem -> WarningAmber.copy(alpha = 0.2f)
+                                isAnswered -> SuccessGreen.copy(alpha = 0.15f)
+                                else -> MaterialTheme.colorScheme.surface
+                            }
+                        }
 
-                    val pillBorderColor = when {
-                        isCurrent -> MaterialTheme.colorScheme.primary
-                        isFlaggedItem -> WarningAmber
-                        isAnswered -> SuccessGreen
-                        else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                    }
+                        val pillBorderColor = if (isCsc) {
+                            when {
+                                isCurrent -> CscPrimaryBlue
+                                isFlaggedItem -> CscWarningBorder
+                                isAnswered -> CscSuccessBorder
+                                else -> CscBorder
+                            }
+                        } else {
+                            when {
+                                isCurrent -> MaterialTheme.colorScheme.primary
+                                isFlaggedItem -> WarningAmber
+                                isAnswered -> SuccessGreen
+                                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                            }
+                        }
 
-                    val textColor = when {
-                        isCurrent -> MaterialTheme.colorScheme.onPrimary
-                        isFlaggedItem -> WarningAmber
-                        isAnswered -> SuccessGreen
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                        val textColor = when {
+                            isCurrent -> MaterialTheme.colorScheme.onPrimary
+                            isFlaggedItem -> warningAccent
+                            isAnswered -> successAccent
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
 
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = pillBg,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, pillBorderColor),
-                        modifier = Modifier
-                            .size(width = 46.dp, height = 36.dp)
-                            .clickable { viewModel.goToQuestion(qIndex) }
-                            .testTag("ribbon_item_$qIndex")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    text = "${qIndex + 1}",
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                                    color = textColor
-                                )
-                                if (isFlaggedItem && !isCurrent) {
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(5.dp)
-                                            .clip(CircleShape)
-                                            .background(WarningAmber)
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = pillBg,
+                            border = BorderStroke(1.dp, pillBorderColor),
+                            modifier = Modifier
+                                .size(width = 48.dp, height = 40.dp)
+                                .clickable { viewModel.goToQuestion(qIndex) }
+                                .testTag("ribbon_item_$qIndex")
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = "${qIndex + 1}",
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                        color = textColor
                                     )
+                                    if (isFlaggedItem && !isCurrent) {
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .size(5.dp)
+                                                .clip(CircleShape)
+                                                .background(warningAccent)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                }
+                if (isCsc) {
+                    HorizontalDivider(thickness = 1.dp, color = CscBorder)
                 }
             }
         }
@@ -519,155 +585,200 @@ fun ExamSimulationScreen(
         // --- BOTTOM NAVIGATION BAR ---
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            shape = RoundedCornerShape(topStart = if (isCsc) 0.dp else 16.dp, topEnd = if (isCsc) 0.dp else 16.dp),
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 8.dp
+            shadowElevation = if (isCsc) 0.dp else 8.dp
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                // Secondary Control Row: Review Matrix trigger & question index
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Question ${currentIndex + 1} of $totalCount",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    OutlinedButton(
-                        onClick = { showQuestionGridSheet = true },
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier.height(28.dp).testTag("btn_open_matrix")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.GridView,
-                            contentDescription = "Review Matrix",
-                            modifier = Modifier.size(13.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Review Matrix ($answeredCount/$totalCount)",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isCsc) {
+                    HorizontalDivider(thickness = 1.dp, color = CscBorder)
                 }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Primary Action Row: Mark, Previous, Next, and Submit Exam
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
-                    // Mark for Review Button
-                    OutlinedButton(
-                        onClick = { viewModel.toggleFlagQuestion(currentIndex) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = if (isFlagged) {
-                            ButtonDefaults.outlinedButtonColors(
-                                containerColor = WarningAmber.copy(alpha = 0.15f),
-                                contentColor = WarningAmber
-                            )
-                        } else {
-                            ButtonDefaults.outlinedButtonColors()
-                        },
-                        border = if (isFlagged) {
-                            BorderStroke(1.5.dp, WarningAmber)
-                        } else {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                        },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("btn_mark_review")
+                    // Secondary Control Row: Review Matrix trigger & question index
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (isFlagged) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                            contentDescription = if (isFlagged) "Marked" else "Mark for Review",
-                            modifier = Modifier.size(16.dp),
-                            tint = if (isFlagged) WarningAmber else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
                         Text(
-                            text = if (isFlagged) "Marked" else "Mark",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
+                            text = "Question ${currentIndex + 1} of $totalCount",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
 
-                    // Previous Question Button
-                    OutlinedButton(
-                        onClick = { viewModel.previousQuestion() },
-                        enabled = currentIndex > 0,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("btn_prev_question")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Previous Question",
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("Prev", fontSize = 11.sp, maxLines = 1)
-                    }
-
-                    // Next Question Button
-                    Button(
-                        onClick = {
-                            if (currentIndex < totalCount - 1) {
-                                viewModel.nextQuestion()
+                        OutlinedButton(
+                            onClick = { showQuestionGridSheet = true },
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, if (isCsc) CscBorder else MaterialTheme.colorScheme.outline),
+                            colors = if (isCsc) {
+                                ButtonDefaults.outlinedButtonColors(
+                                    containerColor = CscCardSurface,
+                                    contentColor = CscPrimaryBlue
+                                )
                             } else {
-                                showConfirmFinishDialog = true
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("btn_next_question")
-                    ) {
-                        Text("Next", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Next Question",
-                            modifier = Modifier.size(15.dp)
-                        )
+                                ButtonDefaults.outlinedButtonColors()
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .heightIn(min = 38.dp)
+                                .testTag("btn_open_matrix")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.GridView,
+                                contentDescription = "Review Matrix",
+                                modifier = Modifier.size(15.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Review Matrix ($answeredCount/$totalCount)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
-                    // Always-Visible Submit Exam Button
-                    Button(
-                        onClick = { showConfirmFinishDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                        modifier = Modifier
-                            .weight(1.2f)
-                            .testTag("btn_submit_exam")
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Primary Action Row: Mark, Previous, Next, and Submit Exam
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Submit Examination",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("Submit", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                        // Mark for Review Button
+                        OutlinedButton(
+                            onClick = { viewModel.toggleFlagQuestion(currentIndex) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = if (isFlagged) {
+                                ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isCsc) CscWarningBg else WarningAmber.copy(alpha = 0.15f),
+                                    contentColor = warningAccent
+                                )
+                            } else {
+                                ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isCsc) CscCardSurface else Color.Transparent,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            border = if (isFlagged) {
+                                BorderStroke(1.5.dp, warningAccent)
+                            } else {
+                                BorderStroke(1.dp, if (isCsc) CscBorder else MaterialTheme.colorScheme.outlineVariant)
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("btn_mark_review")
+                        ) {
+                            Icon(
+                                imageVector = if (isFlagged) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                contentDescription = if (isFlagged) "Marked" else "Mark for Review",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isFlagged) warningAccent else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isFlagged) "Marked" else "Mark",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+
+                        // Previous Question Button
+                        OutlinedButton(
+                            onClick = { viewModel.previousQuestion() },
+                            enabled = currentIndex > 0,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isCsc) CscBorder
+                                else if (currentIndex > 0) MaterialTheme.colorScheme.outline
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
+                            ),
+                            colors = if (isCsc) {
+                                ButtonDefaults.outlinedButtonColors(
+                                    containerColor = CscCardSurface,
+                                    contentColor = CscPrimaryBlue,
+                                    disabledContainerColor = CscDisabledBg,
+                                    disabledContentColor = CscTextSecondary
+                                )
+                            } else {
+                                ButtonDefaults.outlinedButtonColors()
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("btn_prev_question")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Previous Question",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Prev", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+
+                        // Next Question Button
+                        Button(
+                            onClick = {
+                                if (currentIndex < totalCount - 1) {
+                                    viewModel.nextQuestion()
+                                } else {
+                                    showConfirmFinishDialog = true
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("btn_next_question")
+                        ) {
+                            Text("Next", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Next Question",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Always-Visible Submit Exam Button
+                        Button(
+                            onClick = { showConfirmFinishDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = successAccent,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .weight(1.15f)
+                                .heightIn(min = 48.dp)
+                                .testTag("btn_submit_exam")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Submit Examination",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Submit", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
                     }
                 }
             }
@@ -678,7 +789,8 @@ fun ExamSimulationScreen(
     if (showQuestionGridSheet) {
         ModalBottomSheet(
             onDismissRequest = { showQuestionGridSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -700,7 +812,7 @@ fun ExamSimulationScreen(
                         )
                         Text(
                             text = "Jump directly to any question card",
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -716,29 +828,43 @@ fun ExamSimulationScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    val chipColors = if (isCsc) {
+                        FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = CscSelectedBg,
+                            selectedLabelColor = CscPrimaryBlue,
+                            containerColor = CscCardSurface,
+                            labelColor = CscTextSecondary
+                        )
+                    } else {
+                        FilterChipDefaults.filterChipColors()
+                    }
                     FilterChip(
                         selected = matrixFilter == MatrixFilter.ALL,
                         onClick = { matrixFilter = MatrixFilter.ALL },
                         label = { Text("All ($totalCount)", fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors()
+                        colors = chipColors,
+                        border = if (isCsc) FilterChipDefaults.filterChipBorder(enabled = true, selected = matrixFilter == MatrixFilter.ALL, borderColor = CscBorder, selectedBorderColor = CscPrimaryBlue) else FilterChipDefaults.filterChipBorder(enabled = true, selected = matrixFilter == MatrixFilter.ALL)
                     )
                     FilterChip(
                         selected = matrixFilter == MatrixFilter.ANSWERED,
                         onClick = { matrixFilter = MatrixFilter.ANSWERED },
                         label = { Text("Answered ($answeredCount)", fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors()
+                        colors = chipColors,
+                        border = if (isCsc) FilterChipDefaults.filterChipBorder(enabled = true, selected = matrixFilter == MatrixFilter.ANSWERED, borderColor = CscBorder, selectedBorderColor = CscPrimaryBlue) else FilterChipDefaults.filterChipBorder(enabled = true, selected = matrixFilter == MatrixFilter.ANSWERED)
                     )
                     FilterChip(
                         selected = matrixFilter == MatrixFilter.UNANSWERED,
                         onClick = { matrixFilter = MatrixFilter.UNANSWERED },
                         label = { Text("Remaining ($unansweredCount)", fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors()
+                        colors = chipColors,
+                        border = if (isCsc) FilterChipDefaults.filterChipBorder(enabled = true, selected = matrixFilter == MatrixFilter.UNANSWERED, borderColor = CscBorder, selectedBorderColor = CscPrimaryBlue) else FilterChipDefaults.filterChipBorder(enabled = true, selected = matrixFilter == MatrixFilter.UNANSWERED)
                     )
                     FilterChip(
                         selected = matrixFilter == MatrixFilter.FLAGGED,
                         onClick = { matrixFilter = MatrixFilter.FLAGGED },
                         label = { Text("Flagged (${flaggedIndices.size})", fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors()
+                        colors = chipColors,
+                        border = if (isCsc) FilterChipDefaults.filterChipBorder(enabled = true, selected = matrixFilter == MatrixFilter.FLAGGED, borderColor = CscBorder, selectedBorderColor = CscPrimaryBlue) else FilterChipDefaults.filterChipBorder(enabled = true, selected = matrixFilter == MatrixFilter.FLAGGED)
                     )
                 }
 
@@ -765,7 +891,7 @@ fun ExamSimulationScreen(
                         Text(
                             text = "No questions match this filter.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp
+                            fontSize = 14.sp
                         )
                     }
                 } else {
@@ -783,23 +909,40 @@ fun ExamSimulationScreen(
                             val isFlg = flaggedIndices.contains(qIdx)
                             val isCurr = qIdx == currentIndex
 
-                            val cellBg = when {
-                                isFlg -> WarningAmber.copy(alpha = 0.25f)
-                                isAns -> SuccessGreen.copy(alpha = 0.2f)
-                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            val cellBg = if (isCsc) {
+                                when {
+                                    isFlg -> CscWarningBg
+                                    isAns -> CscSuccessBg
+                                    else -> CscWarmBackground
+                                }
+                            } else {
+                                when {
+                                    isFlg -> WarningAmber.copy(alpha = 0.25f)
+                                    isAns -> SuccessGreen.copy(alpha = 0.2f)
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
                             }
 
-                            val cellBorder = when {
-                                isCurr -> MaterialTheme.colorScheme.primary
-                                isFlg -> WarningAmber
-                                isAns -> SuccessGreen
-                                else -> Color.Transparent
+                            val cellBorder = if (isCsc) {
+                                when {
+                                    isCurr -> CscPrimaryBlue
+                                    isFlg -> CscWarningBorder
+                                    isAns -> CscSuccessBorder
+                                    else -> CscBorder
+                                }
+                            } else {
+                                when {
+                                    isCurr -> MaterialTheme.colorScheme.primary
+                                    isFlg -> WarningAmber
+                                    isAns -> SuccessGreen
+                                    else -> Color.Transparent
+                                }
                             }
 
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = cellBg,
-                                border = androidx.compose.foundation.BorderStroke(
+                                border = BorderStroke(
                                     width = if (isCurr) 2.dp else 1.dp,
                                     color = cellBorder
                                 ),
@@ -818,8 +961,8 @@ fun ExamSimulationScreen(
                                             fontWeight = if (isCurr) FontWeight.Bold else FontWeight.SemiBold,
                                             fontSize = 14.sp,
                                             color = when {
-                                                isFlg -> WarningAmber
-                                                isAns -> SuccessGreen
+                                                isFlg -> warningAccent
+                                                isAns -> successAccent
                                                 else -> MaterialTheme.colorScheme.onSurface
                                             }
                                         )
@@ -827,8 +970,8 @@ fun ExamSimulationScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Bookmark,
                                                 contentDescription = "Flagged",
-                                                tint = WarningAmber,
-                                                modifier = Modifier.size(10.dp)
+                                                tint = warningAccent,
+                                                modifier = Modifier.size(11.dp)
                                             )
                                         }
                                     }
@@ -850,12 +993,12 @@ fun ExamSimulationScreen(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("btn_submit_from_matrix"),
-                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+                    colors = ButtonDefaults.buttonColors(containerColor = successAccent, contentColor = Color.White),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Submit Examination for Scoring", fontWeight = FontWeight.Bold)
+                    Text("Submit Examination for Scoring", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -870,6 +1013,7 @@ fun ExamSimulationScreen(
                 showPauseDialog = false
                 viewModel.resumeTimer()
             },
+            containerColor = MaterialTheme.colorScheme.surface,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -885,18 +1029,23 @@ fun ExamSimulationScreen(
                 Column {
                     Text(
                         text = "Your simulation timer has been paused. Take a quick breath and resume when ready.",
-                        style = MaterialTheme.typography.bodyMedium
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        border = if (isCsc) BorderStroke(1.dp, CscBorder) else null,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Time Remaining: $timeFormatted", fontWeight = FontWeight.Bold, color = timerColor)
-                            Text("Answered: $answeredCount of $totalCount ($unansweredCount remaining)")
-                            Text("Flagged for Review: ${flaggedIndices.size}")
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Time Remaining: $timeFormatted", fontWeight = FontWeight.Bold, color = timerColor, fontSize = 14.sp)
+                            Text("Answered: $answeredCount of $totalCount ($unansweredCount remaining)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Flagged for Review: ${flaggedIndices.size}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -905,11 +1054,13 @@ fun ExamSimulationScreen(
                             showPauseDialog = false
                             viewModel.pauseAndExitToDashboard()
                         },
+                        border = BorderStroke(1.dp, if (isCsc) CscBorder else MaterialTheme.colorScheme.outline),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 48.dp)
                             .testTag("btn_save_and_exit_exam")
                     ) {
-                        Text("Save & Exit to Dashboard")
+                        Text("Save & Exit to Dashboard", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             },
@@ -919,11 +1070,11 @@ fun ExamSimulationScreen(
                         showPauseDialog = false
                         viewModel.resumeTimer()
                     },
-                    modifier = Modifier.testTag("btn_resume_exam")
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("btn_resume_exam")
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Resume Exam")
+                    Text("Resume Exam", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -932,9 +1083,10 @@ fun ExamSimulationScreen(
                         showPauseDialog = false
                         viewModel.resumeTimer()
                         showExitWarningDialog = true
-                    }
+                    },
+                    modifier = Modifier.heightIn(min = 48.dp)
                 ) {
-                    Text("Abandon Exam", color = ErrorRed)
+                    Text("Abandon Exam", color = errorAccent, fontWeight = FontWeight.SemiBold)
                 }
             }
         )
@@ -944,12 +1096,13 @@ fun ExamSimulationScreen(
     if (showConfirmFinishDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmFinishDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (unansweredCount > 0) Icons.Default.Warning else Icons.Default.Check,
                         contentDescription = null,
-                        tint = if (unansweredCount > 0) WarningAmber else SuccessGreen
+                        tint = if (unansweredCount > 0) warningAccent else successAccent
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Submit Examination?")
@@ -959,16 +1112,20 @@ fun ExamSimulationScreen(
                 Column {
                     if (unansweredCount > 0) {
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = ErrorRed.copy(alpha = 0.1f)),
-                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isCsc) CscErrorBg else ErrorRed.copy(alpha = 0.1f)
+                            ),
+                            border = if (isCsc) BorderStroke(1.dp, CscErrorBorder) else null,
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = "Notice: You have $unansweredCount unanswered question(s). Unanswered questions will be scored as zero.",
-                                color = ErrorRed,
+                                color = errorAccent,
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(10.dp)
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                                modifier = Modifier.padding(12.dp)
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -977,15 +1134,18 @@ fun ExamSimulationScreen(
                     if (flaggedIndices.isNotEmpty()) {
                         Text(
                             text = "You still have ${flaggedIndices.size} flagged question(s) marked for review.",
-                            fontSize = 12.sp,
-                            color = WarningAmber
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = warningAccent
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                     }
 
                     Text(
                         text = "Once submitted, your attempt will be finalized and an in-depth domain competency scorecard will be generated.",
-                        style = MaterialTheme.typography.bodyMedium
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             },
@@ -995,14 +1155,17 @@ fun ExamSimulationScreen(
                         showConfirmFinishDialog = false
                         viewModel.finishSimulation()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                    modifier = Modifier.testTag("btn_confirm_finish")
+                    colors = ButtonDefaults.buttonColors(containerColor = successAccent, contentColor = Color.White),
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("btn_confirm_finish")
                 ) {
-                    Text("Yes, Finalize & Score")
+                    Text("Yes, Finalize & Score", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmFinishDialog = false }) {
+                TextButton(
+                    onClick = { showConfirmFinishDialog = false },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) {
                     Text("Review Questions")
                 }
             }
@@ -1013,9 +1176,14 @@ fun ExamSimulationScreen(
     if (showExitWarningDialog) {
         AlertDialog(
             onDismissRequest = { showExitWarningDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
             title = { Text("Leave Active Exam?") },
             text = {
-                Text("Exiting now will abandon this active session and discard unsubmitted question responses. Do you wish to exit?")
+                Text(
+                    "Exiting now will abandon this active session and discard unsubmitted question responses. Do you wish to exit?",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
             },
             confirmButton = {
                 Button(
@@ -1023,13 +1191,17 @@ fun ExamSimulationScreen(
                         showExitWarningDialog = false
                         viewModel.abandonSimulation()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                    colors = ButtonDefaults.buttonColors(containerColor = errorAccent, contentColor = Color.White),
+                    modifier = Modifier.heightIn(min = 48.dp)
                 ) {
-                    Text("Exit Session")
+                    Text("Exit Session", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showExitWarningDialog = false }) {
+                TextButton(
+                    onClick = { showExitWarningDialog = false },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) {
                     Text("Stay in Exam")
                 }
             }
@@ -1057,6 +1229,10 @@ private fun QuestionCardContent(
     onCheckAnswer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
+    val successAccent = if (isCsc) CscSuccessDark else SuccessGreen
+    val warningAccent = if (isCsc) CscWarningDark else WarningAmber
+    val errorAccent = if (isCsc) CscErrorDark else ErrorRed
     val resolvedTopic = AdaptivePracticeEngine.resolveTopic(question)
     LazyColumn(
         modifier = modifier
@@ -1069,13 +1245,17 @@ private fun QuestionCardContent(
                 Card(
                     modifier = Modifier.fillMaxWidth().testTag("practice_exhaustion_notice"),
                     shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = WarningAmber.copy(alpha = 0.12f))
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isCsc) CscWarningBg else WarningAmber.copy(alpha = 0.12f)
+                    ),
+                    border = if (isCsc) BorderStroke(1.dp, CscWarningBorder) else null
                 ) {
                     Text(
                         text = exhaustionNotice,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(10.dp)
+                        modifier = Modifier.padding(12.dp)
                     )
                 }
             }
@@ -1085,15 +1265,16 @@ private fun QuestionCardContent(
             item {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = AccentBlue.copy(alpha = 0.12f),
+                    color = if (isCsc) CscSelectedBg else AccentBlue.copy(alpha = 0.12f),
+                    border = if (isCsc) BorderStroke(1.dp, CscBorder) else null,
                     modifier = Modifier.testTag("selection_reason_chip")
                 ) {
                     Text(
                         text = selectionReason,
-                        fontSize = 11.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = AccentBlue,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        color = if (isCsc) CscPrimaryBlue else AccentBlue,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
             }
@@ -1108,38 +1289,42 @@ private fun QuestionCardContent(
             ) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
+                    color = if (isCsc) CscCreamSecondary else MaterialTheme.colorScheme.primaryContainer,
+                    border = if (isCsc) BorderStroke(1.dp, CscBorder) else null,
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = question.domainName,
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = if (isCsc) CscTextPrimary else MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         if (resolvedTopic.hasExplicitMapping) {
                             Text(
                                 text = resolvedTopic.topicName,
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                fontSize = 12.sp,
+                                color = if (isCsc) CscTextSecondary else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
                         }
                     }
                 }
 
                 if (question.difficultyExplicit) {
+                    Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                        color = if (isCsc) CscCardSurface else MaterialTheme.colorScheme.surfaceVariant,
+                        border = if (isCsc) BorderStroke(1.dp, CscBorder) else null
                     ) {
                         Text(
                             text = question.difficulty.name,
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                         )
                     }
                 }
@@ -1154,15 +1339,16 @@ private fun QuestionCardContent(
                     .testTag("question_card_${question.id}"),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                border = if (isCsc) BorderStroke(1.dp, CscBorder) else null,
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isCsc) 0.dp else 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = question.questionText,
-                        fontSize = 15.sp,
+                        fontSize = if (isCsc) 19.sp else 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 23.sp
+                        lineHeight = if (isCsc) 27.sp else 23.sp
                     )
                 }
             }
@@ -1177,14 +1363,14 @@ private fun QuestionCardContent(
             ) {
                 Text(
                     text = "Select the best answer:",
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Tap ̶S̶ to eliminate distractors",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    text = "Tap ̶S̶ to strike out",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -1198,24 +1384,35 @@ private fun QuestionCardContent(
             val optionLetter = ('A'.code + optIndex).toChar().toString()
 
             val optionBorderColor = when {
-                isChecked && isCorrectOpt -> SuccessGreen
-                isChecked && isSelected && !isCorrectOpt -> ErrorRed
+                isChecked && isCorrectOpt -> successAccent
+                isChecked && isSelected && !isCorrectOpt -> errorAccent
                 isSelected -> MaterialTheme.colorScheme.primary
-                isStruck -> MaterialTheme.colorScheme.surfaceVariant
-                else -> MaterialTheme.colorScheme.outlineVariant
+                isStruck -> if (isCsc) CscBorder else MaterialTheme.colorScheme.surfaceVariant
+                else -> if (isCsc) CscBorder else MaterialTheme.colorScheme.outlineVariant
             }
 
-            val optionBgColor = when {
-                isChecked && isCorrectOpt -> SuccessGreen.copy(alpha = 0.14f)
-                isChecked && isSelected && !isCorrectOpt -> ErrorRed.copy(alpha = 0.12f)
-                isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-                isStruck -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-                else -> MaterialTheme.colorScheme.surface
+            val optionBgColor = if (isCsc) {
+                when {
+                    isChecked && isCorrectOpt -> CscSuccessBg
+                    isChecked && isSelected && !isCorrectOpt -> CscErrorBg
+                    isSelected -> CscSelectedBg
+                    isStruck -> CscCreamSecondary
+                    else -> CscCardSurface
+                }
+            } else {
+                when {
+                    isChecked && isCorrectOpt -> SuccessGreen.copy(alpha = 0.14f)
+                    isChecked && isSelected && !isCorrectOpt -> ErrorRed.copy(alpha = 0.12f)
+                    isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    isStruck -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                    else -> MaterialTheme.colorScheme.surface
+                }
             }
 
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 52.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .border(
                         width = if (isSelected || (isChecked && isCorrectOpt)) 2.dp else 1.dp,
@@ -1229,7 +1426,8 @@ private fun QuestionCardContent(
                     }
                     .testTag("option_$optIndex"),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = optionBgColor)
+                colors = CardDefaults.cardColors(containerColor = optionBgColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -1241,24 +1439,29 @@ private fun QuestionCardContent(
                     Surface(
                         shape = CircleShape,
                         color = when {
-                            isChecked && isCorrectOpt -> SuccessGreen
-                            isChecked && isSelected && !isCorrectOpt -> ErrorRed
+                            isChecked && isCorrectOpt -> successAccent
+                            isChecked && isSelected && !isCorrectOpt -> errorAccent
                             isSelected -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.surfaceVariant
+                            else -> if (isCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant
                         },
+                        border = if (isCsc && !isSelected && !(isChecked && isCorrectOpt)) BorderStroke(1.dp, CscBorder) else null,
                         modifier = Modifier.size(28.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
                                 text = optionLetter,
-                                fontSize = 12.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isSelected || (isChecked && isCorrectOpt)) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (isSelected || (isChecked && isCorrectOpt) || (isChecked && isSelected && !isCorrectOpt)) {
+                                    Color.White
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     // Radio indicator
                     RadioButton(
@@ -1268,37 +1471,67 @@ private fun QuestionCardContent(
                         },
                         colors = RadioButtonDefaults.colors(
                             selectedColor = when {
-                                isChecked && isCorrectOpt -> SuccessGreen
-                                isChecked && !isCorrectOpt -> ErrorRed
+                                isChecked && isCorrectOpt -> successAccent
+                                isChecked && !isCorrectOpt -> errorAccent
                                 else -> MaterialTheme.colorScheme.primary
                             }
                         ),
                         enabled = !isChecked && !isStruck
                     )
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
 
-                    // Option Text
-                    Text(
-                        text = optionText,
-                        fontSize = 14.sp,
-                        color = if (isStruck) Slate400 else MaterialTheme.colorScheme.onSurface,
-                        textDecoration = if (isStruck) TextDecoration.LineThrough else TextDecoration.None,
-                        lineHeight = 20.sp,
-                        modifier = Modifier.weight(1f)
-                    )
+                    // Option Text + Explicit Check State Text Label (never rely on color alone)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = optionText,
+                            fontSize = if (isCsc) 16.sp else 14.sp,
+                            color = if (isStruck) (if (isCsc) CscTextSecondary else Slate400) else MaterialTheme.colorScheme.onSurface,
+                            textDecoration = if (isStruck) TextDecoration.LineThrough else TextDecoration.None,
+                            lineHeight = if (isCsc) 23.sp else 20.sp
+                        )
+                        if (isChecked && (isCorrectOpt || (isSelected && !isCorrectOpt))) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isCorrectOpt) CscCardSurface else CscCardSurface)
+                                    .border(
+                                        1.dp,
+                                        if (isCorrectOpt) CscSuccessBorder else CscErrorBorder,
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isCorrectOpt) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = if (isCorrectOpt) "Correct" else "Incorrect",
+                                    tint = if (isCorrectOpt) successAccent else errorAccent,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (isCorrectOpt) "Correct" else "Incorrect",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isCorrectOpt) successAccent else errorAccent
+                                )
+                            }
+                        }
+                    }
 
-                    // Distractor Elimination Button (Strike-through)
+                    // Distractor Elimination Button (Strike-through) — minimum 48dp touch target
                     IconButton(
                         onClick = { if (!isChecked) onToggleStrike(optIndex) },
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .testTag("strike_option_$optIndex")
                     ) {
                         Icon(
                             imageVector = Icons.Default.FormatStrikethrough,
                             contentDescription = if (isStruck) "Restore choice" else "Eliminate choice",
-                            tint = if (isStruck) ErrorRed else Slate400,
+                            tint = if (isStruck) errorAccent else (if (isCsc) CscTextSecondary else Slate400),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -1313,14 +1546,17 @@ private fun QuestionCardContent(
                     onClick = onCheckAnswer,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(46.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("btn_check_answer"),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Check Answer", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Check Answer", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
             }
         }
@@ -1328,28 +1564,33 @@ private fun QuestionCardContent(
         // Immediate Feedback & Distractor Analysis Card (only after Check Answer in adaptive practice)
         if (isAdaptivePractice && isChecked && practiceFeedback != null) {
             item {
-                val feedbackColor = if (practiceFeedback.isCorrect) SuccessGreen else ErrorRed
+                val feedbackColor = if (practiceFeedback.isCorrect) successAccent else errorAccent
+                val feedbackBg = if (isCsc) {
+                    if (practiceFeedback.isCorrect) CscSuccessBg else CscErrorBg
+                } else {
+                    feedbackColor.copy(alpha = 0.08f)
+                }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("practice_feedback_card"),
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = feedbackColor.copy(alpha = 0.08f)),
-                    border = BorderStroke(1.dp, feedbackColor.copy(alpha = 0.45f))
+                    colors = CardDefaults.cardColors(containerColor = feedbackBg),
+                    border = BorderStroke(1.5.dp, feedbackColor)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = if (practiceFeedback.isCorrect) Icons.Default.Check else Icons.Default.Close,
                                 contentDescription = null,
                                 tint = feedbackColor,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (practiceFeedback.isCorrect) "Correct Answer" else "Incorrect — Review Rationale",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
+                                fontSize = 16.sp,
                                 color = feedbackColor
                             )
                         }
@@ -1357,7 +1598,8 @@ private fun QuestionCardContent(
                         if (!practiceFeedback.isCorrect && !practiceFeedback.selectedOptionAnalysis.isNullOrBlank()) {
                             Text(
                                 text = "Why your choice was incorrect: ${practiceFeedback.selectedOptionAnalysis}",
-                                fontSize = 12.sp,
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -1365,15 +1607,16 @@ private fun QuestionCardContent(
 
                         Text(
                             text = practiceFeedback.explanation,
-                            fontSize = 13.sp,
+                            fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 19.sp
+                            lineHeight = 22.sp
                         )
 
                         if (practiceFeedback.learningObjective.isNotBlank()) {
                             Text(
                                 text = "Learning Objective: ${practiceFeedback.learningObjective}",
-                                fontSize = 11.sp,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1382,16 +1625,17 @@ private fun QuestionCardContent(
                         if (!practiceFeedback.remediationNotice.isNullOrBlank()) {
                             Text(
                                 text = practiceFeedback.remediationNotice,
-                                fontSize = 12.sp,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = AccentBlue
+                                color = if (isCsc) CscPrimaryBlue else AccentBlue
                             )
                         }
 
                         practiceFeedback.updatedTopicMastery?.let { tState ->
                             Text(
                                 text = "Updated Topic Mastery (${tState.topicName}): ${tState.masteryPercent}% • ${tState.confidence.displayLabel()}",
-                                fontSize = 11.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1409,42 +1653,44 @@ private fun QuestionCardContent(
                     .testTag("source_citation_card"),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
+                    containerColor = if (isCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+                border = if (isCsc) BorderStroke(1.dp, CscBorder) else null
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        modifier = Modifier.size(32.dp)
+                        color = if (isCsc) CscCardSurface else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        border = if (isCsc) BorderStroke(1.dp, CscBorder) else null,
+                        modifier = Modifier.size(34.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.MenuBook,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(17.dp)
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Authoritative Exam Reference",
-                            fontSize = 11.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = "${question.citation.title} • ${question.citation.sectionOrPage}",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            color = if (isCsc) CscTextPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

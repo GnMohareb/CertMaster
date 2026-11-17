@@ -3,7 +3,9 @@ package com.example.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,6 +43,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -75,6 +79,20 @@ import com.example.ui.AppScreen
 import com.example.ui.ExamViewModel
 import com.example.ui.theme.AccentBlue
 import com.example.ui.theme.AccentCyan
+import com.example.ui.theme.CscBorder
+import com.example.ui.theme.CscCardSurface
+import com.example.ui.theme.CscCreamSecondary
+import com.example.ui.theme.CscErrorDark
+import com.example.ui.theme.CscPrimaryBlue
+import com.example.ui.theme.CscSelectedBg
+import com.example.ui.theme.CscSuccessBg
+import com.example.ui.theme.CscSuccessBorder
+import com.example.ui.theme.CscSuccessDark
+import com.example.ui.theme.CscTextPrimary
+import com.example.ui.theme.CscTextSecondary
+import com.example.ui.theme.CscWarningBg
+import com.example.ui.theme.CscWarningBorder
+import com.example.ui.theme.CscWarningDark
 import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.GoldMastery
 import com.example.ui.theme.Slate400
@@ -109,6 +127,7 @@ fun NotebookSourcesScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             if (selectedTab == 0 || selectedTab == 1) {
                 FloatingActionButton(
@@ -140,7 +159,13 @@ fun NotebookSourcesScreen(
             TabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
+                contentColor = MaterialTheme.colorScheme.primary,
+                divider = {
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = if (isOfflineCsc) CscBorder else MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
             ) {
                 Tab(
                     selected = selectedTab == 0,
@@ -148,8 +173,8 @@ fun NotebookSourcesScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Study Notes", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Study Notes", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
                         }
                     },
                     modifier = Modifier.testTag("tab_study_notes")
@@ -160,8 +185,8 @@ fun NotebookSourcesScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Style, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Flashcards (${flashcards.size})", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Flashcards (${flashcards.size})", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
                         }
                     },
                     modifier = Modifier.testTag("tab_flashcards")
@@ -172,8 +197,8 @@ fun NotebookSourcesScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Headphones, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Audio Briefings", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Audio", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
                         }
                     },
                     modifier = Modifier.testTag("tab_audio_briefings")
@@ -194,36 +219,39 @@ fun NotebookSourcesScreen(
                         item {
                             Text(
                                 text = "Grounded Study Notes & Frameworks (${sources.size})",
-                                fontSize = 16.sp,
+                                fontSize = if (isOfflineCsc) 18.sp else 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
                                 text = "Official standards, cheat sheets, and domain notes",
-                                fontSize = 12.sp,
+                                fontSize = if (isOfflineCsc) 13.sp else 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(SuccessGreen.copy(alpha = 0.12f))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isOfflineCsc) CscSuccessBg else SuccessGreen.copy(alpha = 0.12f))
+                                    .then(
+                                        if (isOfflineCsc) Modifier.border(1.dp, CscSuccessBorder, RoundedCornerShape(8.dp)) else Modifier
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
                                     .testTag("notes_offline_cached_badge")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Room Local Cache Active",
-                                    tint = SuccessGreen,
-                                    modifier = Modifier.size(13.dp)
+                                    tint = if (isOfflineCsc) CscSuccessDark else SuccessGreen,
+                                    modifier = Modifier.size(14.dp)
                                 )
-                                Spacer(modifier = Modifier.width(5.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "Room SQLite Cache Active • Available 100% Offline",
-                                    fontSize = 11.sp,
+                                    fontSize = if (isOfflineCsc) 12.sp else 11.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = SuccessGreen
+                                    color = if (isOfflineCsc) CscSuccessDark else SuccessGreen
                                 )
                             }
                         }
@@ -233,7 +261,9 @@ fun NotebookSourcesScreen(
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(14.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                                    elevation = CardDefaults.cardElevation(0.dp)
                                 ) {
                                     Column(
                                         modifier = Modifier.padding(20.dp),
@@ -241,21 +271,26 @@ fun NotebookSourcesScreen(
                                     ) {
                                         Text(
                                             text = "No Study Guides Installed Yet",
-                                            fontSize = 15.sp,
+                                            fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
                                             text = "Add your own chapter notes and key takeaways to store them locally for offline study.",
-                                            fontSize = 12.sp,
+                                            fontSize = 13.sp,
+                                            lineHeight = 19.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             textAlign = TextAlign.Center
                                         )
                                         Spacer(modifier = Modifier.height(12.dp))
-                                        Button(onClick = { showAddSourceDialog = true }) {
+                                        Button(
+                                            onClick = { showAddSourceDialog = true },
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.heightIn(min = 48.dp)
+                                        ) {
                                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Add Study Notes")
+                                            Text("Add Study Notes", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                         }
                                     }
                                 }
@@ -271,7 +306,8 @@ fun NotebookSourcesScreen(
                                     .testTag("source_card_${doc.id}"),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(2.dp)
+                                border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                                elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 2.dp)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Row(
@@ -282,20 +318,20 @@ fun NotebookSourcesScreen(
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(AccentBlue.copy(alpha = 0.12f))
-                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                                .background(if (isOfflineCsc) CscSelectedBg else AccentBlue.copy(alpha = 0.12f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
                                             Text(
                                                 text = doc.domainName,
-                                                fontSize = 10.sp,
+                                                fontSize = if (isOfflineCsc) 12.sp else 10.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = AccentBlue
+                                                color = if (isOfflineCsc) CscPrimaryBlue else AccentBlue
                                             )
                                         }
 
                                         Text(
                                             text = doc.type.name.replace("_", " "),
-                                            fontSize = 10.sp,
+                                            fontSize = if (isOfflineCsc) 12.sp else 10.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
@@ -304,14 +340,14 @@ fun NotebookSourcesScreen(
 
                                     Text(
                                         text = doc.title,
-                                        fontSize = 15.sp,
+                                        fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
 
                                     Text(
                                         text = "Author / Issuer: ${doc.authorOrStandard}",
-                                        fontSize = 11.sp,
+                                        fontSize = if (isOfflineCsc) 12.sp else 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
 
@@ -319,9 +355,9 @@ fun NotebookSourcesScreen(
 
                                     Text(
                                         text = doc.summary,
-                                        fontSize = 12.sp,
+                                        fontSize = if (isOfflineCsc) 14.sp else 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        lineHeight = 17.sp
+                                        lineHeight = if (isOfflineCsc) 20.sp else 17.sp
                                     )
 
                                     Spacer(modifier = Modifier.height(10.dp))
@@ -333,20 +369,35 @@ fun NotebookSourcesScreen(
                                     ) {
                                         OutlinedButton(
                                             onClick = { selectedTab = 1 },
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, if (isOfflineCsc) CscBorder else MaterialTheme.colorScheme.outline),
+                                            colors = if (isOfflineCsc) {
+                                                ButtonDefaults.outlinedButtonColors(
+                                                    containerColor = CscCardSurface,
+                                                    contentColor = CscPrimaryBlue
+                                                )
+                                            } else {
+                                                ButtonDefaults.outlinedButtonColors()
+                                            },
+                                            modifier = Modifier.heightIn(min = 48.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                         ) {
-                                            Icon(Icons.Default.Style, contentDescription = null, modifier = Modifier.size(12.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Recall Flashcards", fontSize = 11.sp)
+                                            Icon(Icons.Default.Style, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Recall Flashcards", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                         }
 
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.clickable { viewModel.openSource(doc) }
+                                            modifier = Modifier
+                                                .heightIn(min = 48.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .clickable { viewModel.openSource(doc) }
+                                                .padding(horizontal = 10.dp, vertical = 8.dp)
                                         ) {
                                             Text(
                                                 text = "Read Full Notes",
-                                                fontSize = 12.sp,
+                                                fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -355,7 +406,7 @@ fun NotebookSourcesScreen(
                                                 Icons.Default.ArrowForward,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(14.dp)
+                                                modifier = Modifier.size(15.dp)
                                             )
                                         }
                                     }
@@ -377,7 +428,9 @@ fun NotebookSourcesScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                                elevation = CardDefaults.cardElevation(0.dp)
                             ) {
                                 Column(
                                     modifier = Modifier.padding(20.dp),
@@ -385,21 +438,26 @@ fun NotebookSourcesScreen(
                                 ) {
                                     Text(
                                         text = "No Flashcards Installed Yet",
-                                        fontSize = 15.sp,
+                                        fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
                                         text = "Create custom flashcards to practice with offline Leitner spaced repetition.",
-                                        fontSize = 12.sp,
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    Button(onClick = { showAddFlashcardDialog = true }) {
+                                    Button(
+                                        onClick = { showAddFlashcardDialog = true },
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.heightIn(min = 48.dp)
+                                    ) {
                                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Add Flashcard")
+                                        Text("Add Flashcard", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -429,20 +487,24 @@ fun NotebookSourcesScreen(
                                 ) {
                                     Text(
                                         text = "Card ${safeCardIndex + 1} of ${flashcards.size}",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
                                     )
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(GoldMastery.copy(alpha = 0.15f))
-                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                            .background(if (isOfflineCsc) CscWarningBg else GoldMastery.copy(alpha = 0.15f))
+                                            .then(
+                                                if (isOfflineCsc) Modifier.border(1.dp, CscWarningBorder, RoundedCornerShape(6.dp)) else Modifier
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
                                         Text(
                                             text = "Leitner Box ${currentCard.boxLevel} / 5",
-                                            fontSize = 10.sp,
+                                            fontSize = if (isOfflineCsc) 12.sp else 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = GoldMastery
+                                            color = if (isOfflineCsc) CscWarningDark else GoldMastery
                                         )
                                     }
                                 }
@@ -453,34 +515,37 @@ fun NotebookSourcesScreen(
                                     progress = { ((safeCardIndex + 1).toFloat() / flashcards.size).coerceIn(0f, 1f) },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp)),
+                                        .height(5.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
                                     color = MaterialTheme.colorScheme.primary,
-                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    trackColor = if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant
                                 )
 
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(SuccessGreen.copy(alpha = 0.12f))
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        .background(if (isOfflineCsc) CscSuccessBg else SuccessGreen.copy(alpha = 0.12f))
+                                        .then(
+                                            if (isOfflineCsc) Modifier.border(1.dp, CscSuccessBorder, RoundedCornerShape(6.dp)) else Modifier
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                         .testTag("flashcards_offline_cached_badge")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Room Local Cache",
-                                        tint = SuccessGreen,
-                                        modifier = Modifier.size(12.dp)
+                                        tint = if (isOfflineCsc) CscSuccessDark else SuccessGreen,
+                                        modifier = Modifier.size(13.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "Room SQLite Spaced Repetition • Offline Ready",
-                                        fontSize = 10.sp,
+                                        fontSize = if (isOfflineCsc) 12.sp else 10.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = SuccessGreen
+                                        color = if (isOfflineCsc) CscSuccessDark else SuccessGreen
                                     )
                                 }
                             }
@@ -498,15 +563,16 @@ fun NotebookSourcesScreen(
                                     }
                                     .clickable { viewModel.flipFlashcard() }
                                     .testTag("flashcard_flip_card"),
-                                shape = RoundedCornerShape(20.dp),
+                                shape = RoundedCornerShape(if (isOfflineCsc) 16.dp else 20.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (rotation > 90f) {
-                                        MaterialTheme.colorScheme.surfaceVariant
+                                        if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant
                                     } else {
-                                        MaterialTheme.colorScheme.surface
+                                        if (isOfflineCsc) CscCardSurface else MaterialTheme.colorScheme.surface
                                     }
                                 ),
-                                elevation = CardDefaults.cardElevation(4.dp)
+                                border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                                elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 4.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
@@ -524,23 +590,23 @@ fun NotebookSourcesScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(AccentBlue.copy(alpha = 0.12f))
-                                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                                    .background(if (isOfflineCsc) CscSelectedBg else AccentBlue.copy(alpha = 0.12f))
+                                                    .padding(horizontal = 10.dp, vertical = 4.dp)
                                             ) {
                                                 Text(
                                                     text = currentCard.domainName,
-                                                    fontSize = 10.sp,
+                                                    fontSize = if (isOfflineCsc) 12.sp else 10.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = AccentBlue
+                                                    color = if (isOfflineCsc) CscPrimaryBlue else AccentBlue
                                                 )
                                             }
 
                                             Text(
                                                 text = currentCard.frontPrompt,
-                                                fontSize = 16.sp,
+                                                fontSize = if (isOfflineCsc) 18.sp else 16.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
-                                                lineHeight = 22.sp,
+                                                lineHeight = if (isOfflineCsc) 26.sp else 22.sp,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
 
@@ -548,11 +614,15 @@ fun NotebookSourcesScreen(
                                                 Icon(
                                                     Icons.Default.TouchApp,
                                                     contentDescription = null,
-                                                    tint = Slate400,
+                                                    tint = if (isOfflineCsc) CscTextSecondary else Slate400,
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Tap card to reveal answer", fontSize = 11.sp, color = Slate400)
+                                                Text(
+                                                    text = "Tap card to reveal answer",
+                                                    fontSize = 12.sp,
+                                                    color = if (isOfflineCsc) CscTextSecondary else Slate400
+                                                )
                                             }
                                         }
                                     } else {
@@ -567,23 +637,26 @@ fun NotebookSourcesScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(6.dp))
-                                                    .background(SuccessGreen.copy(alpha = 0.15f))
-                                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                                    .background(if (isOfflineCsc) CscSuccessBg else SuccessGreen.copy(alpha = 0.15f))
+                                                    .then(
+                                                        if (isOfflineCsc) Modifier.border(1.dp, CscSuccessBorder, RoundedCornerShape(6.dp)) else Modifier
+                                                    )
+                                                    .padding(horizontal = 10.dp, vertical = 4.dp)
                                             ) {
                                                 Text(
                                                     text = "EXAM ANSWER",
-                                                    fontSize = 10.sp,
+                                                    fontSize = if (isOfflineCsc) 11.sp else 10.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = SuccessGreen
+                                                    color = if (isOfflineCsc) CscSuccessDark else SuccessGreen
                                                 )
                                             }
 
                                             Text(
                                                 text = currentCard.backAnswer,
-                                                fontSize = 13.sp,
+                                                fontSize = if (isOfflineCsc) 15.sp else 13.sp,
                                                 fontWeight = FontWeight.Medium,
                                                 textAlign = TextAlign.Center,
-                                                lineHeight = 18.sp,
+                                                lineHeight = if (isOfflineCsc) 22.sp else 18.sp,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
 
@@ -593,25 +666,51 @@ fun NotebookSourcesScreen(
                                                     verticalAlignment = Alignment.CenterVertically,
                                                     modifier = Modifier
                                                         .clip(RoundedCornerShape(8.dp))
-                                                        .background(AccentBlue.copy(alpha = 0.12f))
+                                                        .background(if (isOfflineCsc) CscSelectedBg else AccentBlue.copy(alpha = 0.12f))
+                                                        .then(
+                                                            if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier
+                                                        )
                                                         .clickable { viewModel.openSource(linkedDoc) }
-                                                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                                                        .padding(horizontal = 10.dp, vertical = 6.dp)
                                                 ) {
-                                                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(13.dp))
+                                                    Icon(
+                                                        Icons.Default.MenuBook,
+                                                        contentDescription = null,
+                                                        tint = if (isOfflineCsc) CscPrimaryBlue else AccentBlue,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
                                                     Spacer(modifier = Modifier.width(6.dp))
-                                                    Text(text = "Study Guide: ${linkedDoc.title}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentBlue, maxLines = 1)
+                                                    Text(
+                                                        text = "Study Guide: ${linkedDoc.title}",
+                                                        fontSize = if (isOfflineCsc) 12.sp else 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isOfflineCsc) CscPrimaryBlue else AccentBlue,
+                                                        maxLines = if (isOfflineCsc) 2 else 1
+                                                    )
                                                 }
                                             } else {
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
                                                     modifier = Modifier
                                                         .clip(RoundedCornerShape(6.dp))
-                                                        .background(MaterialTheme.colorScheme.surface)
-                                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                                        .background(if (isOfflineCsc) CscSelectedBg else MaterialTheme.colorScheme.surface)
+                                                        .then(
+                                                            if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(6.dp)) else Modifier
+                                                        )
+                                                        .padding(horizontal = 10.dp, vertical = 5.dp)
                                                 ) {
-                                                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(12.dp))
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Text(text = currentCard.sourceCitation, fontSize = 10.sp, color = AccentBlue)
+                                                    Icon(
+                                                        Icons.Default.MenuBook,
+                                                        contentDescription = null,
+                                                        tint = if (isOfflineCsc) CscPrimaryBlue else AccentBlue,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = currentCard.sourceCitation,
+                                                        fontSize = if (isOfflineCsc) 12.sp else 10.sp,
+                                                        color = if (isOfflineCsc) CscPrimaryBlue else AccentBlue
+                                                    )
                                                 }
                                             }
                                         }
@@ -625,7 +724,7 @@ fun NotebookSourcesScreen(
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 Text(
                                     text = "Rate Recall Quality (Spaced Repetition)",
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -638,35 +737,59 @@ fun NotebookSourcesScreen(
                                 ) {
                                     Button(
                                         onClick = { viewModel.rateFlashcard(1) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
-                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isOfflineCsc) CscErrorDark else ErrorRed,
+                                            contentColor = Color.White
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp),
                                         contentPadding = PaddingValues(vertical = 8.dp)
                                     ) {
-                                        Text("Again", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Again", fontSize = if (isOfflineCsc) 13.sp else 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Button(
                                         onClick = { viewModel.rateFlashcard(2) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = WarningAmber),
-                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isOfflineCsc) CscWarningDark else WarningAmber,
+                                            contentColor = Color.White
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp),
                                         contentPadding = PaddingValues(vertical = 8.dp)
                                     ) {
-                                        Text("Hard", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Hard", fontSize = if (isOfflineCsc) 13.sp else 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Button(
                                         onClick = { viewModel.rateFlashcard(3) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isOfflineCsc) CscPrimaryBlue else MaterialTheme.colorScheme.primary,
+                                            contentColor = Color.White
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp),
                                         contentPadding = PaddingValues(vertical = 8.dp)
                                     ) {
-                                        Text("Good", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Good", fontSize = if (isOfflineCsc) 13.sp else 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Button(
                                         onClick = { viewModel.rateFlashcard(5) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isOfflineCsc) CscSuccessDark else SuccessGreen,
+                                            contentColor = Color.White
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp),
                                         contentPadding = PaddingValues(vertical = 8.dp)
                                     ) {
-                                        Text("Easy", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Easy", fontSize = if (isOfflineCsc) 13.sp else 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -678,15 +801,41 @@ fun NotebookSourcesScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                OutlinedButton(onClick = { viewModel.prevFlashcard() }) {
-                                    Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(14.dp))
+                                OutlinedButton(
+                                    onClick = { viewModel.prevFlashcard() },
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, if (isOfflineCsc) CscBorder else MaterialTheme.colorScheme.outline),
+                                    colors = if (isOfflineCsc) {
+                                        ButtonDefaults.outlinedButtonColors(
+                                            containerColor = CscCardSurface,
+                                            contentColor = CscPrimaryBlue
+                                        )
+                                    } else {
+                                        ButtonDefaults.outlinedButtonColors()
+                                    },
+                                    modifier = Modifier.heightIn(min = 48.dp)
+                                ) {
+                                    Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(15.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Prev Card", fontSize = 12.sp)
+                                    Text("Prev Card", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 }
-                                OutlinedButton(onClick = { viewModel.nextFlashcard() }) {
-                                    Text("Next Card", fontSize = 12.sp)
+                                OutlinedButton(
+                                    onClick = { viewModel.nextFlashcard() },
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, if (isOfflineCsc) CscBorder else MaterialTheme.colorScheme.outline),
+                                    colors = if (isOfflineCsc) {
+                                        ButtonDefaults.outlinedButtonColors(
+                                            containerColor = CscCardSurface,
+                                            contentColor = CscPrimaryBlue
+                                        )
+                                    } else {
+                                        ButtonDefaults.outlinedButtonColors()
+                                    },
+                                    modifier = Modifier.heightIn(min = 48.dp)
+                                ) {
+                                    Text("Next Card", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(15.dp))
                                 }
                             }
                         }
@@ -709,7 +858,7 @@ fun NotebookSourcesScreen(
                                 } else {
                                     "AI Audio Deep Dives (${audioOverviews.size})"
                                 },
-                                fontSize = 16.sp,
+                                fontSize = if (isOfflineCsc) 18.sp else 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
@@ -719,7 +868,7 @@ fun NotebookSourcesScreen(
                                 } else {
                                     "2-Host podcast briefings powered by Text-to-Speech"
                                 },
-                                fontSize = 12.sp,
+                                fontSize = if (isOfflineCsc) 13.sp else 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -729,11 +878,14 @@ fun NotebookSourcesScreen(
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(14.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                                    elevation = CardDefaults.cardElevation(0.dp)
                                 ) {
                                     Text(
                                         text = "No audio briefings are installed in this edition yet.",
-                                        fontSize = 13.sp,
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(16.dp)
                                     )
@@ -745,12 +897,13 @@ fun NotebookSourcesScreen(
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
+                                    .clip(RoundedCornerShape(14.dp))
                                     .clickable { viewModel.openAudioOverview(audio) }
                                     .testTag("audio_item_${audio.id}"),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(2.dp)
+                                border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                                elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 2.dp)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Row(
@@ -758,35 +911,47 @@ fun NotebookSourcesScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .size(40.dp)
+                                                    .size(42.dp)
                                                     .clip(CircleShape)
-                                                    .background(AccentCyan.copy(alpha = 0.15f)),
+                                                    .background(if (isOfflineCsc) CscSelectedBg else AccentCyan.copy(alpha = 0.15f))
+                                                    .then(
+                                                        if (isOfflineCsc) Modifier.border(1.dp, CscBorder, CircleShape) else Modifier
+                                                    ),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(Icons.Default.Headphones, contentDescription = null, tint = AccentCyan)
+                                                Icon(
+                                                    Icons.Default.Headphones,
+                                                    contentDescription = null,
+                                                    tint = if (isOfflineCsc) CscPrimaryBlue else AccentCyan
+                                                )
                                             }
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Column {
                                                 Text(
                                                     text = audio.title,
-                                                    fontSize = 14.sp,
+                                                    fontSize = 15.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
                                                     text = "${audio.host1} & ${audio.host2}",
-                                                    fontSize = 11.sp,
+                                                    fontSize = 12.sp,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
 
+                                        Spacer(modifier = Modifier.width(8.dp))
+
                                         Box(
                                             modifier = Modifier
-                                                .size(36.dp)
+                                                .size(40.dp)
                                                 .clip(CircleShape)
                                                 .background(MaterialTheme.colorScheme.primary),
                                             contentAlignment = Alignment.Center
@@ -796,7 +961,12 @@ fun NotebookSourcesScreen(
                                     }
 
                                     Spacer(modifier = Modifier.height(10.dp))
-                                    Text(text = audio.subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = audio.subtitle,
+                                        fontSize = if (isOfflineCsc) 13.sp else 12.sp,
+                                        lineHeight = 19.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                         }
@@ -811,6 +981,7 @@ fun NotebookSourcesScreen(
         val doc = selectedSource!!
         ModalBottomSheet(
             onDismissRequest = { viewModel.closeSource() },
+            containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             LazyColumn(
@@ -835,51 +1006,74 @@ fun NotebookSourcesScreen(
                             Icon(Icons.Default.Close, contentDescription = "Close")
                         }
                     }
-                    Text(text = doc.authorOrStandard, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = doc.authorOrStandard,
+                        fontSize = if (isOfflineCsc) 13.sp else 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        ),
+                        border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+                        elevation = CardDefaults.cardElevation(0.dp)
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(
                                 text = if (isOfflineCsc) "Executive Summary" else "AI Executive Summary",
-                                fontSize = 12.sp,
+                                fontSize = if (isOfflineCsc) 13.sp else 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(doc.summary, fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer, lineHeight = 18.sp)
+                            Text(
+                                text = doc.summary,
+                                fontSize = 14.sp,
+                                color = if (isOfflineCsc) CscTextPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
+                                lineHeight = 20.sp
+                            )
                         }
                     }
                 }
 
                 item {
-                    Text("Key Takeaways for Exam", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Key Takeaways for Exam", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
 
                 items(doc.keyTakeaways) { takeaway ->
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                         Box(
                             modifier = Modifier
-                                .padding(top = 6.dp)
+                                .padding(top = 7.dp)
                                 .size(6.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primary)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text(takeaway, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, lineHeight = 18.sp)
+                        Text(
+                            text = takeaway,
+                            fontSize = if (isOfflineCsc) 14.sp else 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 20.sp
+                        )
                     }
                 }
 
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Full Syllabus Document", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Full Syllabus Document", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(doc.fullContent, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
+                    Text(
+                        text = doc.fullContent,
+                        fontSize = if (isOfflineCsc) 14.sp else 12.sp,
+                        color = if (isOfflineCsc) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 21.sp
+                    )
                 }
 
                 if (!isOfflineCsc) {
@@ -910,6 +1104,7 @@ fun NotebookSourcesScreen(
 
         AlertDialog(
             onDismissRequest = { showAddSourceDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
             title = { Text("Add Study Notes") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -950,13 +1145,17 @@ fun NotebookSourcesScreen(
                             )
                             showAddSourceDialog = false
                         }
-                    }
+                    },
+                    modifier = Modifier.heightIn(min = 48.dp)
                 ) {
                     Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddSourceDialog = false }) { Text("Cancel") }
+                TextButton(
+                    onClick = { showAddSourceDialog = false },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) { Text("Cancel") }
             }
         )
     }
@@ -968,6 +1167,7 @@ fun NotebookSourcesScreen(
 
         AlertDialog(
             onDismissRequest = { showAddFlashcardDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
             title = { Text("Create Flashcard") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1005,13 +1205,17 @@ fun NotebookSourcesScreen(
                             )
                             showAddFlashcardDialog = false
                         }
-                    }
+                    },
+                    modifier = Modifier.heightIn(min = 48.dp)
                 ) {
                     Text("Save Card")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddFlashcardDialog = false }) { Text("Cancel") }
+                TextButton(
+                    onClick = { showAddFlashcardDialog = false },
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) { Text("Cancel") }
             }
         )
     }

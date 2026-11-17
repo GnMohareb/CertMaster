@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +37,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +62,12 @@ import com.example.ui.ExamViewModel
 import com.example.ui.components.AudioWaveformVisualizer
 import com.example.ui.theme.AccentBlue
 import com.example.ui.theme.AccentCyan
+import com.example.ui.theme.CscBorder
+import com.example.ui.theme.CscCardSurface
+import com.example.ui.theme.CscPrimaryBlue
+import com.example.ui.theme.CscSelectedBg
+import com.example.ui.theme.CscSuccessDark
+import com.example.ui.theme.CscTextSecondary
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate600
 import com.example.ui.theme.SuccessGreen
@@ -95,6 +104,8 @@ fun AudioOverviewScreen(
     }
 
     val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
+    val host1Color = if (isOfflineCsc) CscPrimaryBlue else AccentBlue
+    val host2Color = if (isOfflineCsc) Color(0xFF476C5E) else AccentCyan
 
     Column(
         modifier = modifier
@@ -111,7 +122,7 @@ fun AudioOverviewScreen(
                     )
                     Text(
                         text = if (isOfflineCsc) "Offline Text-to-Speech" else "2-Host AI Conversation",
-                        fontSize = 11.sp,
+                        fontSize = if (isOfflineCsc) 12.sp else 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -126,15 +137,19 @@ fun AudioOverviewScreen(
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
         )
+        if (isOfflineCsc) {
+            HorizontalDivider(thickness = 1.dp, color = CscBorder)
+        }
 
         // Player Hero Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(if (isOfflineCsc) 16.dp else 20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(3.dp)
+            border = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null,
+            elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 3.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -151,19 +166,19 @@ fun AudioOverviewScreen(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(AccentBlue),
+                            .background(host1Color),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("AL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("&", fontWeight = FontWeight.Bold, color = Slate400)
+                    Text("&", fontWeight = FontWeight.Bold, color = if (isOfflineCsc) CscTextSecondary else Slate400)
                     Spacer(modifier = Modifier.width(6.dp))
                     Box(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(AccentCyan),
+                            .background(host2Color),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("MY", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -174,15 +189,15 @@ fun AudioOverviewScreen(
 
                 Text(
                     text = audio.title,
-                    fontSize = 16.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 22.sp
+                    lineHeight = 23.sp
                 )
 
                 Text(
                     text = "${audio.host1} & ${audio.host2}",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
@@ -213,9 +228,19 @@ fun AudioOverviewScreen(
                             viewModel.speechManager.setSpeed(newSpeed)
                         },
                         shape = RoundedCornerShape(20.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        border = BorderStroke(1.dp, if (isOfflineCsc) CscBorder else MaterialTheme.colorScheme.outline),
+                        colors = if (isOfflineCsc) {
+                            ButtonDefaults.outlinedButtonColors(
+                                containerColor = CscCardSurface,
+                                contentColor = CscPrimaryBlue
+                            )
+                        } else {
+                            ButtonDefaults.outlinedButtonColors()
+                        },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text("${currentSpeed}x", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("${currentSpeed}x", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
 
                     // Prev Turn
@@ -223,7 +248,8 @@ fun AudioOverviewScreen(
                         onClick = {
                             val prev = (activeTurnIndex - 1).coerceAtLeast(0)
                             viewModel.playAudioTurn(prev)
-                        }
+                        },
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(Icons.Default.FastRewind, contentDescription = "Previous", modifier = Modifier.size(28.dp))
                     }
@@ -259,7 +285,8 @@ fun AudioOverviewScreen(
                                 val next = (activeTurnIndex + 1).coerceAtMost(audio.turns.size - 1)
                                 viewModel.playAudioTurn(next)
                             }
-                        }
+                        },
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(Icons.Default.FastForward, contentDescription = "Next", modifier = Modifier.size(28.dp))
                     }
@@ -300,26 +327,32 @@ fun AudioOverviewScreen(
             itemsIndexed(audio.turns) { index, turn ->
                 val isActive = index == activeTurnIndex
                 val isHost1 = turn.speaker.contains("Alex")
+                val speakerColor = if (isHost1) host1Color else host2Color
 
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable { viewModel.playAudioTurn(index) }
-                        .border(
-                            width = if (isActive) 2.dp else 0.dp,
-                            color = if (isActive) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = RoundedCornerShape(14.dp)
-                        ),
+                        .clickable { viewModel.playAudioTurn(index) },
                     shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(
+                        width = if (isActive) 2.dp else if (isOfflineCsc) 1.dp else 0.dp,
+                        color = if (isActive) {
+                            MaterialTheme.colorScheme.primary
+                        } else if (isOfflineCsc) {
+                            CscBorder
+                        } else {
+                            Color.Transparent
+                        }
+                    ),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isActive) {
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                            if (isOfflineCsc) CscSelectedBg else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                         } else {
                             MaterialTheme.colorScheme.surface
                         }
                     ),
-                    elevation = CardDefaults.cardElevation(if (isActive) 2.dp else 0.5.dp)
+                    elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else if (isActive) 2.dp else 0.5.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
@@ -330,33 +363,33 @@ fun AudioOverviewScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(20.dp)
+                                        .size(22.dp)
                                         .clip(CircleShape)
-                                        .background(if (isHost1) AccentBlue else AccentCyan),
+                                        .background(speakerColor),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = if (isHost1) "A" else "M",
                                         color = Color.White,
-                                        fontSize = 10.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = turn.speaker,
-                                    fontSize = 12.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isHost1) AccentBlue else AccentCyan
+                                    color = speakerColor
                                 )
                             }
 
                             if (isActive && isPlaying) {
                                 Text(
                                     text = "SPEAKING",
-                                    fontSize = 10.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = SuccessGreen
+                                    color = if (isOfflineCsc) CscSuccessDark else SuccessGreen
                                 )
                             }
                         }
@@ -365,9 +398,9 @@ fun AudioOverviewScreen(
 
                         Text(
                             text = turn.text,
-                            fontSize = 13.sp,
+                            fontSize = if (isOfflineCsc) 14.sp else 13.sp,
                             color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 19.sp
+                            lineHeight = if (isOfflineCsc) 21.sp else 19.sp
                         )
                     }
                 }

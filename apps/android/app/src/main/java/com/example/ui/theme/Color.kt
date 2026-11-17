@@ -27,3 +27,28 @@ val Slate400 = Color(0xFF94A3B8)
 val Slate600 = Color(0xFF475569)
 val Slate800 = Color(0xFF1E293B)
 val Slate900 = Color(0xFF0F172A)
+
+// CSC Part 1 Warm Light Palette
+val CscWarmBackground = Color(0xFFFAF9F6)
+val CscCardSurface = Color(0xFFFFFFFF)
+val CscCreamSecondary = Color(0xFFF3EFE6)
+val CscBorder = Color(0xFFE3DED5)
+val CscTextPrimary = Color(0xFF252525)
+val CscTextSecondary = Color(0xFF5F5B55)
+val CscPrimaryBlue = Color(0xFF365D85)
+val CscSelectedBg = Color(0xFFEDF2F7)
+val CscDisabledBg = Color(0xFFECE8DF)
+
+// CSC Part 1 Semantic Status Palette (High-contrast dark text on calm pale surfaces)
+val CscSuccessBg = Color(0xFFEAF4EC)
+val CscSuccessBorder = Color(0xFF81B292)
+val CscSuccessDark = Color(0xFF1F5E38)
+
+val CscWarningBg = Color(0xFFFBF3E2)
+val CscWarningBorder = Color(0xFFD6A85A)
+val CscWarningDark = Color(0xFF8A5300)
+
+val CscErrorBg = Color(0xFFFCECEC)
+val CscErrorBorder = Color(0xFFD98888)
+val CscErrorDark = Color(0xFF9E2A2B)
+

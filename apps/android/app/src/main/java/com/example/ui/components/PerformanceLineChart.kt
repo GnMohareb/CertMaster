@@ -3,6 +3,7 @@ package com.example.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,12 +57,30 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.SimulationScoreEntity
 import com.example.model.ExamConfig
 import com.example.ui.theme.AccentBlue
 import com.example.ui.theme.AccentCyan
+import com.example.ui.theme.CscBorder
+import com.example.ui.theme.CscCardSurface
+import com.example.ui.theme.CscCreamSecondary
+import com.example.ui.theme.CscErrorBg
+import com.example.ui.theme.CscErrorBorder
+import com.example.ui.theme.CscErrorDark
+import com.example.ui.theme.CscPrimaryBlue
+import com.example.ui.theme.CscSelectedBg
+import com.example.ui.theme.CscSuccessBg
+import com.example.ui.theme.CscSuccessBorder
+import com.example.ui.theme.CscSuccessDark
+import com.example.ui.theme.CscTextPrimary
+import com.example.ui.theme.CscTextSecondary
+import com.example.ui.theme.CscWarmBackground
+import com.example.ui.theme.CscWarningBg
+import com.example.ui.theme.CscWarningBorder
+import com.example.ui.theme.CscWarningDark
 import com.example.ui.theme.ErrorRed
 import com.example.ui.theme.GoldMastery
 import com.example.ui.theme.Slate400
@@ -78,37 +97,50 @@ fun PerformanceLineChart(
     currentExam: ExamConfig,
     modifier: Modifier = Modifier
 ) {
+    val isCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") || currentExam.id.startsWith("csc-part-")
+    val successText = if (isCsc) CscSuccessDark else SuccessGreen
+    val warningText = if (isCsc) CscWarningDark else WarningAmber
+    val errorText = if (isCsc) CscErrorDark else ErrorRed
+
     if (scores.isEmpty()) {
         Card(
             modifier = modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            colors = CardDefaults.cardColors(
+                containerColor = if (isCsc) CscCardSurface else MaterialTheme.colorScheme.surfaceVariant
+            ),
+            border = if (isCsc) BorderStroke(1.dp, CscBorder) else null
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(28.dp),
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
                     imageVector = Icons.Default.TrendingUp,
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = Slate400
+                    modifier = Modifier.size(36.dp),
+                    tint = if (isCsc) CscPrimaryBlue else Slate400
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "No Simulation Score History Yet",
+                    text = "No Score History Yet",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
+                    fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Complete practice exam simulations to record trends across subject domains into Room SQLite.",
-                    fontSize = 12.sp,
+                    text = if (isCsc) {
+                        "Complete an assessment or timed practice paper to track your score progress locally."
+                    } else {
+                        "Complete practice exam simulations to record trends across subject domains into Room SQLite."
+                    },
+                    fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 16.sp
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -121,7 +153,7 @@ fun PerformanceLineChart(
     var selectedPointIndex by remember(scores.size) { mutableIntStateOf(scores.lastIndex) }
 
     val passBenchmark = currentExam.passingScorePercent
-    val primaryChartColor = Color(currentExam.primaryColorHex)
+    val primaryChartColor = if (isCsc) CscPrimaryBlue else Color(currentExam.primaryColorHex)
 
     // Calculate score progression metrics
     val firstScore = scores.first().overallScorePercent
@@ -130,26 +162,40 @@ fun PerformanceLineChart(
     val bestScore = scores.maxOf { it.overallScorePercent }
     val avgScore = scores.map { it.overallScorePercent }.average().toInt()
 
-    val domainColors = remember {
-        listOf(
-            AccentBlue,
-            AccentCyan,
-            GoldMastery,
-            SuccessGreen,
-            WarningAmber,
-            Color(0xFFAB47BC), // Purple
-            Color(0xFF26A69A), // Teal
-            Color(0xFFFF7043)  // Orange
-        )
+    val domainColors = remember(isCsc) {
+        if (isCsc) {
+            listOf(
+                CscPrimaryBlue,
+                Color(0xFF476C5E),
+                Color(0xFF7A5C3E),
+                Color(0xFF535D7A),
+                Color(0xFF6B536E),
+                Color(0xFF3E6E73),
+                Color(0xFF7A6340),
+                Color(0xFF4F5D6B)
+            )
+        } else {
+            listOf(
+                AccentBlue,
+                AccentCyan,
+                GoldMastery,
+                SuccessGreen,
+                WarningAmber,
+                Color(0xFFAB47BC), // Purple
+                Color(0xFF26A69A), // Teal
+                Color(0xFFFF7043)  // Orange
+            )
+        }
     }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .testTag("performance_line_chart_card"),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
+        border = if (isCsc) BorderStroke(1.dp, CscBorder) else null,
+        elevation = CardDefaults.cardElevation(if (isCsc) 0.dp else 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -162,7 +208,7 @@ fun PerformanceLineChart(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.TrendingUp,
@@ -172,34 +218,53 @@ fun PerformanceLineChart(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Simulation Score Trajectory",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp,
+                            text = if (isCsc) "Score Trajectory" else "Simulation Score Trajectory",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Persisted in Room SQLite • ${scores.size} Exam Attempts Recorded",
-                        fontSize = 11.sp,
+                        text = if (isCsc) {
+                            "Saved locally • ${scores.size} attempts recorded"
+                        } else {
+                            "Persisted in Room SQLite • ${scores.size} Exam Attempts Recorded"
+                        },
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 // Score Velocity Badge
+                val deltaPositive = scoreDelta >= 0
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (scoreDelta >= 0) SuccessGreen.copy(alpha = 0.15f) else ErrorRed.copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (scoreDelta >= 0) "+$scoreDelta% gain" else "$scoreDelta%",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (scoreDelta >= 0) SuccessGreen else ErrorRed
+                        .background(
+                            if (isCsc) {
+                                if (deltaPositive) CscSuccessBg else CscErrorBg
+                            } else {
+                                if (deltaPositive) SuccessGreen.copy(alpha = 0.15f) else ErrorRed.copy(alpha = 0.15f)
+                            }
                         )
-                    }
+                        .then(
+                            if (isCsc) {
+                                Modifier.border(
+                                    1.dp,
+                                    if (deltaPositive) CscSuccessBorder else CscErrorBorder,
+                                    RoundedCornerShape(8.dp)
+                                )
+                            } else Modifier
+                        )
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = if (deltaPositive) "+$scoreDelta% gain" else "$scoreDelta%",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (deltaPositive) successText else errorText
+                    )
                 }
             }
 
@@ -210,10 +275,10 @@ fun PerformanceLineChart(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                MetricSummaryPill(label = "Latest Attempt", value = "$latestScore%", isPass = latestScore >= passBenchmark, modifier = Modifier.weight(1f))
-                MetricSummaryPill(label = "Target Pass", value = "$passBenchmark%", isPass = null, modifier = Modifier.weight(1f))
-                MetricSummaryPill(label = "Best Score", value = "$bestScore%", isPass = bestScore >= passBenchmark, modifier = Modifier.weight(1f))
-                MetricSummaryPill(label = "Average", value = "$avgScore%", isPass = avgScore >= passBenchmark, modifier = Modifier.weight(1f))
+                MetricSummaryPill(label = "Latest", value = "$latestScore%", isPass = latestScore >= passBenchmark, isCsc = isCsc, modifier = Modifier.weight(1f))
+                MetricSummaryPill(label = "Pass Mark", value = "$passBenchmark%", isPass = null, isCsc = isCsc, modifier = Modifier.weight(1f))
+                MetricSummaryPill(label = "Best", value = "$bestScore%", isPass = bestScore >= passBenchmark, isCsc = isCsc, modifier = Modifier.weight(1f))
+                MetricSummaryPill(label = "Average", value = "$avgScore%", isPass = avgScore >= passBenchmark, isCsc = isCsc, modifier = Modifier.weight(1f))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -223,22 +288,33 @@ fun PerformanceLineChart(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
                     selected = selectedDomainId == null,
                     onClick = { selectedDomainId = null },
-                    label = { Text("Overall Exam", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                    label = { Text("Overall", fontSize = 13.sp, fontWeight = FontWeight.SemiBold) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = primaryChartColor.copy(alpha = 0.18f),
-                        selectedLabelColor = primaryChartColor
-                    )
+                        selectedContainerColor = if (isCsc) CscSelectedBg else primaryChartColor.copy(alpha = 0.18f),
+                        selectedLabelColor = primaryChartColor,
+                        containerColor = if (isCsc) CscCardSurface else Color.Transparent,
+                        labelColor = if (isCsc) CscTextSecondary else MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    border = if (isCsc) {
+                        FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = selectedDomainId == null,
+                            borderColor = CscBorder,
+                            selectedBorderColor = CscPrimaryBlue
+                        )
+                    } else FilterChipDefaults.filterChipBorder(enabled = true, selected = selectedDomainId == null)
                 )
 
                 currentExam.domains.forEachIndexed { index, domain ->
-                    val color = domainColors.getOrElse(index) { AccentBlue }
+                    val color = domainColors.getOrElse(index) { primaryChartColor }
+                    val isSelectedChip = selectedDomainId == domain.id
                     FilterChip(
-                        selected = selectedDomainId == domain.id,
+                        selected = isSelectedChip,
                         onClick = { selectedDomainId = domain.id },
                         label = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -248,14 +324,24 @@ fun PerformanceLineChart(
                                         .clip(CircleShape)
                                         .background(color)
                                 )
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Text("D${domain.number}: ${domain.title.take(18)}…", fontSize = 11.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("D${domain.number}: ${domain.title.take(18)}…", fontSize = 13.sp)
                             }
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = color.copy(alpha = 0.18f),
-                            selectedLabelColor = color
-                        )
+                            selectedContainerColor = if (isCsc) CscSelectedBg else color.copy(alpha = 0.18f),
+                            selectedLabelColor = if (isCsc) CscPrimaryBlue else color,
+                            containerColor = if (isCsc) CscCardSurface else Color.Transparent,
+                            labelColor = if (isCsc) CscTextSecondary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        border = if (isCsc) {
+                            FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelectedChip,
+                                borderColor = CscBorder,
+                                selectedBorderColor = CscPrimaryBlue
+                            )
+                        } else FilterChipDefaults.filterChipBorder(enabled = true, selected = isSelectedChip)
                     )
                 }
             }
@@ -275,7 +361,8 @@ fun PerformanceLineChart(
                     .fillMaxWidth()
                     .height(200.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    .background(if (isCsc) CscWarmBackground else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    .then(if (isCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(12.dp)) else Modifier)
                     .pointerInput(scores) {
                         detectTapGestures { offset ->
                             val width = size.width
@@ -325,7 +412,7 @@ fun PerformanceLineChart(
                     gridSteps.forEach { stepVal ->
                         val y = padTop + chartH * (1f - stepVal)
                         drawLine(
-                            color = Color.LightGray.copy(alpha = 0.3f),
+                            color = if (isCsc) CscBorder else Color.LightGray.copy(alpha = 0.3f),
                             start = Offset(padLeft, y),
                             end = Offset(w - padRight, y),
                             strokeWidth = 1.dp.toPx()
@@ -337,7 +424,7 @@ fun PerformanceLineChart(
                     val passY = padTop + chartH * (1f - passFraction)
                     val dashedEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
                     drawLine(
-                        color = WarningAmber.copy(alpha = 0.85f),
+                        color = warningText.copy(alpha = 0.85f),
                         start = Offset(padLeft, passY),
                         end = Offset(w - padRight, passY),
                         strokeWidth = 1.5.dp.toPx(),
@@ -381,11 +468,11 @@ fun PerformanceLineChart(
                             close()
                         }
 
-                        // Gradient Area Fill
+                        // Area Fill (clean calm opacity)
                         drawPath(
                             path = fillPath,
                             brush = Brush.verticalGradient(
-                                colors = listOf(activeColor.copy(alpha = 0.30f), activeColor.copy(alpha = 0.02f)),
+                                colors = listOf(activeColor.copy(alpha = if (isCsc) 0.16f else 0.30f), activeColor.copy(alpha = 0.02f)),
                                 startY = padTop,
                                 endY = padTop + chartH
                             )
@@ -412,19 +499,19 @@ fun PerformanceLineChart(
                             }
                             val isPassing = ptScore >= passBenchmark
 
-                            val nodeColor = if (isPassing) SuccessGreen else if (ptScore >= 60) WarningAmber else ErrorRed
+                            val nodeColor = if (isPassing) successText else if (ptScore >= 60) warningText else errorText
                             val radius = if (isSelected) 6.dp.toPx() else 4.dp.toPx()
 
-                            // Outer shadow/halo if selected
+                            // Outer halo if selected
                             if (isSelected) {
                                 drawCircle(
-                                    color = activeColor.copy(alpha = 0.35f),
+                                    color = activeColor.copy(alpha = 0.25f),
                                     radius = radius + 5.dp.toPx(),
                                     center = pt
                                 )
                                 // Vertical scrub hairline
                                 drawLine(
-                                    color = activeColor.copy(alpha = 0.7f),
+                                    color = activeColor.copy(alpha = 0.65f),
                                     start = Offset(pt.x, padTop),
                                     end = Offset(pt.x, padTop + chartH),
                                     strokeWidth = 1.dp.toPx(),
@@ -446,25 +533,26 @@ fun PerformanceLineChart(
                     }
                 }
 
-                // Benchmark Label
+                // Benchmark Label (high-contrast dark amber on pale cream)
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 6.dp, end = 12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(WarningAmber.copy(alpha = 0.15f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(top = 8.dp, end = 10.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (isCsc) CscWarningBg else WarningAmber.copy(alpha = 0.15f))
+                        .then(if (isCsc) Modifier.border(1.dp, CscWarningBorder, RoundedCornerShape(6.dp)) else Modifier)
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = "PASS: $passBenchmark%",
-                        fontSize = 9.sp,
+                        fontSize = if (isCsc) 12.sp else 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = WarningAmber
+                        color = warningText
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // X-Axis Attempt Selector Footnote
             Row(
@@ -473,21 +561,22 @@ fun PerformanceLineChart(
             ) {
                 Text(
                     text = "Attempt 1 (${formatDate(scores.first().timestampMillis)})",
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Tap any node to inspect telemetry",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = activeColor
                 )
                 Text(
                     text = "Attempt ${scores.size} (${formatDate(scores.last().timestampMillis)})",
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Text(
+                text = "Tap any point above to inspect attempt details",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = activeColor,
+                modifier = Modifier.padding(top = 2.dp)
+            )
 
             // SCRUBBED ATTEMPT INSPECTION CARD
             if (selectedPointIndex in scores.indices) {
@@ -499,10 +588,10 @@ fun PerformanceLineChart(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(activeColor.copy(alpha = 0.4f))
-                    )
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    ),
+                    border = BorderStroke(1.dp, if (isCsc) CscBorder else activeColor.copy(alpha = 0.4f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -517,28 +606,29 @@ fun PerformanceLineChart(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(28.dp)
+                                        .size(32.dp)
                                         .clip(CircleShape)
-                                        .background(if (selectedScore.isPassed) SuccessGreen else ErrorRed),
+                                        .background(if (selectedScore.isPassed) successText else errorText),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = "#${selectedScore.attemptNumber}",
-                                        fontSize = 11.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(
-                                        text = "Attempt #${selectedScore.attemptNumber} Details",
+                                        text = "Attempt #${selectedScore.attemptNumber}",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = formatDateTime(selectedScore.timestampMillis),
-                                        fontSize = 10.sp,
+                                        fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -549,20 +639,35 @@ fun PerformanceLineChart(
                                     text = "${selectedScore.overallScorePercent}%",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = if (selectedScore.isPassed) SuccessGreen else ErrorRed
+                                    color = if (selectedScore.isPassed) successText else errorText
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(if (selectedScore.isPassed) SuccessGreen.copy(alpha = 0.15f) else ErrorRed.copy(alpha = 0.15f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        .background(
+                                            if (isCsc) {
+                                                if (selectedScore.isPassed) CscSuccessBg else CscErrorBg
+                                            } else {
+                                                if (selectedScore.isPassed) SuccessGreen.copy(alpha = 0.15f) else ErrorRed.copy(alpha = 0.15f)
+                                            }
+                                        )
+                                        .then(
+                                            if (isCsc) {
+                                                Modifier.border(
+                                                    1.dp,
+                                                    if (selectedScore.isPassed) CscSuccessBorder else CscErrorBorder,
+                                                    RoundedCornerShape(6.dp)
+                                                )
+                                            } else Modifier
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
                                 ) {
                                     Text(
                                         text = if (selectedScore.isPassed) "PASS" else "FAILED",
-                                        fontSize = 10.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (selectedScore.isPassed) SuccessGreen else ErrorRed
+                                        color = if (selectedScore.isPassed) successText else errorText
                                     )
                                 }
                             }
@@ -572,8 +677,8 @@ fun PerformanceLineChart(
                         if (domainRecords.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "Domain Performance Breakdown:",
-                                fontSize = 11.sp,
+                                text = "Domain Breakdown:",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -591,7 +696,8 @@ fun PerformanceLineChart(
                                                 .weight(1f)
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(MaterialTheme.colorScheme.surface)
-                                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                                .then(if (isCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier)
+                                                .padding(horizontal = 10.dp, vertical = 8.dp)
                                         ) {
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
@@ -600,22 +706,22 @@ fun PerformanceLineChart(
                                             ) {
                                                 Text(
                                                     text = dRecord.domainName,
-                                                    fontSize = 10.sp,
+                                                    fontSize = 12.sp,
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     maxLines = 1,
-                                                    modifier = Modifier.weight(1f)
+                                                    modifier = Modifier.weight(1f).padding(end = 6.dp)
                                                 )
                                                 Text(
                                                     text = "${dRecord.scorePercent}%",
-                                                    fontSize = 11.sp,
+                                                    fontSize = 13.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (isPassing) SuccessGreen else WarningAmber
+                                                    color = if (isPassing) successText else warningText
                                                 )
                                             }
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                             }
                         }
                     }
@@ -630,24 +736,31 @@ private fun MetricSummaryPill(
     label: String,
     value: String,
     isPass: Boolean?,
+    isCsc: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val textColor = when (isPass) {
-        true -> SuccessGreen
-        false -> ErrorRed
+        true -> if (isCsc) CscSuccessDark else SuccessGreen
+        false -> if (isCsc) CscErrorDark else ErrorRed
         null -> MaterialTheme.colorScheme.onSurface
     }
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .background(if (isCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .then(if (isCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(10.dp)) else Modifier)
             .padding(vertical = 8.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            Text(value, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
+            Text(
+                label,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Text(value, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
         }
     }
 }

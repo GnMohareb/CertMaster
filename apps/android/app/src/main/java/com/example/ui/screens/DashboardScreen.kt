@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,19 +27,18 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -70,10 +71,25 @@ import com.example.ui.components.PerformanceLineChart
 import com.example.ui.components.ReadinessScoreGauge
 import com.example.ui.theme.AccentBlue
 import com.example.ui.theme.AccentCyan
+import com.example.ui.theme.CscBorder
+import com.example.ui.theme.CscCardSurface
+import com.example.ui.theme.CscCreamSecondary
+import com.example.ui.theme.CscDisabledBg
+import com.example.ui.theme.CscErrorBg
+import com.example.ui.theme.CscErrorBorder
+import com.example.ui.theme.CscErrorDark
+import com.example.ui.theme.CscPrimaryBlue
+import com.example.ui.theme.CscSelectedBg
+import com.example.ui.theme.CscSuccessBg
+import com.example.ui.theme.CscSuccessBorder
+import com.example.ui.theme.CscSuccessDark
+import com.example.ui.theme.CscTextPrimary
+import com.example.ui.theme.CscTextSecondary
+import com.example.ui.theme.CscWarningBg
+import com.example.ui.theme.CscWarningBorder
+import com.example.ui.theme.CscWarningDark
 import com.example.ui.theme.ErrorRed
-import com.example.ui.theme.GoldMastery
 import com.example.ui.theme.Slate400
-import com.example.ui.theme.Slate600
 import com.example.ui.theme.Slate800
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarningAmber
@@ -119,6 +135,14 @@ fun DashboardScreen(
     val isExamSubscribed = currentExamSub?.status == SubStatus.ACTIVE
     val isOfflineCsc = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-") ||
         currentExam.shortCode.contains("CSC", ignoreCase = true)
+    val successAccent = if (isOfflineCsc) CscSuccessDark else SuccessGreen
+    val warningAccent = if (isOfflineCsc) CscWarningDark else WarningAmber
+    val errorAccent = if (isOfflineCsc) CscErrorDark else ErrorRed
+    val primaryAccent = if (isOfflineCsc) CscPrimaryBlue else AccentBlue
+    val cardBorder = if (isOfflineCsc) BorderStroke(1.dp, CscBorder) else null
+    val cardElevationPrimary = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 2.dp)
+    val cardElevationSecondary = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
+
     val effectiveDomains = if (currentExam.domains.isNotEmpty()) {
         currentExam.domains
     } else {
@@ -134,18 +158,19 @@ fun DashboardScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                .background(if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                 .clickable(enabled = !isOfflineCsc) { viewModel.navigateTo(AppScreen.CENTRAL_PROFILE) }
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(26.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                        .background(if (isOfflineCsc) CscSelectedBg else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                        .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, CircleShape) else Modifier),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -158,7 +183,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isOfflineCsc) "${currentExam.shortCode} • Offline study" else if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
-                    fontSize = 11.sp,
+                    fontSize = if (isOfflineCsc) 13.sp else 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -168,18 +193,32 @@ fun DashboardScreen(
                 val badgePositive = isOfflineCsc || isExamSubscribed
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(if (badgePositive) SuccessGreen.copy(alpha = 0.15f) else WarningAmber.copy(alpha = 0.15f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (isOfflineCsc) {
+                                if (badgePositive) CscSuccessBg else CscWarningBg
+                            } else {
+                                if (badgePositive) SuccessGreen.copy(alpha = 0.15f) else WarningAmber.copy(alpha = 0.15f)
+                            }
+                        )
+                        .then(
+                            if (isOfflineCsc) {
+                                Modifier.border(1.dp, if (badgePositive) CscSuccessBorder else CscWarningBorder, RoundedCornerShape(6.dp))
+                            } else Modifier
+                        )
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = if (isOfflineCsc) "OFFLINE" else if (!ssoSession.isAuthenticated) "LOCAL ONLY" else if (isExamSubscribed) "ACTIVE" else "MANAGE PASS",
-                        fontSize = 9.sp,
+                        fontSize = if (isOfflineCsc) 12.sp else 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (badgePositive) SuccessGreen else WarningAmber
+                        color = if (badgePositive) successAccent else warningAccent
                     )
                 }
             }
+        }
+        if (isOfflineCsc) {
+            HorizontalDivider(thickness = 1.dp, color = CscBorder)
         }
 
         // Top Navigation Tabs
@@ -193,9 +232,9 @@ fun DashboardScreen(
                 onClick = { dashboardTab = 0 },
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Score Trends", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text("Score Trends", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
                     }
                 },
                 modifier = Modifier.testTag("tab_score_trends")
@@ -205,9 +244,9 @@ fun DashboardScreen(
                 onClick = { dashboardTab = 1 },
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Assessment, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Readiness", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Icon(Icons.Default.Assessment, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text("Readiness", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
                     }
                 },
                 modifier = Modifier.testTag("tab_readiness_mastery")
@@ -217,13 +256,16 @@ fun DashboardScreen(
                 onClick = { dashboardTab = 2 },
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Behavior & Stress", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text("Behavior & Stress", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 2)
                     }
                 },
                 modifier = Modifier.testTag("tab_behavior_telemetry")
             )
+        }
+        if (isOfflineCsc) {
+            HorizontalDivider(thickness = 1.dp, color = CscBorder)
         }
 
         when (dashboardTab) {
@@ -343,42 +385,59 @@ fun DashboardScreen(
                                     .fillMaxWidth()
                                     .testTag("card_resume_attempt"),
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = AccentBlue.copy(alpha = 0.12f)),
-                                border = CardDefaults.outlinedCardBorder().copy(
-                                    brush = androidx.compose.ui.graphics.SolidColor(AccentBlue.copy(alpha = 0.5f))
-                                )
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isOfflineCsc) CscSelectedBg else AccentBlue.copy(alpha = 0.12f)
+                                ),
+                                border = BorderStroke(1.5.dp, primaryAccent)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
                                         text = "In-Progress Session Saved",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        color = AccentBlue
+                                        fontSize = 16.sp,
+                                        color = primaryAccent
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = "Question ${active.currentIndex + 1} of $qTotal • $answeredTotal answered • ${String.format("%02d:%02d", minsLeft, secsLeft)} left",
-                                        fontSize = 12.sp,
+                                        fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(12.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
                                         Button(
                                             onClick = { viewModel.resumeSavedSimulation() },
-                                            modifier = Modifier.weight(1f),
-                                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .heightIn(min = 48.dp),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = primaryAccent,
+                                                contentColor = Color.White
+                                            )
                                         ) {
-                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Resume Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text("Resume Exam", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                         }
                                         OutlinedButton(
-                                            onClick = { viewModel.abandonSimulation() }
+                                            onClick = { viewModel.abandonSimulation() },
+                                            modifier = Modifier.heightIn(min = 48.dp),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = if (isOfflineCsc) {
+                                                ButtonDefaults.outlinedButtonColors(
+                                                    containerColor = CscCardSurface,
+                                                    contentColor = errorAccent
+                                                )
+                                            } else {
+                                                ButtonDefaults.outlinedButtonColors()
+                                            },
+                                            border = BorderStroke(1.dp, if (isOfflineCsc) CscErrorBorder else MaterialTheme.colorScheme.outline)
                                         ) {
-                                            Text("Discard", fontSize = 12.sp, color = ErrorRed)
+                                            Text("Discard", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = errorAccent)
                                         }
                                     }
                                 }
@@ -400,9 +459,9 @@ fun DashboardScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth().testTag("card_offline_exam_status"),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            )
+                            colors = CardDefaults.cardColors(containerColor = CscCardSurface),
+                            border = BorderStroke(1.dp, CscBorder),
+                            elevation = CardDefaults.cardElevation(0.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
@@ -413,20 +472,22 @@ fun DashboardScreen(
                                     Text(
                                         text = "${currentExam.shortCode} Study Plan",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
+                                        fontSize = 17.sp,
+                                        color = CscTextPrimary
                                     )
                                     if (dueCount > 0) {
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(WarningAmber.copy(alpha = 0.15f))
+                                                .background(CscWarningBg)
+                                                .border(1.dp, CscWarningBorder, RoundedCornerShape(6.dp))
                                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                                         ) {
                                             Text(
                                                 text = "$dueCount DUE REVIEW",
-                                                fontSize = 10.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = WarningAmber
+                                                color = CscWarningDark
                                             )
                                         }
                                     }
@@ -435,8 +496,9 @@ fun DashboardScreen(
                                 if (questions.isNotEmpty()) {
                                     Text(
                                         text = "${questions.size} practice questions • ${bankCoverageAudit.domainsCount} domains • ${bankCoverageAudit.topicsCount} topics • Pass mark ${currentExam.passingScorePercent}%.",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp,
+                                        color = CscTextSecondary
                                     )
                                     if (initialBaselineSession != null || currentMasteryAvg != null) {
                                         Spacer(modifier = Modifier.height(6.dp))
@@ -444,34 +506,37 @@ fun DashboardScreen(
                                         val masteryPart = currentMasteryAvg?.let { "Current Mastery: $it%" } ?: "Practice Mastery: Not assessed"
                                         Text(
                                             text = "$baselinePart • $masteryPart",
-                                            fontSize = 11.sp,
+                                            fontSize = 13.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = CscPrimaryBlue
                                         )
                                     }
                                     if (topRec != null) {
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(12.dp))
                                         Card(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .testTag("card_top_recommendation"),
                                             shape = RoundedCornerShape(12.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                            colors = CardDefaults.cardColors(containerColor = CscCreamSecondary),
+                                            border = BorderStroke(1.dp, CscBorder),
+                                            elevation = CardDefaults.cardElevation(0.dp)
                                         ) {
-                                            Column(modifier = Modifier.padding(12.dp)) {
+                                            Column(modifier = Modifier.padding(14.dp)) {
                                                 Text(
                                                     text = "Recommended Next: ${topRec.title}",
-                                                    fontSize = 13.sp,
+                                                    fontSize = 15.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface
+                                                    color = CscTextPrimary
                                                 )
-                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
                                                     text = topRec.reason,
-                                                    fontSize = 11.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    fontSize = 13.sp,
+                                                    lineHeight = 19.sp,
+                                                    color = CscTextSecondary
                                                 )
-                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Spacer(modifier = Modifier.height(10.dp))
                                                 Button(
                                                     onClick = {
                                                         viewModel.startSimulation(
@@ -480,37 +545,63 @@ fun DashboardScreen(
                                                             topicFilterKey = topRec.targetTopicKey
                                                         )
                                                     },
-                                                    modifier = Modifier.fillMaxWidth().testTag("btn_recommended_practice"),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .heightIn(min = 48.dp)
+                                                        .testTag("btn_recommended_practice"),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = CscPrimaryBlue,
+                                                        contentColor = Color.White
+                                                    )
                                                 ) {
-                                                    Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
                                                     Spacer(modifier = Modifier.width(6.dp))
-                                                    Text(topRec.title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                    Text(topRec.title, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(12.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         OutlinedButton(
                                             onClick = { viewModel.startSimulation(ExamMode.INITIAL_BEHAVIORAL_ASSESSMENT) },
-                                            modifier = Modifier.weight(1f).testTag("btn_initial_assessment")
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, CscBorder),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = CscCardSurface,
+                                                contentColor = CscPrimaryBlue
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .heightIn(min = 48.dp)
+                                                .testTag("btn_initial_assessment")
                                         ) {
                                             Text(
-                                                if (initialBaselineSession == null) "Initial Assessment" else "Retake Check",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1
+                                                text = if (initialBaselineSession == null) "Initial Assessment" else "Retake Check",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
                                         OutlinedButton(
                                             onClick = { viewModel.startAdaptivePractice() },
-                                            modifier = Modifier.weight(1f).testTag("btn_adaptive_practice")
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, CscBorder),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = CscCardSurface,
+                                                contentColor = CscPrimaryBlue
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .heightIn(min = 48.dp)
+                                                .testTag("btn_adaptive_practice")
                                         ) {
-                                            Text("Adaptive Drill", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                            Text("Adaptive Drill", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -520,10 +611,19 @@ fun DashboardScreen(
                                     if (hasSimulationPapers || hasReservedFullExam) {
                                         Button(
                                             onClick = { viewModel.navigateTo(AppScreen.EXAM_HUB) },
-                                            modifier = Modifier.fillMaxWidth().testTag("btn_offline_exam"),
-                                            colors = ButtonDefaults.buttonColors(containerColor = Slate800)
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(min = 48.dp)
+                                                .testTag("btn_offline_exam"),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = CscPrimaryBlue,
+                                                contentColor = Color.White,
+                                                disabledContainerColor = CscDisabledBg,
+                                                disabledContentColor = CscTextSecondary
+                                            )
                                         ) {
-                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
                                                 text = if (hasSimulationPapers) {
@@ -532,15 +632,23 @@ fun DashboardScreen(
                                                 } else {
                                                     "Full Timed Exam (${bankCoverageAudit.reservedFullExamCount} Qs)"
                                                 },
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
                                         OutlinedButton(
                                             onClick = { viewModel.navigateTo(AppScreen.EXAM_HUB) },
-                                            modifier = Modifier.fillMaxWidth().testTag("btn_browse_topics")
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, CscBorder),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = CscCreamSecondary,
+                                                contentColor = CscTextPrimary
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(min = 48.dp)
+                                                .testTag("btn_browse_topics")
                                         ) {
                                             Text(
                                                 text = if (hasSimulationPapers) {
@@ -548,30 +656,48 @@ fun DashboardScreen(
                                                 } else {
                                                     "Browse ${bankCoverageAudit.domainsCount} Domains & ${bankCoverageAudit.topicsCount} Topics"
                                                 },
-                                                fontSize = 11.sp,
+                                                fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
                                     } else {
                                         OutlinedButton(
                                             onClick = { viewModel.navigateTo(AppScreen.EXAM_HUB) },
-                                            modifier = Modifier.fillMaxWidth().testTag("btn_browse_topics")
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, CscBorder),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = CscCardSurface,
+                                                contentColor = CscPrimaryBlue
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(min = 48.dp)
+                                                .testTag("btn_browse_topics")
                                         ) {
                                             Text(
                                                 "Browse ${bankCoverageAudit.domainsCount} Domains & ${bankCoverageAudit.topicsCount} Topics",
-                                                fontSize = 12.sp,
+                                                fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
                                         OutlinedButton(
                                             onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
                                             enabled = false,
-                                            modifier = Modifier.fillMaxWidth().testTag("btn_offline_exam")
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, CscBorder),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                disabledContainerColor = CscDisabledBg,
+                                                disabledContentColor = CscTextSecondary
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(min = 48.dp)
+                                                .testTag("btn_offline_exam")
                                         ) {
                                             Text(
                                                 "Full Timed Exam Simulation (Coming Soon)",
-                                                fontSize = 11.sp,
+                                                fontSize = 13.sp,
                                                 fontWeight = FontWeight.SemiBold
                                             )
                                         }
@@ -579,8 +705,9 @@ fun DashboardScreen(
                                 } else {
                                     Text(
                                         text = "Exam features are prepared for offline use. Practice questions are not installed yet.",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp,
+                                        color = CscTextSecondary
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Row(
@@ -589,16 +716,26 @@ fun DashboardScreen(
                                     ) {
                                         Button(
                                             onClick = { viewModel.startSimulation(ExamMode.FULL_SIMULATION) },
-                                            modifier = Modifier.weight(1f).testTag("btn_offline_exam"),
-                                            enabled = false
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .heightIn(min = 48.dp)
+                                                .testTag("btn_offline_exam"),
+                                            enabled = false,
+                                            colors = ButtonDefaults.buttonColors(
+                                                disabledContainerColor = CscDisabledBg,
+                                                disabledContentColor = CscTextSecondary
+                                            )
                                         ) {
-                                            Text("Questions Not Installed", fontSize = 12.sp)
+                                            Text("Questions Not Installed", fontSize = 13.sp)
                                         }
                                         OutlinedButton(
                                             onClick = { viewModel.navigateTo(AppScreen.NOTEBOOK_SOURCES) },
-                                            modifier = Modifier.weight(1f)
+                                            border = BorderStroke(1.dp, CscBorder),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .heightIn(min = 48.dp)
                                         ) {
-                                            Text("Study Notes & Cards", fontSize = 12.sp)
+                                            Text("Study Notes & Cards", fontSize = 13.sp)
                                         }
                                     }
                                 }
@@ -676,7 +813,7 @@ fun DashboardScreen(
                     item {
                         Text(
                             text = if (simulationScores.isEmpty()) "Recent Simulation History (0 Attempts Recorded)" else "Recent Simulation History (${simulationScores.size} Attempts)",
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -684,7 +821,13 @@ fun DashboardScreen(
 
                     items(simulationScores.asReversed()) { attempt ->
                         val isPassed = attempt.isPassed
-                        val badgeColor = if (isPassed) SuccessGreen else ErrorRed
+                        val badgeTextColor = if (isPassed) successAccent else errorAccent
+                        val badgeBg = if (isOfflineCsc) {
+                            if (isPassed) CscSuccessBg else CscErrorBg
+                        } else {
+                            badgeTextColor.copy(alpha = 0.15f)
+                        }
+                        val badgeBorder = if (isPassed) CscSuccessBorder else CscErrorBorder
                         val domainBreakdown = attempt.parseDomainScores()
 
                         Card(
@@ -698,7 +841,8 @@ fun DashboardScreen(
                                 },
                             shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(1.dp)
+                            border = cardBorder,
+                            elevation = cardElevationSecondary
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 Row(
@@ -709,16 +853,17 @@ fun DashboardScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Box(
                                             modifier = Modifier
-                                                .size(32.dp)
+                                                .size(34.dp)
                                                 .clip(CircleShape)
-                                                .background(badgeColor.copy(alpha = 0.15f)),
+                                                .background(badgeBg)
+                                                .then(if (isOfflineCsc) Modifier.border(1.dp, badgeBorder, CircleShape) else Modifier),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = "#${attempt.attemptNumber}",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = badgeColor
+                                                color = badgeTextColor
                                             )
                                         }
                                         Spacer(modifier = Modifier.width(10.dp))
@@ -726,11 +871,12 @@ fun DashboardScreen(
                                             Text(
                                                 text = "Simulation Run #${attempt.attemptNumber}",
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
                                                 text = SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()).format(Date(attempt.timestampMillis)),
-                                                fontSize = 11.sp,
+                                                fontSize = 12.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
@@ -741,20 +887,21 @@ fun DashboardScreen(
                                             text = "${attempt.overallScorePercent}%",
                                             fontWeight = FontWeight.ExtraBold,
                                             fontSize = 16.sp,
-                                            color = badgeColor
+                                            color = badgeTextColor
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(badgeColor.copy(alpha = 0.15f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                .background(badgeBg)
+                                                .then(if (isOfflineCsc) Modifier.border(1.dp, badgeBorder, RoundedCornerShape(6.dp)) else Modifier)
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
                                         ) {
                                             Text(
                                                 text = if (isPassed) "PASS" else "FAIL",
-                                                fontSize = 10.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = badgeColor
+                                                color = badgeTextColor
                                             )
                                         }
                                     }
@@ -771,18 +918,23 @@ fun DashboardScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .weight(1f)
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                    .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier)
+                                                    .padding(horizontal = 6.dp, vertical = 5.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                    Text(dRec.domainId.uppercase(), fontSize = 9.sp, color = Slate400)
+                                                    Text(
+                                                        text = dRec.domainId.uppercase(),
+                                                        fontSize = 11.sp,
+                                                        color = if (isOfflineCsc) CscTextSecondary else Slate400
+                                                    )
                                                     Text(
                                                         "${dRec.scorePercent}%",
-                                                        fontSize = 11.sp,
+                                                        fontSize = 13.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = if (dPassing) SuccessGreen else WarningAmber
+                                                        color = if (dPassing) successAccent else warningAccent
                                                     )
                                                 }
                                             }
@@ -808,17 +960,24 @@ fun DashboardScreen(
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(2.dp)
+                            border = cardBorder,
+                            elevation = cardElevationPrimary
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Color(currentExam.primaryColorHex).copy(alpha = 0.12f), Color.Transparent)
-                                        )
+                                    .then(
+                                        if (isOfflineCsc) {
+                                            Modifier
+                                        } else {
+                                            Modifier.background(
+                                                Brush.linearGradient(
+                                                    listOf(Color(currentExam.primaryColorHex).copy(alpha = 0.12f), Color.Transparent)
+                                                )
+                                            )
+                                        }
                                     )
                                     .padding(16.dp)
                             ) {
@@ -830,20 +989,27 @@ fun DashboardScreen(
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(currentExam.primaryColorHex))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            .background(if (isOfflineCsc) CscSelectedBg else Color(currentExam.primaryColorHex))
+                                            .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier)
+                                            .padding(horizontal = 10.dp, vertical = 4.dp)
                                     ) {
-                                        Text(currentExam.shortCode, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        Text(
+                                            currentExam.shortCode,
+                                            color = if (isOfflineCsc) CscPrimaryBlue else Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
                                     }
                                     Text(
                                         text = if (effectiveDomains.isEmpty()) "Offline Mode" else "${effectiveDomains.size} Domains",
-                                        fontSize = 12.sp,
+                                        fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(currentExam.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                Text(currentExam.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 16.sp)
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(currentExam.title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(currentExam.description, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 20.sp)
                             }
                         }
                     }
@@ -866,7 +1032,8 @@ fun DashboardScreen(
                                     .fillMaxWidth()
                                     .clickable { dashboardTab = 2 },
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                                border = cardBorder
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -885,9 +1052,9 @@ fun DashboardScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Behavior Alert: Domain Needs Extra Studying", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                        Text("Domain ${stressed.domainNumber}: ${stressed.domainName} (${stressed.avgResponseSeconds}s avg hesitation)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                        Text("Tap to view complete behavioral telemetry →", fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                        Text("Behavior Alert: Domain Needs Extra Studying", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text("Domain ${stressed.domainNumber}: ${stressed.domainName} (${stressed.avgResponseSeconds}s avg hesitation)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text("Tap to view behavioral telemetry →", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -898,7 +1065,7 @@ fun DashboardScreen(
                     item {
                         Text(
                             text = if (isOfflineCsc) "Domain & Topic Mastery" else "Subject Performance & Accuracy",
-                            fontSize = 16.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -908,10 +1075,10 @@ fun DashboardScreen(
                         items(domainMasteryList) { dSummary ->
                             val isAssessed = dSummary.isAssessed
                             val barColor = when {
-                                !isAssessed -> Slate400
-                                dSummary.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> WarningAmber
-                                dSummary.masteryPercent >= currentExam.passingScorePercent -> SuccessGreen
-                                else -> ErrorRed
+                                !isAssessed -> CscTextSecondary
+                                dSummary.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> CscWarningDark
+                                dSummary.masteryPercent >= currentExam.passingScorePercent -> CscSuccessDark
+                                else -> CscErrorDark
                             }
                             Card(
                                 modifier = Modifier
@@ -920,8 +1087,9 @@ fun DashboardScreen(
                                         viewModel.startAdaptivePractice(domainFilterId = dSummary.domainId)
                                     },
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(1.dp)
+                                colors = CardDefaults.cardColors(containerColor = CscCardSurface),
+                                border = BorderStroke(1.dp, CscBorder),
+                                elevation = CardDefaults.cardElevation(0.dp)
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Row(
@@ -929,8 +1097,9 @@ fun DashboardScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(dSummary.domainName, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                            Text(dSummary.domainName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = CscTextPrimary)
+                                            Spacer(modifier = Modifier.height(2.dp))
                                             val subtitle = buildString {
                                                 append(dSummary.confidence.displayLabel())
                                                 if (isAssessed) {
@@ -940,12 +1109,12 @@ fun DashboardScreen(
                                                     append(" • Baseline: $it%")
                                                 }
                                             }
-                                            Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(subtitle, fontSize = 13.sp, color = CscTextSecondary)
                                         }
                                         Text(
                                             text = if (!isAssessed) "Not assessed" else "${dSummary.masteryPercent}%",
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = if (!isAssessed) 11.sp else 14.sp,
+                                            fontSize = if (!isAssessed) 12.sp else 15.sp,
                                             color = barColor
                                         )
                                     }
@@ -957,7 +1126,7 @@ fun DashboardScreen(
                                             .height(6.dp)
                                             .clip(RoundedCornerShape(3.dp)),
                                         color = barColor,
-                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                        trackColor = CscCreamSecondary
                                     )
                                 }
                             }
@@ -967,18 +1136,32 @@ fun DashboardScreen(
                             item {
                                 Text(
                                     text = "Topic Mastery & Practice Targets",
-                                    fontSize = 15.sp,
+                                    fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                             items(topicMasteryList) { topic ->
                                 val tColor = when {
-                                    !topic.isAssessed -> Slate400
-                                    topic.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> WarningAmber
-                                    topic.masteryPercent >= 80 -> SuccessGreen
-                                    topic.masteryPercent < 65 -> ErrorRed
-                                    else -> AccentBlue
+                                    !topic.isAssessed -> CscTextSecondary
+                                    topic.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> CscWarningDark
+                                    topic.masteryPercent >= 80 -> CscSuccessDark
+                                    topic.masteryPercent < 65 -> CscErrorDark
+                                    else -> CscPrimaryBlue
+                                }
+                                val tBg = when {
+                                    !topic.isAssessed -> CscCreamSecondary
+                                    topic.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> CscWarningBg
+                                    topic.masteryPercent >= 80 -> CscSuccessBg
+                                    topic.masteryPercent < 65 -> CscErrorBg
+                                    else -> CscSelectedBg
+                                }
+                                val tBorder = when {
+                                    !topic.isAssessed -> CscBorder
+                                    topic.confidence == EvidenceConfidence.INSUFFICIENT_EVIDENCE -> CscWarningBorder
+                                    topic.masteryPercent >= 80 -> CscSuccessBorder
+                                    topic.masteryPercent < 65 -> CscErrorBorder
+                                    else -> CscBorder
                                 }
                                 Card(
                                     modifier = Modifier
@@ -987,16 +1170,18 @@ fun DashboardScreen(
                                             viewModel.startAdaptivePractice(topicFilterKey = topic.topicKey)
                                         },
                                     shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    elevation = CardDefaults.cardElevation(1.dp)
+                                    colors = CardDefaults.cardColors(containerColor = CscCardSurface),
+                                    border = BorderStroke(1.dp, CscBorder),
+                                    elevation = CardDefaults.cardElevation(0.dp)
                                 ) {
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(14.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(topic.topicName, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                            Text(topic.topicName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = CscTextPrimary)
+                                            Spacer(modifier = Modifier.height(2.dp))
                                             Text(
                                                 text = if (!topic.isAssessed) {
                                                     "${topic.domainName} • Not assessed"
@@ -1004,19 +1189,20 @@ fun DashboardScreen(
                                                     val baseText = topic.baselineScorePercent?.let { " • Baseline $it%" } ?: ""
                                                     "${topic.confidence.displayLabel()} • ${topic.correctCount}/${topic.attemptCount} (${topic.uniqueQuestionCount} unique)$baseText"
                                                 },
-                                                fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                fontSize = 12.sp,
+                                                color = CscTextSecondary
                                             )
                                         }
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(tColor.copy(alpha = 0.14f))
+                                                .background(tBg)
+                                                .border(1.dp, tBorder, RoundedCornerShape(6.dp))
                                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
                                             Text(
                                                 text = if (!topic.isAssessed) "Practice" else "${topic.masteryPercent}%",
-                                                fontSize = 11.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = tColor
                                             )
@@ -1030,11 +1216,13 @@ fun DashboardScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = cardBorder
                             ) {
                                 Text(
                                     text = "Domain mastery breakdown will appear once practice questions or completed simulations are recorded.",
-                                    fontSize = 12.sp,
+                                    fontSize = 13.sp,
+                                    lineHeight = 19.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(16.dp)
                                 )
@@ -1050,7 +1238,8 @@ fun DashboardScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(1.dp)
+                                border = cardBorder,
+                                elevation = cardElevationSecondary
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Row(
@@ -1059,14 +1248,14 @@ fun DashboardScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text("Domain ${domain.number}: ${domain.title}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                            Text("Weight: ${domain.weightPercent}% of Exam", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("Domain ${domain.number}: ${domain.title}", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                            Text("Weight: ${domain.weightPercent}% of Exam", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         Text(
                                             text = if (isOfflineCsc && recordedPct == null) "Not assessed" else "$scorePct%",
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = if (isOfflineCsc && recordedPct == null) 11.sp else 14.sp,
-                                            color = if (isOfflineCsc && recordedPct == null) Slate400 else if (isPassing) SuccessGreen else WarningAmber
+                                            fontSize = if (isOfflineCsc && recordedPct == null) 12.sp else 15.sp,
+                                            color = if (isOfflineCsc && recordedPct == null) (if (isOfflineCsc) CscTextSecondary else Slate400) else if (isPassing) successAccent else warningAccent
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -1076,8 +1265,8 @@ fun DashboardScreen(
                                             .fillMaxWidth()
                                             .height(6.dp)
                                             .clip(RoundedCornerShape(3.dp)),
-                                        color = if (isPassing) SuccessGreen else WarningAmber,
-                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                        color = if (isPassing) successAccent else warningAccent,
+                                        trackColor = if (isOfflineCsc) CscCreamSecondary else MaterialTheme.colorScheme.surfaceVariant
                                     )
                                 }
                             }
@@ -1099,25 +1288,27 @@ fun DashboardScreen(
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(2.dp)
+                            border = cardBorder,
+                            elevation = cardElevationPrimary
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
-                                            .size(36.dp)
+                                            .size(40.dp)
                                             .clip(CircleShape)
-                                            .background(AccentBlue.copy(alpha = 0.15f)),
+                                            .background(if (isOfflineCsc) CscSelectedBg else AccentBlue.copy(alpha = 0.15f))
+                                            .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, CircleShape) else Modifier),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(Icons.Default.Psychology, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(20.dp))
+                                        Icon(Icons.Default.Psychology, contentDescription = null, tint = primaryAccent, modifier = Modifier.size(22.dp))
                                     }
-                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text("Student Behavior & Hesitation Telemetry", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                        Text("Tracks response time, doubt flags & domain stress", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Behavior & Hesitation Telemetry", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text("Tracks response time, doubt flags & domain stress", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -1131,10 +1322,10 @@ fun DashboardScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = ErrorRed.copy(alpha = 0.12f)),
-                                border = CardDefaults.outlinedCardBorder().copy(
-                                    brush = androidx.compose.ui.graphics.SolidColor(ErrorRed.copy(alpha = 0.5f))
-                                )
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isOfflineCsc) CscErrorBg else ErrorRed.copy(alpha = 0.12f)
+                                ),
+                                border = BorderStroke(1.5.dp, if (isOfflineCsc) CscErrorBorder else ErrorRed.copy(alpha = 0.5f))
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Row(
@@ -1143,24 +1334,30 @@ fun DashboardScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(20.dp))
+                                            Icon(Icons.Default.Warning, contentDescription = null, tint = errorAccent, modifier = Modifier.size(20.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("TOP STRESS DOMAIN", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = ErrorRed)
+                                            Text("TOP STRESS DOMAIN", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = errorAccent)
                                         }
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(ErrorRed)
-                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                                .background(if (isOfflineCsc) CscCardSurface else ErrorRed)
+                                                .then(if (isOfflineCsc) Modifier.border(1.dp, CscErrorBorder, RoundedCornerShape(6.dp)) else Modifier)
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
                                         ) {
-                                            Text("STRESS ${stressed.stressScore}/100", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                            Text(
+                                                "STRESS ${stressed.stressScore}/100",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isOfflineCsc) CscErrorDark else Color.White
+                                            )
                                         }
                                     }
 
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    Text("Domain ${stressed.domainNumber}: ${stressed.domainName}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    Text("Domain ${stressed.domainNumber}: ${stressed.domainName}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(stressed.aiStressDiagnosis, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 16.sp)
+                                    Text(stressed.aiStressDiagnosis, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 19.sp)
 
                                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -1171,11 +1368,12 @@ fun DashboardScreen(
                                                 .weight(1f)
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(MaterialTheme.colorScheme.surface)
-                                                .padding(8.dp)
+                                                .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier)
+                                                .padding(10.dp)
                                         ) {
                                             Column {
-                                                Text("Avg Hesitation", fontSize = 10.sp, color = Slate400)
-                                                Text("${stressed.avgResponseSeconds}s / q", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = WarningAmber)
+                                                Text("Avg Hesitation", fontSize = 12.sp, color = if (isOfflineCsc) CscTextSecondary else Slate400)
+                                                Text("${stressed.avgResponseSeconds}s / q", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = warningAccent)
                                             }
                                         }
                                         Box(
@@ -1183,11 +1381,12 @@ fun DashboardScreen(
                                                 .weight(1f)
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(MaterialTheme.colorScheme.surface)
-                                                .padding(8.dp)
+                                                .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier)
+                                                .padding(10.dp)
                                         ) {
                                             Column {
-                                                Text("Flag / Doubt Rate", fontSize = 10.sp, color = Slate400)
-                                                Text("${stressed.flagRatePercent}%", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = WarningAmber)
+                                                Text("Flag / Doubt Rate", fontSize = 12.sp, color = if (isOfflineCsc) CscTextSecondary else Slate400)
+                                                Text("${stressed.flagRatePercent}%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = warningAccent)
                                             }
                                         }
                                         Box(
@@ -1195,11 +1394,12 @@ fun DashboardScreen(
                                                 .weight(1f)
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(MaterialTheme.colorScheme.surface)
-                                                .padding(8.dp)
+                                                .then(if (isOfflineCsc) Modifier.border(1.dp, CscBorder, RoundedCornerShape(8.dp)) else Modifier)
+                                                .padding(10.dp)
                                         ) {
                                             Column {
-                                                Text("Accuracy", fontSize = 10.sp, color = Slate400)
-                                                Text("${stressed.accuracyPercent}%", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ErrorRed)
+                                                Text("Accuracy", fontSize = 12.sp, color = if (isOfflineCsc) CscTextSecondary else Slate400)
+                                                Text("${stressed.accuracyPercent}%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = errorAccent)
                                             }
                                         }
                                     }
@@ -1210,12 +1410,15 @@ fun DashboardScreen(
                                         onClick = {
                                             viewModel.startSimulation(ExamMode.AI_STRESS_STUDY, stressed.domainId)
                                         },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 48.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = errorAccent, contentColor = Color.White)
                                     ) {
-                                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Launch Targeted Stress Blitz on This Domain", fontWeight = FontWeight.Bold)
+                                        Text("Launch Targeted Stress Drill", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -1226,19 +1429,47 @@ fun DashboardScreen(
                     item {
                         Text(
                             text = "Domain Behavior & Stress Breakdown",
-                            fontSize = 16.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                     }
 
                     items(stressMetrics) { metric ->
-                        val badgeColor = when (metric.stressLevel) {
-                            StressLevel.CRITICAL_STRESS -> ErrorRed
-                            StressLevel.HIGH_ATTENTION -> WarningAmber
-                            StressLevel.MODERATE_PRACTICE -> AccentBlue
-                            StressLevel.ON_TRACK -> AccentCyan
-                            StressLevel.MASTERED -> SuccessGreen
+                        val badgeColor = if (isOfflineCsc) {
+                            when (metric.stressLevel) {
+                                StressLevel.CRITICAL_STRESS -> CscErrorDark
+                                StressLevel.HIGH_ATTENTION -> CscWarningDark
+                                StressLevel.MODERATE_PRACTICE -> CscPrimaryBlue
+                                StressLevel.ON_TRACK -> CscPrimaryBlue
+                                StressLevel.MASTERED -> CscSuccessDark
+                            }
+                        } else {
+                            when (metric.stressLevel) {
+                                StressLevel.CRITICAL_STRESS -> ErrorRed
+                                StressLevel.HIGH_ATTENTION -> WarningAmber
+                                StressLevel.MODERATE_PRACTICE -> AccentBlue
+                                StressLevel.ON_TRACK -> AccentCyan
+                                StressLevel.MASTERED -> SuccessGreen
+                            }
+                        }
+                        val badgeBg = if (isOfflineCsc) {
+                            when (metric.stressLevel) {
+                                StressLevel.CRITICAL_STRESS -> CscErrorBg
+                                StressLevel.HIGH_ATTENTION -> CscWarningBg
+                                StressLevel.MODERATE_PRACTICE -> CscSelectedBg
+                                StressLevel.ON_TRACK -> CscSelectedBg
+                                StressLevel.MASTERED -> CscSuccessBg
+                            }
+                        } else {
+                            badgeColor.copy(alpha = 0.15f)
+                        }
+                        val badgeBorder = when (metric.stressLevel) {
+                            StressLevel.CRITICAL_STRESS -> CscErrorBorder
+                            StressLevel.HIGH_ATTENTION -> CscWarningBorder
+                            StressLevel.MODERATE_PRACTICE -> CscBorder
+                            StressLevel.ON_TRACK -> CscBorder
+                            StressLevel.MASTERED -> CscSuccessBorder
                         }
 
                         Card(
@@ -1249,7 +1480,8 @@ fun DashboardScreen(
                                 },
                             shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(1.dp)
+                            border = cardBorder,
+                            elevation = cardElevationSecondary
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 Row(
@@ -1257,41 +1489,42 @@ fun DashboardScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Domain ${metric.domainNumber}: ${metric.domainName}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text("Weight: ${metric.weightPercent}% of Exam", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                        Text("Domain ${metric.domainNumber}: ${metric.domainName}", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                        Text("Weight: ${metric.weightPercent}% of Exam", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(badgeColor.copy(alpha = 0.15f))
-                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                            .background(badgeBg)
+                                            .then(if (isOfflineCsc) Modifier.border(1.dp, badgeBorder, RoundedCornerShape(6.dp)) else Modifier)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
-                                        Text(metric.stressLevel.name.replace("_", " "), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = badgeColor)
+                                        Text(metric.stressLevel.name.replace("_", " "), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = badgeColor)
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.HourglassTop, contentDescription = null, tint = Slate400, modifier = Modifier.size(13.dp))
+                                        Icon(Icons.Default.HourglassTop, contentDescription = null, tint = if (isOfflineCsc) CscTextSecondary else Slate400, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Hesitation: ${metric.avgResponseSeconds}s", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Hesitation: ${metric.avgResponseSeconds}s", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Bookmark, contentDescription = null, tint = WarningAmber, modifier = Modifier.size(13.dp))
+                                        Icon(Icons.Default.Bookmark, contentDescription = null, tint = warningAccent, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Flag Rate: ${metric.flagRatePercent}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Flag Rate: ${metric.flagRatePercent}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    Text("Accuracy: ${metric.accuracyPercent}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = badgeColor)
+                                    Text("Accuracy: ${metric.accuracyPercent}%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = badgeColor)
                                 }
 
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(metric.aiStressDiagnosis, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 15.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(metric.aiStressDiagnosis, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
                             }
                         }
                     }

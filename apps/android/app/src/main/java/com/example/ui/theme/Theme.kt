@@ -55,13 +55,40 @@ private val LightColorScheme = lightColorScheme(
     onError = Color.White
 )
 
+private val CscLightColorScheme = lightColorScheme(
+    primary = CscPrimaryBlue,
+    onPrimary = Color.White,
+    primaryContainer = CscSelectedBg,
+    onPrimaryContainer = CscPrimaryBlue,
+    secondary = CscPrimaryBlue,
+    onSecondary = Color.White,
+    secondaryContainer = CscCreamSecondary,
+    onSecondaryContainer = CscTextPrimary,
+    tertiary = CscWarningDark,
+    onTertiary = Color.White,
+    background = CscWarmBackground,
+    onBackground = CscTextPrimary,
+    surface = CscCardSurface,
+    onSurface = CscTextPrimary,
+    surfaceVariant = CscCreamSecondary,
+    onSurfaceVariant = CscTextSecondary,
+    outline = CscPrimaryBlue,
+    outlineVariant = CscBorder,
+    error = CscErrorDark,
+    errorContainer = CscErrorBg,
+    onError = Color.White,
+    onErrorContainer = CscErrorDark
+)
+
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false, // Set false to preserve our custom high-fidelity brand colors
+    forceWarmLight: Boolean = com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-"),
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
+        forceWarmLight -> CscLightColorScheme
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -76,3 +103,4 @@ fun MyApplicationTheme(
         content = content
     )
 }
+

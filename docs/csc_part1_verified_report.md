@@ -44,4 +44,13 @@ Physical-device/emulator airplane-mode QA remains unexecuted. The successful CI 
 
 ## Remaining limits
 
-No synchronization, compilation, unit-test or APK packaging blocker remains. Physical-device install and interactive airplane-mode QA were not performed in this session. Content provenance remains supplied material rather than independently CSI-certified content. Four papers reuse practice items and are labelled accordingly; 400 questions retain concise explanations without full per-option rationale/objective enrichment. No unseen reserve bank was fabricated. Web and main were not modified by this work.
+No synchronization blocker existed at `cd3ca35d1b8698a7d2834bfc190bf877f6bc9c71`, and `64bf5f4dc233dc09d76cfbd34127db26c7971f7d` verified the content-bearing engine and bank prior to the visual redesign below. Physical-device install and interactive airplane-mode QA were not performed in this session. Content provenance remains supplied material rather than independently CSI-certified content. Four papers reuse practice items and are labelled accordingly; 400 questions retain concise explanations without full per-option rationale/objective enrichment. No unseen reserve bank was fabricated. Web and main were not modified by this work.
+
+## Warm Off-White, White, and Cream UI update — 2026-11-17 (Pending CI & Visual QA)
+
+Applied the Warm Off-White (`#FAF9F6`), White (`#FFFFFF`), and Cream (`#F3EFE6`) visual design across 15 CSC Part 1 Android UI/theme/resource files (`Color.kt`, `Theme.kt`, `ExamCatalog.kt`, `MainActivity.kt`, `CommonComponents.kt`, `PerformanceLineChart.kt`, `DashboardScreen.kt`, `ExamsHubScreen.kt`, `ExamSimulationScreen.kt`, `ExamResultScreen.kt`, `NotebookSourcesScreen.kt`, `FlashcardsScreen.kt`, `AudioOverviewScreen.kt`, and `src/cscPart1/res/values/{colors,themes}.xml`) on top of base `cd3ca35d1b8698a7d2834bfc190bf877f6bc9c71`.
+
+- **Preserved unchanged**: 474-question bank (`csc-part-1.json`), ordered 54-question diagnostic (`DX-001`..`DX-054`), baseline + retake history, four 100-question / 120-minute timed practice papers (`csc1_exam_3`..`csc1_exam_6`), adaptive selection/remediation/mastery/retention logic, Room v5 persistence/migration, all 29 unit/Robolectric tests, `apps/web/`, and `main`.
+- **Static checks passed**: Brace/delimiter balance and bank integrity verified locally; `ButtonDefaults.outlinedButtonBorder` replaced with explicit `BorderStroke`; `AccentCyan`, `GoldMastery`, `Slate800`, and decorative gradients removed from active CSC flows.
+- **Pending verification**: Gradle unit tests (`:app:testCscPart1DebugUnitTest`), updated `app-cscPart1-debug.apk` assembly/artifact upload via `.github/workflows/android-csc-part1.yml`, and interactive device/emulator visual QA (light & system-dark modes) remain pending because Java/Gradle/ADB are unavailable in the AI Studio sandbox. Updated export bundle/patch/transfer artifacts are saved in `exports/`.
+
