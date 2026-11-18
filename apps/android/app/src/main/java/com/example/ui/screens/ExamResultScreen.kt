@@ -675,7 +675,7 @@ fun ExamResultScreen(
                         elevation = CardDefaults.cardElevation(if (isOfflineCsc) 0.dp else 1.dp)
                     ) {
                         Text(
-                            text = "Detailed question-by-question breakdown is available when the questions from this attempt are installed in the local bank.",
+                            text = "Detailed question-by-question breakdown is available when the questions from this attempt are available in the question bank.",
                             fontSize = if (isOfflineCsc) 14.sp else 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp),
