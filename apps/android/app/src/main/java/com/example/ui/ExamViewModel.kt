@@ -56,6 +56,7 @@ enum class AppScreen {
 class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = ExamRepository(context = application)
+    private val practiceHistory = application.getSharedPreferences("csc_seen_practice", android.content.Context.MODE_PRIVATE)
     val speechManager = SpeechManager(application)
 
     internal fun repositoryForTesting(): ExamRepository = repository
@@ -173,6 +174,21 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _lastSimulationPaperTitle = MutableStateFlow<String?>(null)
     val lastSimulationPaperTitle: StateFlow<String?> = _lastSimulationPaperTitle.asStateFlow()
+
+    private fun usesFreshCscPractice(mode: ExamMode): Boolean =
+        isStandaloneCsc() && AdaptivePracticeEngine.isAdaptivePracticeMode(mode) && mode != ExamMode.RETENTION_REVIEW
+
+    private fun seenPracticeIds(): Set<String> =
+        practiceHistory.getStringSet("displayed_question_ids", emptySet()).orEmpty()
+
+    private fun rememberDisplayedPracticeQuestion() {
+        if (!usesFreshCscPractice(_activeMode.value)) return
+        val questionId = _simulationQuestions.value.getOrNull(_currentQuestionIndex.value)?.id ?: return
+        val seen = seenPracticeIds()
+        if (questionId !in seen) {
+            practiceHistory.edit().putStringSet("displayed_question_ids", seen + questionId).apply()
+        }
+    }
 
     private fun isStandaloneCsc(): Boolean =
         com.example.BuildConfig.TARGET_EXAM_ID.startsWith("csc-part-")
@@ -415,7 +431,9 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
                     domainFilterId = domainFilterId,
                     topicFilterKey = topicFilterKey,
                     requestedCount = requestedCount,
-                    config = repository.adaptiveConfig
+                    excludeQuestionIds = if (usesFreshCscPractice(effectiveMode)) seenPracticeIds() else emptySet(),
+                    config = repository.adaptiveConfig,
+                    freshOnly = usesFreshCscPractice(effectiveMode)
                 )
                 selectionReasonsMap = selection.selectionReasons
                 exhaustionNotice = selection.exhaustionNotice
@@ -432,7 +450,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (questionsToUse.isEmpty()) {
-            _statusMessage.value = "Practice questions are not installed yet for this exam."
+            _statusMessage.value = exhaustionNotice ?: "Practice questions are not installed yet for this exam."
             return
         }
 
@@ -463,6 +481,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
         persistActiveAttempt(pausedOverride = false)
         startTimer()
+        rememberDisplayedPracticeQuestion()
         navigateTo(AppScreen.SIMULATION_ACTIVE)
     }
 
@@ -515,6 +534,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
         persistActiveAttempt(pausedOverride = false)
         startTimer()
+        rememberDisplayedPracticeQuestion()
         navigateTo(AppScreen.SIMULATION_ACTIVE)
         return true
     }
@@ -709,9 +729,24 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             val excludedIds = questionsList.mapIndexedNotNull { index, item ->
                 item.id.takeIf { index <= questionIndex || !canReorderUpcoming || index in interactedIndices }
             }.toSet()
+            val bank = repository.questions.value
+            val practiceCandidates = if (usesFreshCscPractice(_activeMode.value)) {
+                val answeredIds = repository.questionExposures.value.filterValues { it.exposureCount > 0 }.keys
+                AdaptivePracticeEngine.excludePreviouslySeenQuestions(bank, seenPracticeIds() + answeredIds + excludedIds)
+                    .filter { candidate ->
+                        questionsList.none { queued ->
+                            queued.id != candidate.id &&
+                                (AdaptivePracticeEngine.questionPromptKey(queued) == AdaptivePracticeEngine.questionPromptKey(candidate) ||
+                                    (candidate.nearDuplicateGroupId.isNotBlank() &&
+                                        candidate.nearDuplicateGroupId.trim() == queued.nearDuplicateGroupId.trim()))
+                        }
+                    }
+            } else {
+                bank
+            }
             val followUp = AdaptivePracticeEngine.pickImmediateRemediationQuestion(
                 missedQuestion = question,
-                allQuestions = repository.questions.value,
+                allQuestions = practiceCandidates,
                 excludeQuestionIds = excludedIds,
                 exposures = repository.questionExposures.value
             )
@@ -778,6 +813,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun goToQuestion(index: Int) {
         if (index in 0 until _simulationQuestions.value.size) {
             _currentQuestionIndex.value = index
+            rememberDisplayedPracticeQuestion()
             _currentPracticeFeedback.value = if (
                 AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value) &&
                 _checkedQuestionIndices.value.contains(index)
@@ -794,6 +830,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         if (_currentQuestionIndex.value < _simulationQuestions.value.size - 1) {
             val nextIdx = _currentQuestionIndex.value + 1
             _currentQuestionIndex.value = nextIdx
+            rememberDisplayedPracticeQuestion()
             _currentPracticeFeedback.value = if (
                 AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value) &&
                 _checkedQuestionIndices.value.contains(nextIdx)
@@ -810,6 +847,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         if (_currentQuestionIndex.value > 0) {
             val prevIdx = _currentQuestionIndex.value - 1
             _currentQuestionIndex.value = prevIdx
+            rememberDisplayedPracticeQuestion()
             _currentPracticeFeedback.value = if (
                 AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value) &&
                 _checkedQuestionIndices.value.contains(prevIdx)
