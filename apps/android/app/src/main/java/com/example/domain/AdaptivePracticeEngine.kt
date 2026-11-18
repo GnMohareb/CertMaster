@@ -40,6 +40,25 @@ object AdaptivePracticeEngine {
         val applied: Boolean
     )
 
+    private val promptSeparators = Regex("[^\\p{L}\\p{N}]+")
+
+    fun questionPromptKey(question: Question): String =
+        question.questionText.lowercase().replace(promptSeparators, " ").trim()
+
+    fun excludePreviouslySeenQuestions(
+        questions: List<Question>,
+        seenIds: Set<String>
+    ): List<Question> {
+        val seenQuestions = questions.filter { it.id in seenIds }
+        val seenPrompts = seenQuestions.mapTo(mutableSetOf(), ::questionPromptKey)
+        val seenGroups = seenQuestions.mapNotNullTo(mutableSetOf()) {
+            it.nearDuplicateGroupId.trim().takeIf(String::isNotEmpty)
+        }
+        return questions.filterNot {
+            it.id in seenIds || questionPromptKey(it) in seenPrompts || it.nearDuplicateGroupId.trim() in seenGroups
+        }
+    }
+
     fun resolveTopic(question: Question): TopicResolution {
         val rawId = question.topicId.trim()
         val rawName = question.topicName.trim()
@@ -475,7 +494,8 @@ object AdaptivePracticeEngine {
         topicFilterKey: String? = null,
         requestedCount: Int? = null,
         excludeQuestionIds: Set<String> = emptySet(),
-        config: AdaptiveConfig = AdaptiveConfig()
+        config: AdaptiveConfig = AdaptiveConfig(),
+        freshOnly: Boolean = false
     ): AdaptiveSelectionResult {
         val eligible = eligibleQuestionsForMode(allQuestions, mode, domainFilterId, topicFilterKey)
         if (eligible.isEmpty()) {
@@ -492,9 +512,15 @@ object AdaptivePracticeEngine {
             eligible.size
         ).coerceAtLeast(1)
 
-        val freshPool = eligible.filterNot { it.id in excludeQuestionIds }
-        val candidatePool = if (freshPool.isNotEmpty()) freshPool else eligible
-        val isBankExhausted = freshPool.isEmpty() && excludeQuestionIds.isNotEmpty()
+        val freshPool = if (freshOnly) {
+            val seenIds = excludeQuestionIds + exposures.filterValues { it.exposureCount > 0 }.keys
+            val freshIds = excludePreviouslySeenQuestions(allQuestions, seenIds).mapTo(mutableSetOf()) { it.id }
+            eligible.filter { it.id in freshIds }
+        } else {
+            eligible.filterNot { it.id in excludeQuestionIds }
+        }
+        val candidatePool = if (freshOnly || freshPool.isNotEmpty()) freshPool else eligible
+        val isBankExhausted = freshPool.isEmpty() && (freshOnly || excludeQuestionIds.isNotEmpty())
 
         fun targetDifficultyFor(topicKey: String): QuestionDifficulty {
             val state = topicStates[topicKey]
@@ -555,16 +581,23 @@ object AdaptivePracticeEngine {
         val picked = mutableListOf<Question>()
         val pickedIds = mutableSetOf<String>()
         val usedDuplicateGroups = mutableSetOf<String>()
+        val usedPrompts = mutableSetOf<String>()
         val reasons = linkedMapOf<String, String>()
 
         fun tryAdd(q: Question, reason: String, allowDuplicateGroup: Boolean): Boolean {
             if (!pickedIds.add(q.id)) return false
+            val prompt = if (freshOnly) questionPromptKey(q) else null
             val dupGroup = q.nearDuplicateGroupId.trim()
+            if (prompt != null && prompt in usedPrompts) {
+                pickedIds.remove(q.id)
+                return false
+            }
             if (!allowDuplicateGroup && dupGroup.isNotEmpty() && !usedDuplicateGroups.add(dupGroup)) {
                 pickedIds.remove(q.id)
                 return false
             }
             if (dupGroup.isNotEmpty()) usedDuplicateGroups.add(dupGroup)
+            if (prompt != null) usedPrompts.add(prompt)
             picked.add(q)
             reasons[q.id] = reason
             return true
@@ -632,7 +665,7 @@ object AdaptivePracticeEngine {
             strongCandidates to { q: Question -> "Maintenance check: ${resolveTopic(q).topicName}" }
         )
 
-        for (allowDup in listOf(false, true)) {
+        for (allowDup in if (freshOnly) listOf(false) else listOf(false, true)) {
             if (picked.size >= targetCount) break
             for ((bucket, reasonFn) in refillOrder) {
                 if (picked.size >= targetCount) break
@@ -641,6 +674,9 @@ object AdaptivePracticeEngine {
         }
 
         val exhaustionNotice = when {
+            freshOnly && picked.isEmpty() -> "You’ve seen all available questions for this selection. Choose a different topic or open Retention Review."
+            freshOnly && picked.size < (requestedCount ?: config.defaultPracticeSessionLength) ->
+                "This session includes ${picked.size} remaining new questions for this selection."
             isBankExhausted -> "All eligible fresh questions for this selection have been used. Reviewing previously seen items."
             picked.size < (requestedCount ?: config.defaultPracticeSessionLength) ->
                 "Showing all ${picked.size} eligible question(s) currently installed for this selection."
