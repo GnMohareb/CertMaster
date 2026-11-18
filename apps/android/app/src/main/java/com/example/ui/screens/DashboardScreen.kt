@@ -185,37 +185,25 @@ fun DashboardScreen(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isOfflineCsc) "${currentExam.shortCode} • Offline v${com.example.BuildConfig.VERSION_NAME} (${com.example.BuildConfig.VERSION_CODE})" else if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
+                    text = if (isOfflineCsc) "${currentExam.shortCode} • v${com.example.BuildConfig.VERSION_NAME} (${com.example.BuildConfig.VERSION_CODE})" else if (ssoSession.isAuthenticated) "${userProfile.displayName.ifEmpty { ssoSession.email }} • ${if (isExamSubscribed) "Access Active" else "No active pass"}" else "Not signed in • Local only (tap to sign in)",
                     fontSize = if (isOfflineCsc) 13.sp else 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val badgePositive = isOfflineCsc || isExamSubscribed
+            if (!isOfflineCsc) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .background(
-                            if (isOfflineCsc) {
-                                if (badgePositive) CscSuccessBg else CscWarningBg
-                            } else {
-                                if (badgePositive) SuccessGreen.copy(alpha = 0.15f) else WarningAmber.copy(alpha = 0.15f)
-                            }
-                        )
-                        .then(
-                            if (isOfflineCsc) {
-                                Modifier.border(1.dp, if (badgePositive) CscSuccessBorder else CscWarningBorder, RoundedCornerShape(6.dp))
-                            } else Modifier
-                        )
+                        .background(if (isExamSubscribed) SuccessGreen.copy(alpha = 0.15f) else WarningAmber.copy(alpha = 0.15f))
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = if (isOfflineCsc) "OFFLINE" else if (!ssoSession.isAuthenticated) "LOCAL ONLY" else if (isExamSubscribed) "ACTIVE" else "MANAGE PASS",
-                        fontSize = if (isOfflineCsc) 12.sp else 9.sp,
+                        text = if (!ssoSession.isAuthenticated) "LOCAL ONLY" else if (isExamSubscribed) "ACTIVE" else "MANAGE PASS",
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (badgePositive) successAccent else warningAccent
+                        color = if (isExamSubscribed) successAccent else warningAccent
                     )
                 }
             }
@@ -707,7 +695,7 @@ fun DashboardScreen(
                                     }
                                 } else {
                                     Text(
-                                        text = "Exam features are prepared for offline use. Practice questions are not installed yet.",
+                                        text = "Practice questions are not installed yet.",
                                         fontSize = 13.sp,
                                         lineHeight = 19.sp,
                                         color = CscTextSecondary
@@ -1004,7 +992,7 @@ fun DashboardScreen(
                                         )
                                     }
                                     Text(
-                                        text = if (effectiveDomains.isEmpty()) "Offline Mode" else "${effectiveDomains.size} Domains",
+                                        text = if (effectiveDomains.isEmpty()) "Domains unavailable" else "${effectiveDomains.size} Domains",
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
