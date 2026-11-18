@@ -25,7 +25,6 @@ import com.example.model.PracticeAnswerFeedback
 import com.example.model.PracticeRecommendation
 import com.example.model.Question
 import com.example.model.QuestionExposureState
-import com.example.model.RemediationEntry
 import com.example.model.SourceDoc
 import com.example.model.SsoSessionInfo
 import com.example.model.SyncLogEntry
@@ -157,11 +156,6 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectionReasons = MutableStateFlow<Map<String, String>>(emptyMap())
     val selectionReasons: StateFlow<Map<String, String>> = _selectionReasons.asStateFlow()
 
-    private val _remediationQueue = MutableStateFlow<List<RemediationEntry>>(emptyList())
-    val remediationQueue: StateFlow<List<RemediationEntry>> = _remediationQueue.asStateFlow()
-
-    private val _globalStepCounter = MutableStateFlow(0)
-
     private val _practiceExhaustionNotice = MutableStateFlow<String?>(null)
     val practiceExhaustionNotice: StateFlow<String?> = _practiceExhaustionNotice.asStateFlow()
 
@@ -269,9 +263,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             updatedAtMillis = System.currentTimeMillis(),
             attemptId = activeAttemptId.ifBlank { UUID.randomUUID().toString() },
             checkedIndicesJson = ActiveExamAttemptEntity.encodeIntSet(_checkedQuestionIndices.value),
-            remediationQueueJson = ActiveExamAttemptEntity.encodeRemediationList(_remediationQueue.value),
-            selectionReasonsJson = ActiveExamAttemptEntity.encodeStringMap(_selectionReasons.value),
-            globalStepCounter = _globalStepCounter.value
+            selectionReasonsJson = ActiveExamAttemptEntity.encodeStringMap(_selectionReasons.value)
         )
     }
 
@@ -456,8 +448,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _checkedQuestionIndices.value = emptySet()
         _currentPracticeFeedback.value = null
         _selectionReasons.value = selectionReasonsMap
-        _remediationQueue.value = emptyList()
-        _globalStepCounter.value = 0
+
+
         _practiceExhaustionNotice.value = exhaustionNotice
 
         val timeLimit = when {
@@ -503,9 +495,9 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _optionSwitchCounts.value = saved.parseOptionSwitchCounts().filterKeys { it in restoredQuestions.indices }
         val restoredChecked = saved.parseCheckedIndices().filter { it in restoredQuestions.indices }.toSet()
         _checkedQuestionIndices.value = restoredChecked
-        _remediationQueue.value = saved.parseRemediationQueue()
+
         _selectionReasons.value = saved.parseSelectionReasons()
-        _globalStepCounter.value = saved.globalStepCounter
+
         _practiceExhaustionNotice.value = null
 
         _currentPracticeFeedback.value = if (
@@ -550,8 +542,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _checkedQuestionIndices.value = emptySet()
         _currentPracticeFeedback.value = null
         _selectionReasons.value = emptyMap()
-        _remediationQueue.value = emptyList()
-        _globalStepCounter.value = 0
+
+
         _practiceExhaustionNotice.value = null
         repository.clearActiveAttempt()
         if (!handleBackPress()) {
@@ -685,7 +677,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Checks the selected answer during adaptive practice modes, reveals explanation & distractor analysis,
      * applies evidence idempotently to topic mastery, queues a different follow-up question on the same topic
-     * if incorrect, and schedules the missed original question for delayed revisit.
+     * or domain if incorrect.
      */
     fun checkPracticeAnswer(questionIndex: Int = _currentQuestionIndex.value) {
         if (!AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value)) return
@@ -711,40 +703,39 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
         if (!isCorrect) {
             val nextIdx = questionIndex + 1
-            val remainingUpcomingIds = questionsList.drop(nextIdx).map { it.id }.toSet()
+            val interactedIndices = _userAnswers.value.keys + _flaggedIndices.value +
+                _struckOptions.value.keys + _optionSwitchCounts.value.keys + _checkedQuestionIndices.value
+            val canReorderUpcoming = nextIdx !in interactedIndices
+            val excludedIds = questionsList.mapIndexedNotNull { index, item ->
+                item.id.takeIf { index <= questionIndex || !canReorderUpcoming || index in interactedIndices }
+            }.toSet()
             val followUp = AdaptivePracticeEngine.pickImmediateRemediationQuestion(
                 missedQuestion = question,
                 allQuestions = repository.questions.value,
-                excludeQuestionIds = remainingUpcomingIds + question.id,
+                excludeQuestionIds = excludedIds,
                 exposures = repository.questionExposures.value
             )
             if (followUp != null) {
+                val existingIndex = questionsList.indexOfFirst { it.id == followUp.id }
                 val updatedList = questionsList.toMutableList()
-                updatedList.add(nextIdx, followUp)
+                if (existingIndex >= 0) {
+                    updatedList[existingIndex] = updatedList[nextIdx]
+                    updatedList[nextIdx] = followUp
+                } else {
+                    updatedList.add(nextIdx, followUp)
+                    _userAnswers.value = _userAnswers.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
+                    _flaggedIndices.value = _flaggedIndices.value.map { k -> if (k >= nextIdx) k + 1 else k }.toSet()
+                    _struckOptions.value = _struckOptions.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
+                    _optionSwitchCounts.value = _optionSwitchCounts.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
+                    _checkedQuestionIndices.value = _checkedQuestionIndices.value.map { k -> if (k >= nextIdx) k + 1 else k }.toSet()
+                }
                 _simulationQuestions.value = updatedList
-                // Shift any maps keyed > questionIndex forward by 1 so indices stay aligned
-                _userAnswers.value = _userAnswers.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
-                _flaggedIndices.value = _flaggedIndices.value.map { k -> if (k >= nextIdx) k + 1 else k }.toSet()
-                _struckOptions.value = _struckOptions.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
-                _optionSwitchCounts.value = _optionSwitchCounts.value.mapKeys { (k, _) -> if (k >= nextIdx) k + 1 else k }
-                _checkedQuestionIndices.value = _checkedQuestionIndices.value.map { k -> if (k >= nextIdx) k + 1 else k }.toSet()
-
                 val topicName = AdaptivePracticeEngine.resolveTopic(followUp).topicName
                 _selectionReasons.value = _selectionReasons.value + (followUp.id to "Follow-up on '$topicName' after missed item")
                 queuedRemediationId = followUp.id
-                notice = "Next: a different question on $topicName, plus this missed question is scheduled for delayed review."
-            } else {
-                notice = "This missed question is scheduled for delayed review later."
+                notice = "Next: a different question on $topicName."
             }
 
-            if (_remediationQueue.value.none { it.questionId == question.id }) {
-                val dueStep = _globalStepCounter.value + repository.adaptiveConfig.remediationInterveningQuestions
-                _remediationQueue.value = _remediationQueue.value + RemediationEntry(
-                    questionId = question.id,
-                    dueAfterStep = dueStep,
-                    reason = "Delayed review of previously missed question"
-                )
-            }
         }
 
         _currentPracticeFeedback.value = buildFeedbackForIndex(
@@ -800,35 +791,6 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun nextQuestion() {
-        val currentIdx = _currentQuestionIndex.value
-        val currentQ = _simulationQuestions.value.getOrNull(currentIdx)
-        if (AdaptivePracticeEngine.isAdaptivePracticeMode(_activeMode.value)) {
-            val nextStep = _globalStepCounter.value + 1
-            _globalStepCounter.value = nextStep
-            val dueEntry = _remediationQueue.value.firstOrNull {
-                it.dueAfterStep <= nextStep && it.questionId != currentQ?.id
-            }
-            if (dueEntry != null) {
-                val revisitQuestion = repository.questions.value.firstOrNull { it.id == dueEntry.questionId }
-                _remediationQueue.value = _remediationQueue.value.filterNot { it.questionId == dueEntry.questionId }
-                if (revisitQuestion != null) {
-                    val insertIdx = (currentIdx + 1).coerceAtMost(_simulationQuestions.value.size)
-                    val alreadyImmediatelyNext = _simulationQuestions.value.getOrNull(insertIdx)?.id == revisitQuestion.id
-                    if (!alreadyImmediatelyNext) {
-                        val updatedList = _simulationQuestions.value.toMutableList()
-                        updatedList.add(insertIdx, revisitQuestion)
-                        _simulationQuestions.value = updatedList
-                        _userAnswers.value = _userAnswers.value.mapKeys { (k, _) -> if (k >= insertIdx) k + 1 else k }
-                        _flaggedIndices.value = _flaggedIndices.value.map { k -> if (k >= insertIdx) k + 1 else k }.toSet()
-                        _struckOptions.value = _struckOptions.value.mapKeys { (k, _) -> if (k >= insertIdx) k + 1 else k }
-                        _optionSwitchCounts.value = _optionSwitchCounts.value.mapKeys { (k, _) -> if (k >= insertIdx) k + 1 else k }
-                        _checkedQuestionIndices.value = _checkedQuestionIndices.value.map { k -> if (k >= insertIdx) k + 1 else k }.toSet()
-                    }
-                    _selectionReasons.value = _selectionReasons.value + (revisitQuestion.id to dueEntry.reason)
-                }
-            }
-        }
-
         if (_currentQuestionIndex.value < _simulationQuestions.value.size - 1) {
             val nextIdx = _currentQuestionIndex.value + 1
             _currentQuestionIndex.value = nextIdx
@@ -945,7 +907,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         _activeSimulationPaperTitle.value = null
         _checkedQuestionIndices.value = emptySet()
         _currentPracticeFeedback.value = null
-        _remediationQueue.value = emptyList()
+
         _selectionReasons.value = emptyMap()
         _practiceExhaustionNotice.value = null
         activeAttemptId = ""
