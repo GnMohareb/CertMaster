@@ -310,7 +310,7 @@ class CscPart1OfflineTest {
         } finally { vm2.closeForTesting() }
         val vm3 = ExamViewModel(application)
         try {
-            awaitCondition { vm3.sessions.value.size == 2 }
+            awaitCondition { vm3.sessions.value.size == 2 && vm3.initialBaselineSession.value != null }
             assertEquals(baselineId, vm3.initialBaselineSession.value!!.sessionId)
             assertEquals(1, vm3.sessions.value.count { it.isInitialBaseline })
         } finally { vm3.closeForTesting() }
