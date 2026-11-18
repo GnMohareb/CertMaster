@@ -155,7 +155,7 @@ object ExamCatalog {
         title = "Canadian Securities Course — Part 1",
         shortCode = "CSC Part 1",
         issuer = "Canadian Securities Institute",
-        description = "Offline practice for CSC Part 1. Independent study application.",
+        description = "Independent study and practice for CSC Part 1.",
         passingScorePercent = 60,
         defaultSimulationCount = 0,
         totalBankQuestions = 0,
