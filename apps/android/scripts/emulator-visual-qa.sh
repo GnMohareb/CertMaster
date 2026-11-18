@@ -106,6 +106,9 @@ def sample_png(path):
     for hex_c, n in counts.most_common(12):
         print(f'  {hex_c}: {n * 100.0 / total:.2f}%')
 
+    assert counts['#5B4636'] > 0, f'{path}: missing warm action accent'
+    assert counts['#365D85'] == 0, f'{path}: old blue action accent is still visible'
+
 sample_png('qa-artifacts/dashboard-light.png')
 sample_png('qa-artifacts/dashboard-system-dark.png')
 PY
