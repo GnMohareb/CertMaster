@@ -656,8 +656,8 @@ object AdaptivePracticeEngine {
     }
 
     /**
-     * Picks a DIFFERENT question (not the missed one, and avoiding the same nearDuplicateGroupId when possible)
-     * on the same topic or learning objective after an incorrect answer during adaptive practice.
+     * Picks a different question on the same topic, falling back to the same domain,
+     * and skips known near-duplicates after an incorrect answer during adaptive practice.
      */
     fun pickImmediateRemediationQuestion(
         missedQuestion: Question,
@@ -670,38 +670,14 @@ object AdaptivePracticeEngine {
         if (eligible.isEmpty()) return null
 
         val missedTopicKey = resolveTopic(missedQuestion).topicKey
-        val missedObjectiveId = missedQuestion.objectiveId.trim()
-        val missedObjective = missedQuestion.learningObjective.trim()
         val missedDupGroup = missedQuestion.nearDuplicateGroupId.trim()
-
-        val sameTopic = eligible.filter { resolveTopic(it).topicKey == missedTopicKey }
-        val sameObjective = when {
-            missedObjectiveId.isNotEmpty() -> eligible.filter {
-                it.objectiveId.trim().equals(missedObjectiveId, ignoreCase = true)
-            }
-            missedObjective.isNotEmpty() -> eligible.filter {
-                it.learningObjective.trim().equals(missedObjective, ignoreCase = true)
-            }
-            else -> emptyList()
+        val relatedQuestions = eligible.filter { candidate ->
+            (resolveTopic(candidate).topicKey == missedTopicKey || candidate.domainId == missedQuestion.domainId) &&
+                (missedDupGroup.isEmpty() || candidate.nearDuplicateGroupId.trim() != missedDupGroup)
         }
-        val sameDomain = eligible.filter { it.domainId == missedQuestion.domainId }
-
-        val candidateGroup = when {
-            sameTopic.isNotEmpty() -> sameTopic
-            sameObjective.isNotEmpty() -> sameObjective
-            sameDomain.isNotEmpty() -> sameDomain
-            else -> return null
-        }
-
-        val withoutNearDuplicate = if (missedDupGroup.isNotEmpty()) {
-            candidateGroup.filterNot { it.nearDuplicateGroupId.trim() == missedDupGroup }
-                .ifEmpty { candidateGroup }
-        } else {
-            candidateGroup
-        }
-
-        return withoutNearDuplicate.sortedWith(
+        return relatedQuestions.sortedWith(
             compareBy<Question>(
+                { resolveTopic(it).topicKey != missedTopicKey },
                 { exposures[it.id]?.exposureCount ?: 0 },
                 {
                     if (!it.difficultyExplicit) 0 else when (it.difficulty) {
