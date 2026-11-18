@@ -321,6 +321,31 @@ class AdaptiveMasteryEngineTest {
     }
 
     @Test
+    fun freshPracticeSkipsPreviouslySeenPromptsAndStopsWhenExhausted() {
+        val original = buildRichSyntheticBank().first { it.id == "d1_t1_a" }
+        val duplicate = original.copy(id = "duplicate", nearDuplicateGroupId = "")
+        val fresh = original.copy(id = "fresh", questionText = "Another question about regulation?", nearDuplicateGroupId = "")
+        val bank = listOf(original, duplicate, fresh)
+
+        fun select(seen: Set<String>) = AdaptivePracticeEngine.selectAdaptivePracticeQuestions(
+            allQuestions = bank,
+            mode = ExamMode.AI_ADAPTIVE_DRILL,
+            topicStates = emptyMap(),
+            exposures = emptyMap(),
+            nowMillis = 0L,
+            currentGlobalStep = 0L,
+            requestedCount = 10,
+            excludeQuestionIds = seen,
+            freshOnly = true
+        )
+
+        assertEquals(2, select(emptySet()).questions.size)
+        assertEquals(listOf("fresh"), select(setOf(original.id)).questions.map { it.id })
+        assertTrue(select(setOf(original.id, fresh.id)).isBankExhausted)
+        assertTrue(select(setOf(original.id, fresh.id)).questions.isEmpty())
+    }
+
+    @Test
     fun immediateCheckAnswer_insertsDifferentRemediationQuestion_andFullExamRemainsStrict() = runBlocking(Dispatchers.IO) {
         val bank = buildRichSyntheticBank()
         val vm = ExamViewModel(application)
