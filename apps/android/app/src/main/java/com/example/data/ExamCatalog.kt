@@ -160,7 +160,7 @@ object ExamCatalog {
         defaultSimulationCount = 0,
         totalBankQuestions = 0,
         durationMinutes = 120,
-        primaryColorHex = 0xFF365D85,
+        primaryColorHex = 0xFF5B4636,
         iconName = "School",
         domains = emptyList()
     )
