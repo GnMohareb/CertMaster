@@ -154,7 +154,7 @@ fun CertTopAppBar(
                         }
                     }
                     Text(
-                        text = if (offlineMode) "${currentExam.issuer} • Offline edition" else "${currentExam.issuer} • Tap to switch",
+                        text = if (offlineMode) "${currentExam.issuer}" else "${currentExam.issuer} • Tap to switch",
                         fontSize = if (offlineMode) 12.sp else 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -163,37 +163,29 @@ fun CertTopAppBar(
                 }
             },
             actions = {
-                // Online / Local status indicator
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(end = if (offlineMode) 12.dp else 0.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .then(
-                            if (offlineMode) {
-                                Modifier
-                                    .background(CscCreamSecondary)
-                                    .border(1.dp, CscBorder, RoundedCornerShape(10.dp))
-                            } else {
-                                Modifier.background(if (isOnline) SuccessGreen.copy(alpha = 0.15f) else Slate400.copy(alpha = 0.15f))
-                            }
+                if (!offlineMode) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isOnline) SuccessGreen.copy(alpha = 0.15f) else Slate400.copy(alpha = 0.15f))
+                            .clickable { onOpenProfile() }
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isOnline) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                            contentDescription = if (isOnline) "Backend Synced" else "Offline",
+                            tint = if (isOnline) SuccessGreen else Slate600,
+                            modifier = Modifier.size(15.dp)
                         )
-                        .clickable(enabled = !offlineMode) { onOpenProfile() }
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isOnline) Icons.Default.CloudDone else Icons.Default.CloudOff,
-                        contentDescription = if (isOnline) "Backend Synced" else "Offline",
-                        tint = if (offlineMode) CscTextSecondary else if (isOnline) SuccessGreen else Slate600,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = if (isOnline) "Synced" else "Local",
-                        fontSize = if (offlineMode) 12.sp else 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (offlineMode) CscTextSecondary else if (isOnline) SuccessGreen else Slate600
-                    )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = if (isOnline) "Synced" else "Local",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isOnline) SuccessGreen else Slate600
+                        )
+                    }
                 }
 
                 // Switch Exam Bank
