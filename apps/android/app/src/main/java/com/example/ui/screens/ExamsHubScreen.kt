@@ -201,16 +201,6 @@ fun ExamsHubScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("112 Banks", fontSize = 11.sp)
                         }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(CscSuccessBg)
-                                .border(1.dp, CscSuccessBorder, RoundedCornerShape(6.dp))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Text("OFFLINE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CscSuccessDark)
-                        }
                     }
                 }
             }
