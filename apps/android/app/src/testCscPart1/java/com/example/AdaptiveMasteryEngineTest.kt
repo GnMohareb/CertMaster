@@ -337,7 +337,7 @@ class AdaptiveMasteryEngineTest {
             assertTrue(vm.checkedQuestionIndices.value.isEmpty())
             vm.abandonSimulation()
 
-            // 2. Adaptive practice: wrong answer shows distractor feedback, inserts different topic question next, schedules delayed revisit
+            // 2. Adaptive practice: wrong answer shows distractor feedback, inserts a different question on the same topic next
             vm.startAdaptivePractice(topicFilterKey = "t_reg", requestedCount = 1)
             assertEquals(ExamMode.AI_ADAPTIVE_DRILL, vm.activeMode.value)
             val firstQ = vm.simulationQuestions.value[0]
@@ -369,15 +369,11 @@ class AdaptiveMasteryEngineTest {
             assertNotEquals(firstQ.id, feedback.remediationQuestionId)
             assertEquals(2, vm.simulationQuestions.value.size)
             assertEquals(feedback.remediationQuestionId, vm.simulationQuestions.value[1].id)
-            assertTrue(vm.remediationQueue.value.any { it.questionId == firstQ.id })
+            assertEquals(firstQ.topicId, vm.simulationQuestions.value[1].topicId)
 
-            // Advance twice -> delayed revisit of missed firstQ should be queued cleanly
-            vm.nextQuestion() // step 1, Q1
-            vm.nextQuestion() // step 2 -> revisit due!
-            assertTrue(
-                "Delayed revisit of original missed question should be inserted after intervening step",
-                vm.simulationQuestions.value.drop(1).any { it.id == firstQ.id }
-            )
+            vm.nextQuestion()
+            vm.nextQuestion()
+            assertEquals(1, vm.simulationQuestions.value.count { it.id == firstQ.id })
         } finally {
             vm.closeForTesting()
         }
