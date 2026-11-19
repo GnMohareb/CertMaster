@@ -147,7 +147,7 @@ class CscPart1OfflineTest {
     }
 
     @Test
-    fun repository_loadsBundled474PracticeBank_andFailsClosedWhenBankAbsent() = runBlocking(Dispatchers.IO) {
+    fun repository_loadsSeparateQuestionPools_andFailsClosedWhenBankAbsent() = runBlocking(Dispatchers.IO) {
         val missingError = runCatching {
             EmbeddedExamBank.loadWithMetadata(context, "missing-exam-id")
         }.exceptionOrNull()
@@ -173,10 +173,19 @@ class CscPart1OfflineTest {
 
             assertEquals("csc-part-1", repository.currentExam.value.id)
             assertEquals(60, repository.currentExam.value.passingScorePercent)
-            assertEquals(474, repository.questions.value.size)
-            assertEquals(474, repository.bankCoverageAudit.value.practiceEligibleCount)
-            assertEquals(474, repository.bankCoverageAudit.value.assessmentEligibleCount)
-            assertEquals(0, repository.bankCoverageAudit.value.reservedFullExamCount)
+            assertEquals(599, repository.questions.value.size)
+            assertEquals(145, repository.bankCoverageAudit.value.practiceEligibleCount)
+            assertEquals(199, repository.bankCoverageAudit.value.assessmentEligibleCount)
+            assertEquals(400, repository.bankCoverageAudit.value.reservedFullExamCount)
+            val timedIds = repository.bankMetadata.value.simulationPapers.flatMap { it.questionIds }.toSet()
+            val diagnosticIds = repository.bankMetadata.value.diagnosticQuestionIds.toSet()
+            val practice = com.example.domain.AdaptivePracticeEngine.eligibleQuestionsForMode(
+                allQuestions = repository.questions.value,
+                mode = ExamMode.AI_ADAPTIVE_DRILL
+            )
+            assertEquals(145, practice.size)
+            assertEquals(43, practice.map { it.topicId }.distinct().size)
+            assertTrue(practice.none { it.id in timedIds || it.id in diagnosticIds })
             assertEquals(4, repository.bankCoverageAudit.value.simulationPapersCount)
             assertEquals(4, repository.bankMetadata.value.simulationPapers.size)
             assertEquals(

@@ -38,8 +38,8 @@ android {
     create("cscPart1") {
       dimension = "exam"
       applicationId = "com.certmaster.cscpart1"
-      versionCode = 4
-      versionName = "1.0.3"
+      versionCode = 5
+      versionName = "1.0.4"
       buildConfigField("String", "TARGET_EXAM_ID", "\"csc-part-1\"")
       buildConfigField("int", "FREE_ASSESSMENT_LIMIT", "50")
     }
