@@ -2,11 +2,6 @@ name: CSC Part 1 Android Production Release
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/standalone-android-offline-exams
-    paths:
-      - '.github/workflows/csc-part1-release.yml'
 
 permissions:
   contents: read
