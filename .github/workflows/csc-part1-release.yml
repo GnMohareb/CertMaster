@@ -115,8 +115,8 @@ jobs:
           "$AAPT" dump badging "$APK_PATH" > release-apk-badging.txt
           "$AAPT" dump permissions "$APK_PATH" > release-apk-permissions.txt
           grep -q "package: name='com.certmaster.cscpart1'" release-apk-badging.txt
-          grep -q "versionCode='2'" release-apk-badging.txt
-          grep -q "versionName='1.0.1'" release-apk-badging.txt
+          grep -q "versionCode='5'" release-apk-badging.txt
+          grep -q "versionName='1.0.4'" release-apk-badging.txt
           if grep -Eq "android.permission.(INTERNET|ACCESS_NETWORK_STATE)" release-apk-permissions.txt; then
             cat release-apk-permissions.txt
             exit 1
@@ -143,9 +143,17 @@ jobs:
           questions = bank.get('questions', [])
           dx = bank.get('diagnosticQuestionIds', [])
           papers = bank.get('simulationPapers', [])
-          assert len(questions) == 474, f"Expected 474 questions, got {len(questions)}"
+          assert len(questions) == 599, f"Expected 599 questions, got {len(questions)}"
           assert len(dx) == 54, f"Expected 54 diagnostic IDs, got {len(dx)}"
           assert len(papers) == 4, f"Expected 4 simulation papers, got {len(papers)}"
+          by_id = {q['id']: q for q in questions}
+          timed_ids = {qid for paper in papers for qid in paper['questionIds']}
+          assert len(by_id) == 599 and len(timed_ids) == 400 and len(set(dx)) == 54
+          assert not timed_ids.intersection(dx)
+          assert all(by_id[qid]['questionPool'] == 'FULL_EXAM_RESERVED' for qid in timed_ids)
+          assert all(by_id[qid]['questionPool'] == 'ASSESSMENT' for qid in dx)
+          practice = [q for q in questions if q['questionPool'] == 'PRACTICE']
+          assert len(practice) == 145 and len({q['topicId'] for q in practice}) == 43
           for p in papers:
               assert len(p.get('questionIds', [])) == 100, f"Paper {p.get('id')} question count != 100"
               assert p.get('durationMinutes') == 120, f"Paper {p.get('id')} duration != 120"
