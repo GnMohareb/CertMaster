@@ -5,252 +5,1032 @@
       "domainId": "csc-d1",
       "frontPrompt": "Who receives the proceeds when new shares are issued?",
       "backAnswer": "The issuer receives the proceeds, net of offering costs.",
-      "keyFormulaOrRule": "Primary market finances the issuer. Secondary market trades between investors."
+      "keyFormulaOrRule": "Primary market finances the issuer. Secondary market trades between investors.",
+      "topicId": "t_csc_d1_03_capital_markets_and_financial_instru"
     },
     {
       "id": "csc1-fc-d1-02",
       "domainId": "csc-d1",
       "frontPrompt": "What does it mean when a dealer acts as principal?",
       "backAnswer": "The dealer trades for its own account and may fill the order from inventory.",
-      "keyFormulaOrRule": "As agent, the dealer arranges a trade for a customer."
+      "keyFormulaOrRule": "As agent, the dealer arranges a trade for a customer.",
+      "topicId": "t_csc_d1_04_dealers_principal_and_agency_commiss"
     },
     {
       "id": "csc1-fc-d1-03",
       "domainId": "csc-d1",
       "frontPrompt": "Which side of a dealer quote applies when you sell?",
       "backAnswer": "The bid is the price the dealer is willing to pay. The ask is the price the dealer is willing to accept.",
-      "keyFormulaOrRule": "Quoted spread = ask − bid."
+      "keyFormulaOrRule": "Quoted spread = ask − bid.",
+      "topicId": "t_csc_d1_04_dealers_principal_and_agency_commiss"
     },
     {
       "id": "csc1-fc-d1-04",
       "domainId": "csc-d1",
       "frontPrompt": "What does a large change in a client’s income or liquidity needs trigger?",
       "backAnswer": "Update the client information and reassess whether the recommendation is suitable.",
-      "keyFormulaOrRule": "KYC considers the client’s current circumstances, objectives and risk profile."
+      "keyFormulaOrRule": "KYC considers the client’s current circumstances, objectives and risk profile.",
+      "topicId": "t_csc_d1_01_regulation_kyc_ethics_and_investor_r"
     },
     {
       "id": "csc1-fc-d2-01",
       "domainId": "csc-d2",
       "frontPrompt": "Can the CPI keep rising when inflation falls?",
       "backAnswer": "Yes. When inflation falls but stays positive, the overall price level is still increasing.",
-      "keyFormulaOrRule": "Disinflation slows the rate of increase. Deflation is a decline in the price level."
+      "keyFormulaOrRule": "Disinflation slows the rate of increase. Deflation is a decline in the price level.",
+      "topicId": "t_csc_d2_07_inflation_cpi_and_real_returns"
     },
     {
       "id": "csc1-fc-d2-02",
       "domainId": "csc-d2",
       "frontPrompt": "How do you calculate the unemployment rate?",
       "backAnswer": "Divide the number of unemployed people by the labour force and multiply by 100.",
-      "keyFormulaOrRule": "The labour force includes employed and unemployed people."
+      "keyFormulaOrRule": "The labour force includes employed and unemployed people.",
+      "topicId": "t_csc_d2_06_labour_market_and_unemployment"
     },
     {
       "id": "csc1-fc-d2-03",
       "domainId": "csc-d2",
       "frontPrompt": "How do you convert a nominal return to an exact real return?",
       "backAnswer": "Divide one plus the nominal return by one plus the inflation rate, then subtract one.",
-      "keyFormulaOrRule": "Use decimal rates and keep full precision until the end."
+      "keyFormulaOrRule": "Use decimal rates and keep full precision until the end.",
+      "topicId": "t_csc_d2_07_inflation_cpi_and_real_returns"
     },
     {
       "id": "csc1-fc-d2-04",
       "domainId": "csc-d2",
       "frontPrompt": "What is the difference between public debt and a budget deficit?",
       "backAnswer": "Debt is a stock measured at a point in time. A deficit is a shortfall measured over a period.",
-      "keyFormulaOrRule": "A smaller deficit can still increase the debt."
+      "keyFormulaOrRule": "A smaller deficit can still increase the debt.",
+      "topicId": "t_csc_d2_02_fiscal_policy_and_the_government_bud"
     },
     {
       "id": "csc1-fc-d3-01",
       "domainId": "csc-d3",
       "frontPrompt": "How much coupon cash does a $1,000 bond with a 6% annual coupon pay each half year?",
       "backAnswer": "$30 per payment if it pays semiannually.",
-      "keyFormulaOrRule": "Annual coupon = par × rate. Divide by two for semiannual payments."
+      "keyFormulaOrRule": "Annual coupon = par × rate. Divide by two for semiannual payments.",
+      "topicId": "t_csc_d3_05_bond_terminology_and_basic_features"
     },
     {
       "id": "csc1-fc-d3-02",
       "domainId": "csc-d3",
       "frontPrompt": "Why can a callable bond create reinvestment risk?",
       "backAnswer": "The issuer can redeem it under the call terms, potentially when replacement bonds offer lower yields.",
-      "keyFormulaOrRule": "The issuer holds the call right."
+      "keyFormulaOrRule": "The issuer holds the call right.",
+      "topicId": "t_csc_d3_04_corporate_bonds_and_bond_features"
     },
     {
       "id": "csc1-fc-d3-03",
       "domainId": "csc-d3",
       "frontPrompt": "What does a credit rating evaluate?",
       "backAnswer": "It is an opinion about credit risk, including the issuer’s capacity to meet its obligations.",
-      "keyFormulaOrRule": "It does not guarantee repayment, market liquidity, or the bond price."
+      "keyFormulaOrRule": "It does not guarantee repayment, market liquidity, or the bond price.",
+      "topicId": "t_csc_d3_01_bond_ratings_and_quotes"
     },
     {
       "id": "csc1-fc-d3-04",
       "domainId": "csc-d3",
       "frontPrompt": "How do Treasury bills ordinarily provide a return?",
       "backAnswer": "They are generally purchased at a discount and redeemed at face value.",
-      "keyFormulaOrRule": "For a bill held to maturity, the gross gain is face value − purchase price."
+      "keyFormulaOrRule": "For a bill held to maturity, the gross gain is face value − purchase price.",
+      "topicId": "t_csc_d3_03_money_market_gics_and_other_fixed_in"
     },
     {
       "id": "csc1-fc-d4-01",
       "domainId": "csc-d4",
       "frontPrompt": "Which yield measure includes the gain or loss from redemption at par?",
       "backAnswer": "Yield to maturity incorporates the scheduled coupons and principal, based on the price paid.",
-      "keyFormulaOrRule": "Current yield = annual coupon cash ÷ current clean price."
+      "keyFormulaOrRule": "Current yield = annual coupon cash ÷ current clean price.",
+      "topicId": "t_csc_d4_06_yield_calculations_current_yield_ytm"
     },
     {
       "id": "csc1-fc-d4-02",
       "domainId": "csc-d4",
       "frontPrompt": "What does the clean bond price leave out?",
       "backAnswer": "Accrued interest since the previous coupon date.",
-      "keyFormulaOrRule": "Invoice price before fees = clean price + accrued interest."
+      "keyFormulaOrRule": "Invoice price before fees = clean price + accrued interest.",
+      "topicId": "t_csc_d4_01_accrued_interest_and_settlement"
     },
     {
       "id": "csc1-fc-d4-03",
       "domainId": "csc-d4",
       "frontPrompt": "Why does a fixed-rate bond generally fall when its required yield rises?",
       "backAnswer": "Its scheduled cash flows are discounted at a higher rate.",
-      "keyFormulaOrRule": "For small yield moves, approximate percentage price change = −modified duration × yield change."
+      "keyFormulaOrRule": "For small yield moves, approximate percentage price change = −modified duration × yield change.",
+      "topicId": "t_csc_d4_05_interest_rate_sensitivity_and_price_"
     },
     {
       "id": "csc1-fc-d4-04",
       "domainId": "csc-d4",
       "frontPrompt": "What does an inverted segment of the yield curve show?",
       "backAnswer": "Shorter-dated yields are higher than longer-dated yields over that segment.",
-      "keyFormulaOrRule": "Compare yields for otherwise comparable instruments at the same point in time."
+      "keyFormulaOrRule": "Compare yields for otherwise comparable instruments at the same point in time.",
+      "topicId": "t_csc_d4_02_yield_curve_and_bond_indexes"
     },
     {
       "id": "csc1-fc-d5-01",
       "domainId": "csc-d5",
       "frontPrompt": "What happens to ownership percentage in a proportional stock split?",
       "backAnswer": "It stays the same if every share is split in the same ratio.",
-      "keyFormulaOrRule": "Share count rises while the theoretical price per share falls proportionally."
+      "keyFormulaOrRule": "Share count rises while the theoretical price per share falls proportionally.",
+      "topicId": "t_csc_d5_02_stock_splits_and_stock_dividends"
     },
     {
       "id": "csc1-fc-d5-02",
       "domainId": "csc-d5",
       "frontPrompt": "How does a cumulative preferred share treat skipped dividends?",
       "backAnswer": "Unpaid amounts accumulate under the issue terms and generally must be addressed before common dividends resume.",
-      "keyFormulaOrRule": "Read the terms of the preferred share."
+      "keyFormulaOrRule": "Read the terms of the preferred share.",
+      "topicId": "t_csc_d5_01_preferred_shares"
     },
     {
       "id": "csc1-fc-d5-03",
       "domainId": "csc-d5",
       "frontPrompt": "Who ordinarily gets an announced dividend if a share is purchased on its ex-dividend date?",
       "backAnswer": "The seller retains the entitlement to that dividend.",
-      "keyFormulaOrRule": "The ex-dividend date is the first trading day without that dividend attached."
+      "keyFormulaOrRule": "The ex-dividend date is the first trading day without that dividend attached.",
+      "topicId": "t_csc_d5_03_dividends_and_ex_dividend_dates"
     },
     {
       "id": "csc1-fc-d5-04",
       "domainId": "csc-d5",
       "frontPrompt": "How do you calculate a company’s equity market capitalization?",
       "backAnswer": "Multiply the current share price by the number of shares outstanding for a single-class company.",
-      "keyFormulaOrRule": "Market capitalization is the market value of equity, not book equity."
+      "keyFormulaOrRule": "Market capitalization is the market value of equity, not book equity.",
+      "topicId": "t_csc_d5_04_stock_indexes_and_market_capitalizat"
     },
     {
       "id": "csc1-fc-d6-01",
       "domainId": "csc-d6",
       "frontPrompt": "What does a buy limit order control?",
       "backAnswer": "The maximum price the buyer will pay.",
-      "keyFormulaOrRule": "The order may execute at the limit or better, but a fill is not guaranteed."
+      "keyFormulaOrRule": "The order may execute at the limit or better, but a fill is not guaranteed.",
+      "topicId": "t_csc_d6_03_order_types"
     },
     {
       "id": "csc1-fc-d6-02",
       "domainId": "csc-d6",
       "frontPrompt": "How is equity in a long margin account calculated?",
       "backAnswer": "Subtract the debit balance from the market value of the position, assuming no other assets or balances.",
-      "keyFormulaOrRule": "Leverage magnifies percentage gains and losses on account equity."
+      "keyFormulaOrRule": "Leverage magnifies percentage gains and losses on account equity.",
+      "topicId": "t_csc_d6_02_margin_accounts"
     },
     {
       "id": "csc1-fc-d6-03",
       "domainId": "csc-d6",
       "frontPrompt": "Why can a short sale generate a loss larger than the initial proceeds?",
       "backAnswer": "The price to buy back the borrowed shares can rise far above the sale price.",
-      "keyFormulaOrRule": "Gross short profit = shares × (sell price − cover price)."
+      "keyFormulaOrRule": "Gross short profit = shares × (sell price − cover price).",
+      "topicId": "t_csc_d6_01_short_selling"
     },
     {
       "id": "csc1-fc-d6-04",
       "domainId": "csc-d6",
       "frontPrompt": "Can a sell stop fill below its trigger price?",
       "backAnswer": "Yes. Once a stop-market order triggers, it may fill at the available market price.",
-      "keyFormulaOrRule": "A trigger price is not a guaranteed execution price."
+      "keyFormulaOrRule": "A trigger price is not a guaranteed execution price.",
+      "topicId": "t_csc_d6_03_order_types"
     },
     {
       "id": "csc1-fc-d7-01",
       "domainId": "csc-d7",
       "frontPrompt": "What right does a long call give its holder?",
       "backAnswer": "The right to buy the underlying at the strike price under the contract terms.",
-      "keyFormulaOrRule": "A long put gives the right to sell."
+      "keyFormulaOrRule": "A long put gives the right to sell.",
+      "topicId": "t_csc_d7_02_options_positions_values_and_strateg"
     },
     {
       "id": "csc1-fc-d7-02",
       "domainId": "csc-d7",
       "frontPrompt": "What is a long put’s net payoff per share at expiration?",
       "backAnswer": "The greater of strike minus spot and zero, less the premium paid.",
-      "keyFormulaOrRule": "Multiply the per-share amount by the contract size and number of contracts."
+      "keyFormulaOrRule": "Multiply the per-share amount by the contract size and number of contracts.",
+      "topicId": "t_csc_d7_02_options_positions_values_and_strateg"
     },
     {
       "id": "csc1-fc-d7-03",
       "domainId": "csc-d7",
       "frontPrompt": "How does a futures contract differ from a typical forward?",
       "backAnswer": "Futures are standardized and traded on an exchange; forwards are typically customized bilateral contracts.",
-      "keyFormulaOrRule": "Futures positions generally settle gains and losses through daily marking to market."
+      "keyFormulaOrRule": "Futures positions generally settle gains and losses through daily marking to market.",
+      "topicId": "t_csc_d7_01_futures_and_forwards"
     },
     {
       "id": "csc1-fc-d7-04",
       "domainId": "csc-d7",
       "frontPrompt": "How can company-issued warrants dilute an existing shareholder?",
       "backAnswer": "Exercise may create additional shares, reducing the holder’s ownership percentage if their own holdings are unchanged.",
-      "keyFormulaOrRule": "Ownership percentage = shares held ÷ total shares outstanding."
+      "keyFormulaOrRule": "Ownership percentage = shares held ÷ total shares outstanding.",
+      "topicId": "t_csc_d7_03_rights_warrants_and_other_derivative"
     },
     {
       "id": "csc1-fc-d8-01",
       "domainId": "csc-d8",
       "frontPrompt": "How do you calculate the current ratio?",
       "backAnswer": "Divide current assets by current liabilities.",
-      "keyFormulaOrRule": "The ratio measures short-term balance-sheet liquidity."
+      "keyFormulaOrRule": "The ratio measures short-term balance-sheet liquidity.",
+      "topicId": "t_csc_d8_05_balance_sheet_and_financial_ratios"
     },
     {
       "id": "csc1-fc-d8-02",
       "domainId": "csc-d8",
       "frontPrompt": "Why is depreciation added back when using the indirect cash-flow method?",
       "backAnswer": "Depreciation lowered accounting profit without being a cash outflow in that period.",
-      "keyFormulaOrRule": "The purchase of equipment is generally an investing cash flow."
+      "keyFormulaOrRule": "The purchase of equipment is generally an investing cash flow.",
+      "topicId": "t_csc_d8_03_cash_flow_statement"
     },
     {
       "id": "csc1-fc-d8-03",
       "domainId": "csc-d8",
       "frontPrompt": "How is common EPS calculated in a simple capital structure?",
       "backAnswer": "Subtract preferred dividends from net income, then divide by weighted-average common shares.",
-      "keyFormulaOrRule": "Keep earnings and the share count for the same reporting period."
+      "keyFormulaOrRule": "Keep earnings and the share count for the same reporting period.",
+      "topicId": "t_csc_d8_04_income_statement_and_depreciation"
     },
     {
       "id": "csc1-fc-d8-04",
       "domainId": "csc-d8",
       "frontPrompt": "Which report explains management’s view of changes in operating results and risks?",
       "backAnswer": "Management’s discussion and analysis.",
-      "keyFormulaOrRule": "Use it alongside the financial statements and their notes."
+      "keyFormulaOrRule": "Use it alongside the financial statements and their notes.",
+      "topicId": "t_csc_d8_02_annual_report_disclosure_takeovers_a"
     },
     {
       "id": "csc1-fc-d9-01",
       "domainId": "csc-d9",
       "frontPrompt": "Who carries the risk of reselling a firm-commitment issue?",
       "backAnswer": "The underwriter, who commits to buy and resell the securities under the agreement.",
-      "keyFormulaOrRule": "A best-efforts dealer seeks purchasers without usually committing to buy the unsold balance."
+      "keyFormulaOrRule": "A best-efforts dealer seeks purchasers without usually committing to buy the unsold balance.",
+      "topicId": "t_csc_d9_01_underwriting_issue_costs_and_proceed"
     },
     {
       "id": "csc1-fc-d9-02",
       "domainId": "csc-d9",
       "frontPrompt": "How do you calculate net offering proceeds to the issuer?",
       "backAnswer": "Subtract underwriting compensation and other issuance costs from gross proceeds.",
-      "keyFormulaOrRule": "Gross proceeds = offer price × shares issued in a primary offering."
+      "keyFormulaOrRule": "Gross proceeds = offer price × shares issued in a primary offering.",
+      "topicId": "t_csc_d9_01_underwriting_issue_costs_and_proceed"
     },
     {
       "id": "csc1-fc-d9-03",
       "domainId": "csc-d9",
       "frontPrompt": "How can a shareholder keep the same proportional ownership in a pro rata rights issue?",
       "backAnswer": "Exercise the full allotment, assuming the whole issue is subscribed and there are no other changes.",
-      "keyFormulaOrRule": "Subscription rights may have value that disappears at expiry."
+      "keyFormulaOrRule": "Subscription rights may have value that disappears at expiry.",
+      "topicId": "t_csc_d9_02_rights_offerings_and_dilution"
     },
     {
       "id": "csc1-fc-d9-04",
       "domainId": "csc-d9",
       "frontPrompt": "What is the purpose of a temporary trading halt pending material news?",
       "backAnswer": "It gives the market a chance to receive and absorb the information before trading resumes.",
-      "keyFormulaOrRule": "A halt is distinct from delisting, which removes the listing."
+      "keyFormulaOrRule": "A halt is distinct from delisting, which removes the listing.",
+      "topicId": "t_csc_d9_04_listing_and_trading_halts"
+    },
+    {
+      "id": "csc1-fc-t101-01",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_01_regulation_kyc_ethics_and_investor_r",
+      "frontPrompt": "What is the purpose of know-your-product due diligence?",
+      "backAnswer": "Understand the product's features, risks and costs before using it in a recommendation.",
+      "keyFormulaOrRule": "Product knowledge and current client information both inform suitability."
+    },
+    {
+      "id": "csc1-fc-t101-02",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_01_regulation_kyc_ethics_and_investor_r",
+      "frontPrompt": "What should an adviser identify when higher compensation could influence a recommendation?",
+      "backAnswer": "A material conflict of interest that must be addressed in the client's best interest or avoided if it cannot be addressed.",
+      "keyFormulaOrRule": "Disclosure alone does not resolve a material conflict."
+    },
+    {
+      "id": "csc1-fc-t102-01",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_02_financial_institutions_and_investor_",
+      "frontPrompt": "How does a deposit-taking institution typically use its deposit funding?",
+      "backAnswer": "It pools deposits and uses funds for activities such as lending and investing, subject to regulation.",
+      "keyFormulaOrRule": "Deposits are liabilities of the institution. Loans it makes are assets."
+    },
+    {
+      "id": "csc1-fc-t102-02",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_02_financial_institutions_and_investor_",
+      "frontPrompt": "What event can trigger CIPF protection for eligible brokerage property?",
+      "backAnswer": "Insolvency of a CIPF member firm that leaves eligible client property missing.",
+      "keyFormulaOrRule": "Investment losses from market declines do not constitute missing property."
+    },
+    {
+      "id": "csc1-fc-t102-03",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_02_financial_institutions_and_investor_",
+      "frontPrompt": "How does an eligible bank deposit differ from a stock for CDIC purposes?",
+      "backAnswer": "An eligible deposit at a CDIC member institution may be protected within coverage limits. Stocks are outside deposit insurance.",
+      "keyFormulaOrRule": "Check the institution, product and deposit category."
+    },
+    {
+      "id": "csc1-fc-t103-01",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_03_capital_markets_and_financial_instru",
+      "frontPrompt": "What financial claim does a conventional bond represent?",
+      "backAnswer": "A creditor's claim for contractual interest and principal from the issuer.",
+      "keyFormulaOrRule": "Ownership of a bond does not give common shareholder voting rights."
+    },
+    {
+      "id": "csc1-fc-t103-02",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_03_capital_markets_and_financial_instru",
+      "frontPrompt": "How do money markets and longer-term capital markets differ?",
+      "backAnswer": "Money markets generally deal in short-term borrowing instruments. Longer-term capital markets include longer-dated debt and equity.",
+      "keyFormulaOrRule": "Treasury bills and commercial paper are typical money-market instruments."
+    },
+    {
+      "id": "csc1-fc-t104-01",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_04_dealers_principal_and_agency_commiss",
+      "frontPrompt": "A dealer buys 100 shares for inventory at $24.90 and sells them at $25.10. What gross spread revenue does that trade produce?",
+      "backAnswer": "$20 before costs.",
+      "keyFormulaOrRule": "Gross spread revenue = 100 × ($25.10 − $24.90)."
+    },
+    {
+      "id": "csc1-fc-t201-01",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_01_trade_exchange_rates_and_balance_of_",
+      "frontPrompt": "If one US dollar costs C$1.35, what is the Canadian-dollar value of US$800?",
+      "backAnswer": "C$1,080 before fees.",
+      "keyFormulaOrRule": "Multiply the foreign amount by the Canadian-dollar price per foreign unit."
+    },
+    {
+      "id": "csc1-fc-t201-02",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_01_trade_exchange_rates_and_balance_of_",
+      "frontPrompt": "What happens to the Canadian-dollar cost of a fixed US-dollar invoice when the Canadian dollar weakens against the US dollar?",
+      "backAnswer": "It rises.",
+      "keyFormulaOrRule": "A weaker Canadian dollar means more Canadian dollars are needed to buy the same US dollars."
+    },
+    {
+      "id": "csc1-fc-t201-03",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_01_trade_exchange_rates_and_balance_of_",
+      "frontPrompt": "Where would a Canadian consulting firm's fee from a foreign customer be recorded in the balance of payments?",
+      "backAnswer": "As a services export in the current account.",
+      "keyFormulaOrRule": "Purchases of foreign securities belong to financial flows."
+    },
+    {
+      "id": "csc1-fc-t202-01",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_02_fiscal_policy_and_the_government_bud",
+      "frontPrompt": "What is an automatic fiscal stabilizer?",
+      "backAnswer": "A government revenue or spending mechanism that responds to economic conditions without a new policy decision.",
+      "keyFormulaOrRule": "Income-tax receipts normally fall when taxable incomes fall."
+    },
+    {
+      "id": "csc1-fc-t202-02",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_02_fiscal_policy_and_the_government_bud",
+      "frontPrompt": "Revenue is $525 billion, total spending is $548 billion, and there are no other adjustments. What is the fiscal balance?",
+      "backAnswer": "A $23 billion deficit.",
+      "keyFormulaOrRule": "Fiscal balance = revenue − spending."
+    },
+    {
+      "id": "csc1-fc-t203-01",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_03_interest_rates_bank_of_canada_and_mo",
+      "frontPrompt": "What rate is the Bank of Canada's main monetary policy instrument?",
+      "backAnswer": "Its target for the overnight rate.",
+      "keyFormulaOrRule": "Changes in the target influence short-term borrowing rates and broader financial conditions."
+    },
+    {
+      "id": "csc1-fc-t203-02",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_03_interest_rates_bank_of_canada_and_mo",
+      "frontPrompt": "How many percentage points are equivalent to a 75-basis-point increase?",
+      "backAnswer": "0.75 percentage points.",
+      "keyFormulaOrRule": "100 basis points equals one percentage point."
+    },
+    {
+      "id": "csc1-fc-t203-03",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_03_interest_rates_bank_of_canada_and_mo",
+      "frontPrompt": "How can a higher policy rate affect demand?",
+      "backAnswer": "It can raise borrowing costs and encourage saving, putting downward pressure on interest-sensitive spending.",
+      "keyFormulaOrRule": "Transmission to the economy takes time."
+    },
+    {
+      "id": "csc1-fc-t204-01",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_04_gdp_and_productivity",
+      "frontPrompt": "What does GDP measure under the expenditure approach?",
+      "backAnswer": "The value of final domestic production measured through consumption, investment, government spending on goods and services, and net exports.",
+      "keyFormulaOrRule": "GDP = C + I + G + (X − M)."
+    },
+    {
+      "id": "csc1-fc-t204-02",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_04_gdp_and_productivity",
+      "frontPrompt": "Nominal GDP is $1.32 trillion and the GDP deflator is 110. What is real GDP in base-year dollars?",
+      "backAnswer": "$1.20 trillion.",
+      "keyFormulaOrRule": "Real GDP = nominal GDP ÷ (deflator ÷ 100)."
+    },
+    {
+      "id": "csc1-fc-t204-03",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_04_gdp_and_productivity",
+      "frontPrompt": "A plant makes 1,800 units in 300 labour hours. What is its labour productivity?",
+      "backAnswer": "6 units per labour hour.",
+      "keyFormulaOrRule": "Labour productivity = output ÷ labour hours."
+    },
+    {
+      "id": "csc1-fc-t205-01",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_05_business_cycle_and_economic_indicato",
+      "frontPrompt": "What phases follow a peak and a trough in the business cycle?",
+      "backAnswer": "A contraction follows a peak. An expansion follows a trough.",
+      "keyFormulaOrRule": "The peak and trough are turning points."
+    },
+    {
+      "id": "csc1-fc-t205-02",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_05_business_cycle_and_economic_indicato",
+      "frontPrompt": "Why can building permits be a leading indicator?",
+      "backAnswer": "They can signal construction activity before the permitted work begins.",
+      "keyFormulaOrRule": "A leading indicator tends to turn ahead of overall activity."
+    },
+    {
+      "id": "csc1-fc-t205-03",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_05_business_cycle_and_economic_indicato",
+      "frontPrompt": "What distinguishes coincident and lagging indicators?",
+      "backAnswer": "Coincident indicators move broadly with current activity. Lagging indicators respond after broader changes are underway.",
+      "keyFormulaOrRule": "Use several indicators together when judging a turning point."
+    },
+    {
+      "id": "csc1-fc-t206-01",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_06_labour_market_and_unemployment",
+      "frontPrompt": "What does the labour-force participation rate measure?",
+      "backAnswer": "The percentage of the relevant population that is employed or unemployed and in the labour force.",
+      "keyFormulaOrRule": "Participation = labour force ÷ relevant population × 100."
+    },
+    {
+      "id": "csc1-fc-t206-02",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_06_labour_market_and_unemployment",
+      "frontPrompt": "Which kind of unemployment arises when available jobs require skills a worker does not have?",
+      "backAnswer": "Structural unemployment.",
+      "keyFormulaOrRule": "Frictional unemployment is associated with transitions between jobs."
+    },
+    {
+      "id": "csc1-fc-t207-01",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_07_inflation_cpi_and_real_returns",
+      "frontPrompt": "If CPI rises from 125 to 130, what is the measured inflation rate?",
+      "backAnswer": "4%.",
+      "keyFormulaOrRule": "Inflation rate = (130 − 125) ÷ 125 × 100."
+    },
+    {
+      "id": "csc1-fc-t301-01",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_01_bond_ratings_and_quotes",
+      "frontPrompt": "A corporate bond yields 5.4% and a comparable benchmark yields 4.1%. What is the spread?",
+      "backAnswer": "130 basis points.",
+      "keyFormulaOrRule": "Yield spread = 5.4% − 4.1% = 1.3 percentage points."
+    },
+    {
+      "id": "csc1-fc-t301-02",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_01_bond_ratings_and_quotes",
+      "frontPrompt": "All else equal, what usually happens to a fixed-rate bond's price if a downgrade widens its required credit spread?",
+      "backAnswer": "Its price falls as investors require a higher yield.",
+      "keyFormulaOrRule": "The bond's contractual coupon is unchanged unless the terms specify otherwise."
+    },
+    {
+      "id": "csc1-fc-t302-01",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_02_government_of_canada_provincial_and_",
+      "frontPrompt": "What distinguishes federal and provincial bonds by issuer?",
+      "backAnswer": "Federal debt is issued by the Government of Canada. Provincial debt is issued by a provincial government.",
+      "keyFormulaOrRule": "The identity of the borrower can affect credit spreads."
+    },
+    {
+      "id": "csc1-fc-t302-02",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_02_government_of_canada_provincial_and_",
+      "frontPrompt": "What repays a municipal revenue bond financed by a toll road when its terms pledge toll receipts?",
+      "backAnswer": "The pledged revenues from the toll road.",
+      "keyFormulaOrRule": "Identify the revenue or tax base that supports the bond rather than relying on the issuer name alone."
+    },
+    {
+      "id": "csc1-fc-t302-03",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_02_government_of_canada_provincial_and_",
+      "frontPrompt": "Why might a provincial bond yield more than a comparable Government of Canada bond?",
+      "backAnswer": "Investors may want compensation for differences in credit risk and market liquidity.",
+      "keyFormulaOrRule": "Compare maturities and other features before attributing the spread to one factor."
+    },
+    {
+      "id": "csc1-fc-t303-01",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_03_money_market_gics_and_other_fixed_in",
+      "frontPrompt": "What is commercial paper commonly used for?",
+      "backAnswer": "Short-term corporate funding, such as financing inventory or receivables.",
+      "keyFormulaOrRule": "Unsecured commercial paper depends on the issuer's ability to repay."
+    },
+    {
+      "id": "csc1-fc-t303-02",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_03_money_market_gics_and_other_fixed_in",
+      "frontPrompt": "A one-year GIC pays 4% simple interest on $5,000. What is the maturity value?",
+      "backAnswer": "$5,200.",
+      "keyFormulaOrRule": "Maturity value = principal + principal × rate × time."
+    },
+    {
+      "id": "csc1-fc-t304-01",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_04_corporate_bonds_and_bond_features",
+      "frontPrompt": "How can a convertible bond give the investor exposure to equity?",
+      "backAnswer": "Its terms may let the holder exchange the bond for a set number of shares.",
+      "keyFormulaOrRule": "Conversion value = share price × shares received."
+    },
+    {
+      "id": "csc1-fc-t304-02",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_04_corporate_bonds_and_bond_features",
+      "frontPrompt": "What does subordination change for a corporate bondholder?",
+      "backAnswer": "The payment priority of the claim relative to senior debt if the issuer cannot pay all creditors.",
+      "keyFormulaOrRule": "Coupon and maturity terms alone do not determine claim priority."
+    },
+    {
+      "id": "csc1-fc-t305-01",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_05_bond_terminology_and_basic_features",
+      "frontPrompt": "What does maturity mean for a conventional bullet bond?",
+      "backAnswer": "The date when the face amount is scheduled to be repaid.",
+      "keyFormulaOrRule": "The final coupon and principal are separate parts of the final payment."
+    },
+    {
+      "id": "csc1-fc-t305-02",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_05_bond_terminology_and_basic_features",
+      "frontPrompt": "What remains fixed on a fixed-coupon bond when its market price changes?",
+      "backAnswer": "The contractual coupon rate.",
+      "keyFormulaOrRule": "Current yield and yield to maturity can move as the price moves."
+    },
+    {
+      "id": "csc1-fc-t401-01",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_01_accrued_interest_and_settlement",
+      "frontPrompt": "Who normally receives the next full coupon when a regular trade settles between coupon dates?",
+      "backAnswer": "The buyer, subject to the applicable settlement and coupon conventions.",
+      "keyFormulaOrRule": "Paying accrued interest compensates the seller for the portion earned before settlement."
+    },
+    {
+      "id": "csc1-fc-t401-02",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_01_accrued_interest_and_settlement",
+      "frontPrompt": "The last semiannual coupon was $120. If 30 of 180 coupon-period days have accrued, what is accrued interest under that convention?",
+      "backAnswer": "$20.",
+      "keyFormulaOrRule": "Accrued interest = $120 × 30 ÷ 180."
+    },
+    {
+      "id": "csc1-fc-t402-01",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_02_yield_curve_and_bond_indexes",
+      "frontPrompt": "What makes a bond index a total-return index?",
+      "backAnswer": "Its methodology incorporates coupon income as well as price changes.",
+      "keyFormulaOrRule": "A price-only index excludes coupon income from the reported return."
+    },
+    {
+      "id": "csc1-fc-t402-02",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_02_yield_curve_and_bond_indexes",
+      "frontPrompt": "If a two-year yield is 3.6% and a ten-year yield is 4.0%, what is the ten-year minus two-year slope?",
+      "backAnswer": "40 basis points.",
+      "keyFormulaOrRule": "Subtract the shorter yield from the longer yield."
+    },
+    {
+      "id": "csc1-fc-t403-01",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_03_treasury_bill_pricing",
+      "frontPrompt": "A bill is bought for $9,850 and redeems for $10,000. What is the gross dollar return?",
+      "backAnswer": "$150.",
+      "keyFormulaOrRule": "Discount income = maturity proceeds − purchase price."
+    },
+    {
+      "id": "csc1-fc-t403-02",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_03_treasury_bill_pricing",
+      "frontPrompt": "What denominator is used for simple annualized Treasury-bill yield on purchase cost?",
+      "backAnswer": "The purchase price.",
+      "keyFormulaOrRule": "Under actual/365: yield = (face − price) ÷ price × 365 ÷ days to maturity."
+    },
+    {
+      "id": "csc1-fc-t403-03",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_03_treasury_bill_pricing",
+      "frontPrompt": "What price corresponds to a $10,000 bill with 90 days remaining and a 4% simple purchase yield on actual/365?",
+      "backAnswer": "Approximately $9,902.33.",
+      "keyFormulaOrRule": "Price = $10,000 ÷ (1 + 0.04 × 90 ÷ 365)."
+    },
+    {
+      "id": "csc1-fc-t404-01",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_04_bond_quotes_and_price_calculations",
+      "frontPrompt": "How should you read a clean bond quote of 97.25?",
+      "backAnswer": "$97.25 per $100 of face value.",
+      "keyFormulaOrRule": "Multiply face amount by 0.9725 to obtain the clean dollar price."
+    },
+    {
+      "id": "csc1-fc-t404-02",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_04_bond_quotes_and_price_calculations",
+      "frontPrompt": "A bond is quoted at 102.40 with $25,000 face amount. What is the clean price?",
+      "backAnswer": "$25,600.",
+      "keyFormulaOrRule": "Clean dollar price = face × quote ÷ 100."
+    },
+    {
+      "id": "csc1-fc-t404-03",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_04_bond_quotes_and_price_calculations",
+      "frontPrompt": "Two bonds have identical face amounts and terms. One has a higher clean quote. What does that imply about its yield, all else equal?",
+      "backAnswer": "The bond with the higher clean price has a lower yield.",
+      "keyFormulaOrRule": "This inverse relationship holds when comparing the same scheduled cash flows."
+    },
+    {
+      "id": "csc1-fc-t405-01",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_05_interest_rate_sensitivity_and_price_",
+      "frontPrompt": "A noncallable bond has modified duration of five. Estimate its percentage price move for a 20-basis-point rise in yield.",
+      "backAnswer": "Approximately −1%.",
+      "keyFormulaOrRule": "Approximate change = −5 × 0.002 = −0.01."
+    },
+    {
+      "id": "csc1-fc-t405-02",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_05_interest_rate_sensitivity_and_price_",
+      "frontPrompt": "Which of two similar fixed-rate noncallable bonds is normally more rate-sensitive if one has a lower coupon and they have equal maturity and yield?",
+      "backAnswer": "The lower-coupon bond.",
+      "keyFormulaOrRule": "More of its value is tied to the principal payment at maturity."
+    },
+    {
+      "id": "csc1-fc-t406-01",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_06_yield_calculations_current_yield_ytm",
+      "frontPrompt": "A bond pays an annual coupon of $45 and trades for $900. What is its current yield?",
+      "backAnswer": "5%.",
+      "keyFormulaOrRule": "Current yield = $45 ÷ $900."
+    },
+    {
+      "id": "csc1-fc-t406-02",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_06_yield_calculations_current_yield_ytm",
+      "frontPrompt": "For a conventional fixed-rate bond bought at par on a coupon date, how does YTM compare with the coupon rate on the same convention?",
+      "backAnswer": "They are equal.",
+      "keyFormulaOrRule": "There is no premium or discount to amortize at par."
+    },
+    {
+      "id": "csc1-fc-t501-01",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_01_preferred_shares",
+      "frontPrompt": "Who can require repurchase under a holder-retractable preferred share?",
+      "backAnswer": "The holder, under the specified terms and dates.",
+      "keyFormulaOrRule": "Issuer redemption and holder retraction are different rights."
+    },
+    {
+      "id": "csc1-fc-t501-02",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_01_preferred_shares",
+      "frontPrompt": "How is the dividend rate on a rate-reset preferred share commonly established at a reset date?",
+      "backAnswer": "A stated spread is added to the reference rate specified in the issue terms.",
+      "keyFormulaOrRule": "Read the benchmark, spread and reset schedule before calculating."
+    },
+    {
+      "id": "csc1-fc-t502-01",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_02_stock_splits_and_stock_dividends",
+      "frontPrompt": "A shareholder owns 120 shares before a three-for-two split. How many shares do they hold afterward?",
+      "backAnswer": "180 shares, assuming no fractional adjustment.",
+      "keyFormulaOrRule": "Multiply the old share count by the split ratio."
+    },
+    {
+      "id": "csc1-fc-t502-02",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_02_stock_splits_and_stock_dividends",
+      "frontPrompt": "What is the theoretical price per share after a one-for-four consolidation of a $6 share, ignoring market moves?",
+      "backAnswer": "$24.",
+      "keyFormulaOrRule": "A fourfold reduction in share count implies a fourfold increase in theoretical per-share price."
+    },
+    {
+      "id": "csc1-fc-t503-01",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_03_dividends_and_ex_dividend_dates",
+      "frontPrompt": "What is a cash dividend payout ratio for common shares?",
+      "backAnswer": "Common dividends divided by earnings available to common shareholders.",
+      "keyFormulaOrRule": "Use the same period for dividends and earnings."
+    },
+    {
+      "id": "csc1-fc-t503-02",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_03_dividends_and_ex_dividend_dates",
+      "frontPrompt": "A share pays $1.44 annually and trades for $36. What is its dividend yield?",
+      "backAnswer": "4%.",
+      "keyFormulaOrRule": "Annual cash dividend per share ÷ market price per share."
+    },
+    {
+      "id": "csc1-fc-t504-01",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_04_stock_indexes_and_market_capitalizat",
+      "frontPrompt": "Which stock has more influence in a market-cap-weighted index?",
+      "backAnswer": "The stock with the larger index-eligible market capitalization, all else equal.",
+      "keyFormulaOrRule": "Many indices use free-float-adjusted rather than full capitalization."
+    },
+    {
+      "id": "csc1-fc-t504-02",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_04_stock_indexes_and_market_capitalizat",
+      "frontPrompt": "What is the difference between a price and a total-return stock index?",
+      "backAnswer": "A total-return index includes dividend distributions according to its methodology. A price index reflects price movements.",
+      "keyFormulaOrRule": "Match the index return type to the comparison."
+    },
+    {
+      "id": "csc1-fc-t505-01",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_05_common_shares_features_rights_and_va",
+      "frontPrompt": "Where do common shareholders generally rank in liquidation?",
+      "backAnswer": "After creditors and claims senior to common equity, including applicable preferred claims.",
+      "keyFormulaOrRule": "Common shareholders have a residual claim."
+    },
+    {
+      "id": "csc1-fc-t505-02",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_05_common_shares_features_rights_and_va",
+      "frontPrompt": "A stock trades at $48 and earned $3 per common share. What is its price-to-earnings multiple?",
+      "backAnswer": "16 times.",
+      "keyFormulaOrRule": "P/E = price per common share ÷ earnings per common share."
+    },
+    {
+      "id": "csc1-fc-t505-03",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_05_common_shares_features_rights_and_va",
+      "frontPrompt": "What is a usual purpose of common-share voting rights?",
+      "backAnswer": "To vote on board elections and certain other corporate matters under the share-class terms.",
+      "keyFormulaOrRule": "Voting rights can differ between classes."
+    },
+    {
+      "id": "csc1-fc-t601-01",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_01_short_selling",
+      "frontPrompt": "A trader shorts 200 shares at $30 and buys them back at $27. What is gross profit before costs?",
+      "backAnswer": "$600.",
+      "keyFormulaOrRule": "Short profit before costs = 200 × ($30 − $27)."
+    },
+    {
+      "id": "csc1-fc-t601-02",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_01_short_selling",
+      "frontPrompt": "Who generally bears the cost of a dividend when borrowed stock remains sold short?",
+      "backAnswer": "The short seller typically owes a dividend-equivalent payment to the lender under the borrowing terms.",
+      "keyFormulaOrRule": "Include the payment and borrowing costs when computing net profit."
+    },
+    {
+      "id": "csc1-fc-t602-01",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_02_margin_accounts",
+      "frontPrompt": "A long margin position is worth $20,000 with a $12,000 debit balance. What percentage of market value is equity?",
+      "backAnswer": "40%.",
+      "keyFormulaOrRule": "Equity ratio = ($20,000 − $12,000) ÷ $20,000."
+    },
+    {
+      "id": "csc1-fc-t602-02",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_02_margin_accounts",
+      "frontPrompt": "Why can a drop in a long position's value cause a margin call even if its loan balance does not change?",
+      "backAnswer": "The equity cushion falls as the market value securing the loan declines.",
+      "keyFormulaOrRule": "A margin call can require additional funds or securities, subject to the agreement."
+    },
+    {
+      "id": "csc1-fc-t603-01",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_03_order_types",
+      "frontPrompt": "What is the main trade-off of a market order?",
+      "backAnswer": "It prioritizes execution at available prices, while the ultimate price can differ from the last quote.",
+      "keyFormulaOrRule": "Use a limit order when price control is the priority."
+    },
+    {
+      "id": "csc1-fc-t604-01",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_04_cash_accounts_settlement_and_trade_c",
+      "frontPrompt": "What occurs on the settlement date of a regular cash trade?",
+      "backAnswer": "The securities and payment are exchanged under the applicable settlement rules.",
+      "keyFormulaOrRule": "The trade date is when the order executes."
+    },
+    {
+      "id": "csc1-fc-t604-02",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_04_cash_accounts_settlement_and_trade_c",
+      "frontPrompt": "In a cash account, what amount is due on a purchase of 150 shares at $24 with a $9 commission?",
+      "backAnswer": "$3,609.",
+      "keyFormulaOrRule": "Purchase settlement = shares × execution price + commission."
+    },
+    {
+      "id": "csc1-fc-t604-03",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_04_cash_accounts_settlement_and_trade_c",
+      "frontPrompt": "What obligation does a buyer generally have when a purchase is made in a cash account?",
+      "backAnswer": "Provide the full amount required to settle the purchase and applicable fees.",
+      "keyFormulaOrRule": "A cash account does not provide routine margin financing."
+    },
+    {
+      "id": "csc1-fc-t701-01",
+      "domainId": "csc-d7",
+      "topicId": "t_csc_d7_01_futures_and_forwards",
+      "frontPrompt": "Why does an exporter who will receive US dollars sometimes sell them forward?",
+      "backAnswer": "Selling US dollars forward locks in the Canadian-dollar proceeds for the agreed future date.",
+      "keyFormulaOrRule": "Match the hedge amount and date to the expected receipt."
+    },
+    {
+      "id": "csc1-fc-t701-02",
+      "domainId": "csc-d7",
+      "topicId": "t_csc_d7_01_futures_and_forwards",
+      "frontPrompt": "A long futures contract with a $50 per point multiplier settles five points higher. What is the variation gain on one contract?",
+      "backAnswer": "$250.",
+      "keyFormulaOrRule": "Long gain = settlement increase × multiplier."
+    },
+    {
+      "id": "csc1-fc-t702-01",
+      "domainId": "csc-d7",
+      "topicId": "t_csc_d7_02_options_positions_values_and_strateg",
+      "frontPrompt": "An investor pays $2 for a call with a $35 strike. What is the break-even price at expiration before fees?",
+      "backAnswer": "$37.",
+      "keyFormulaOrRule": "Long call break-even = strike + premium."
+    },
+    {
+      "id": "csc1-fc-t703-01",
+      "domainId": "csc-d7",
+      "topicId": "t_csc_d7_03_rights_warrants_and_other_derivative",
+      "frontPrompt": "What opportunity does a pro rata subscription right give a shareholder?",
+      "backAnswer": "A chance to purchase new shares under stated terms in proportion to the existing holding.",
+      "keyFormulaOrRule": "The right usually has a limited exercise period."
+    },
+    {
+      "id": "csc1-fc-t703-02",
+      "domainId": "csc-d7",
+      "topicId": "t_csc_d7_03_rights_warrants_and_other_derivative",
+      "frontPrompt": "What is the economic effect if a transferable subscription right expires unexercised?",
+      "backAnswer": "The holder loses any remaining opportunity to sell or exercise it.",
+      "keyFormulaOrRule": "Check the trading and exercise deadlines separately."
+    },
+    {
+      "id": "csc1-fc-t801-01",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_01_corporate_structure_and_shareholder_",
+      "frontPrompt": "Who typically elects a corporation's board of directors?",
+      "backAnswer": "Shareholders who are entitled to vote under the share-class terms.",
+      "keyFormulaOrRule": "The board oversees management on behalf of the corporation."
+    },
+    {
+      "id": "csc1-fc-t801-02",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_01_corporate_structure_and_shareholder_",
+      "frontPrompt": "What does limited liability generally mean for a fully paid shareholder who gave no guarantee?",
+      "backAnswer": "The shareholder can lose the investment but does not ordinarily owe the corporation's debts personally.",
+      "keyFormulaOrRule": "Corporate obligations belong to the corporation."
+    },
+    {
+      "id": "csc1-fc-t801-03",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_01_corporate_structure_and_shareholder_",
+      "frontPrompt": "A holder has 1,000 shares with five votes each. How many votes can the holder cast on a matter where that class is entitled to vote?",
+      "backAnswer": "5,000 votes.",
+      "keyFormulaOrRule": "Multiply shares by votes per share."
+    },
+    {
+      "id": "csc1-fc-t802-01",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_02_annual_report_disclosure_takeovers_a",
+      "frontPrompt": "Why does a public issuer disclose material developments promptly when required?",
+      "backAnswer": "Timely disclosure helps market participants assess significant information.",
+      "keyFormulaOrRule": "Materiality turns on whether the information matters to investment decisions under the applicable test."
+    },
+    {
+      "id": "csc1-fc-t802-02",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_02_annual_report_disclosure_takeovers_a",
+      "frontPrompt": "What is one purpose of insider transaction reporting?",
+      "backAnswer": "It gives market participants visibility into reportable changes in insiders' holdings or exposure.",
+      "keyFormulaOrRule": "A transaction report describes activity. It does not establish the insider's motive."
+    },
+    {
+      "id": "csc1-fc-t803-01",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_03_cash_flow_statement",
+      "frontPrompt": "Where does cash paid for a machine normally appear in a manufacturer's cash-flow statement?",
+      "backAnswer": "Investing activities.",
+      "keyFormulaOrRule": "The acquisition is distinct from later noncash depreciation."
+    },
+    {
+      "id": "csc1-fc-t803-02",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_03_cash_flow_statement",
+      "frontPrompt": "What is the usual effect of an increase in trade receivables on indirect operating cash flow, all else equal?",
+      "backAnswer": "It is deducted from net income in the operating cash-flow reconciliation.",
+      "keyFormulaOrRule": "Recognized revenue exceeded related cash collections by the increase."
+    },
+    {
+      "id": "csc1-fc-t804-01",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_04_income_statement_and_depreciation",
+      "frontPrompt": "How is gross profit calculated for a typical retailer?",
+      "backAnswer": "Sales revenue minus cost of goods sold.",
+      "keyFormulaOrRule": "Operating expenses, interest and taxes are addressed after gross profit."
+    },
+    {
+      "id": "csc1-fc-t804-02",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_04_income_statement_and_depreciation",
+      "frontPrompt": "What annual straight-line depreciation applies to a $52,000 machine with a $4,000 residual value and eight-year useful life?",
+      "backAnswer": "$6,000 annually.",
+      "keyFormulaOrRule": "Depreciable amount = cost − residual value. Divide by useful life."
+    },
+    {
+      "id": "csc1-fc-t805-01",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_05_balance_sheet_and_financial_ratios",
+      "frontPrompt": "Current assets are $240,000, including $90,000 inventory. Current liabilities are $100,000. How much is the quick ratio, assuming all other current assets are quick assets?",
+      "backAnswer": "1.5 times.",
+      "keyFormulaOrRule": "Quick ratio = ($240,000 − $90,000) ÷ $100,000."
+    },
+    {
+      "id": "csc1-fc-t805-02",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_05_balance_sheet_and_financial_ratios",
+      "frontPrompt": "Where do undistributed current-period profits usually accumulate in shareholders' equity?",
+      "backAnswer": "Retained earnings.",
+      "keyFormulaOrRule": "Net income generally increases retained earnings and dividends reduce them."
+    },
+    {
+      "id": "csc1-fc-t901-01",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_01_underwriting_issue_costs_and_proceed",
+      "frontPrompt": "An issuer sells 100,000 new shares at $12. The underwriting fee is 5% of gross proceeds and other costs are $20,000. What does the issuer receive net?",
+      "backAnswer": "$1,120,000.",
+      "keyFormulaOrRule": "Gross = $1,200,000. Subtract $60,000 compensation and $20,000 other costs."
+    },
+    {
+      "id": "csc1-fc-t902-01",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_02_rights_offerings_and_dilution",
+      "frontPrompt": "Four old shares worth $18 each entitle their owner to buy one new share at $13. What is the theoretical ex-rights price assuming full take-up?",
+      "backAnswer": "$17.",
+      "keyFormulaOrRule": "Theoretical ex-rights price = (4 × $18 + $13) ÷ 5."
+    },
+    {
+      "id": "csc1-fc-t902-02",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_02_rights_offerings_and_dilution",
+      "frontPrompt": "A shareholder owns 50,000 shares out of one million. The company issues 250,000 additional shares and the shareholder buys none. What is the new ownership percentage?",
+      "backAnswer": "4%.",
+      "keyFormulaOrRule": "Divide the unchanged holding by the new total of 1.25 million shares."
+    },
+    {
+      "id": "csc1-fc-t903-01",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_03_prospectus_system_and_distribution_m",
+      "frontPrompt": "What is the main purpose of a prospectus in a public securities offering?",
+      "backAnswer": "To provide required disclosure about the issuer, the offering, and material risks.",
+      "keyFormulaOrRule": "It supports an informed investment decision under applicable securities rules."
+    },
+    {
+      "id": "csc1-fc-t903-02",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_03_prospectus_system_and_distribution_m",
+      "frontPrompt": "Does a prospectus exemption eliminate all securities-law obligations?",
+      "backAnswer": "No. The issuer and participants must meet the exemption's conditions and any other applicable requirements.",
+      "keyFormulaOrRule": "The permitted investors, reporting and resale restrictions can differ by exemption."
+    },
+    {
+      "id": "csc1-fc-t903-03",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_03_prospectus_system_and_distribution_m",
+      "frontPrompt": "How do a preliminary and a final prospectus generally differ?",
+      "backAnswer": "The preliminary document supports review and allowed marketing. The final document provides completed disclosure for the offering.",
+      "keyFormulaOrRule": "Timing and permitted actions depend on the governing requirements."
+    },
+    {
+      "id": "csc1-fc-t904-01",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_04_listing_and_trading_halts",
+      "frontPrompt": "What changes when a security is delisted from an exchange?",
+      "backAnswer": "The security ceases to trade as a listed security on that exchange.",
+      "keyFormulaOrRule": "Delisting alone does not cancel the shareholder's legal ownership."
+    },
+    {
+      "id": "csc1-fc-t904-02",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_04_listing_and_trading_halts",
+      "frontPrompt": "How does a delayed opening differ from a trading halt after an opening?",
+      "backAnswer": "A delayed opening postpones the start of trading. A halt interrupts trading after it has begun.",
+      "keyFormulaOrRule": "Either can give the market time to handle information or an order imbalance."
     }
   ],
   "audio": [

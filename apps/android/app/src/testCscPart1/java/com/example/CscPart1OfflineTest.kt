@@ -218,9 +218,19 @@ class CscPart1OfflineTest {
                 ),
                 repository.bankMetadata.value.syllabusWeights
             )
-            awaitCondition { repository.flashcards.value.size == 36 }
+            awaitCondition { repository.flashcards.value.size == 129 }
             assertTrue(repository.flashcards.value.all { it.examId == "csc-part-1" })
             assertEquals(9, repository.flashcards.value.map { it.domainId }.distinct().size)
+            val study = context.assets.open("study/csc-part-1/study.json").bufferedReader().use {
+                org.json.JSONObject(it.readText())
+            }
+            val flashcardRows = study.getJSONArray("flashcards")
+            val rows = List(flashcardRows.length()) { flashcardRows.getJSONObject(it) }
+            assertEquals(repository.flashcards.value.map { it.id }.toSet(), rows.map { it.getString("id") }.toSet())
+            val expectedDomainsByTopic = repository.questions.value.associate { it.topicId to it.domainId }
+            assertEquals(expectedDomainsByTopic.keys, rows.map { it.getString("topicId") }.toSet())
+            assertTrue(rows.all { expectedDomainsByTopic[it.getString("topicId")] == it.getString("domainId") })
+            assertTrue(rows.groupingBy { it.getString("topicId") }.eachCount().values.all { it == 3 })
             assertTrue("Expected no CISSP study guides in CSC Part 1", repository.sources.value.isEmpty())
             val briefings = repository.audioOverviews.value
             assertEquals(9, briefings.size)
@@ -549,7 +559,7 @@ class CscPart1OfflineTest {
                 backAnswer = "60%",
                 keyRule = "CSC threshold = 60%"
             )
-            awaitCondition { vm1.flashcards.value.size == 36 && vm1.sources.value.size == 1 }
+            awaitCondition { vm1.flashcards.value.size == 129 && vm1.sources.value.size == 1 }
             assertTrue(vm1.flashcards.value.none { it.frontPrompt == "What is the CSC Part 1 passing grade?" })
             ratedCardId = vm1.flashcards.value.first().id
             vm1.rateFlashcard(boxLevel = 5)
@@ -586,7 +596,7 @@ class CscPart1OfflineTest {
             vm2.repositoryForTesting().setQuestionsForTesting(testQuestions)
             awaitCondition {
                 vm2.savedActiveAttempt.value != null &&
-                    vm2.flashcards.value.size == 36 &&
+                    vm2.flashcards.value.size == 129 &&
                     vm2.sources.value.size == 1
             }
 
