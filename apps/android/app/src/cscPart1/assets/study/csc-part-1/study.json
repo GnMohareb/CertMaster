@@ -1067,6 +1067,82 @@
       ]
     },
     {
+      "id": "csc1-audio-t101",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_01_regulation_kyc_ethics_and_investor_r",
+      "title": "Regulation, KYC, ethics and investor remedies",
+      "subtitle": "Suitability and investor remedies",
+      "concepts": [
+        "Suitability and investor remedies"
+      ],
+      "durationSeconds": 32,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Start with the client's financial circumstances, objectives and risk profile. Then consider the product's costs, features and risks. A change such as a lost job can make an earlier recommendation unsuitable and should prompt a review. If a client's complaint seeks compensation, distinguish that remedy from a regulator's disciplinary process, which deals with conduct. A material conflict should be addressed in the client's best interest or avoided if it cannot be addressed.",
+          "timestampSeconds": 0,
+          "file": "t101.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t102",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_02_financial_institutions_and_investor_",
+      "title": "Financial institutions and investor protection",
+      "subtitle": "Deposits and missing brokerage property",
+      "concepts": [
+        "Deposits and missing brokerage property"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A bank deposit is a liability of the bank. A share held through a brokerage is an investment that can rise or fall in value. Eligible deposits at a member institution may qualify for deposit insurance under the applicable terms. Investor protection at a member brokerage addresses missing eligible property when the firm becomes insolvent. It does not reimburse a share's normal market loss. Ask what product you hold, and what event happened.",
+          "timestampSeconds": 0,
+          "file": "t102.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t103",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_03_capital_markets_and_financial_instru",
+      "title": "Capital markets and financial instruments",
+      "subtitle": "How instruments connect issuers and investors",
+      "concepts": [
+        "How instruments connect issuers and investors"
+      ],
+      "durationSeconds": 30,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "In a primary issue, new funding goes to the issuer, less offering costs. In a secondary trade, the payment goes to the investor selling the security. A conventional bond promises payments under its contract and represents a creditor claim. A common share represents a residual ownership interest. To tell equity from debt in a scenario, ask whether the investor is owed a contractual payment or participates in what remains after senior claims.",
+          "timestampSeconds": 0,
+          "file": "t103.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t104",
+      "domainId": "csc-d1",
+      "topicId": "t_csc_d1_04_dealers_principal_and_agency_commiss",
+      "title": "Dealers, principal and agency, commissions and spreads",
+      "subtitle": "Bid, ask and dealer capacity",
+      "concepts": [
+        "Bid, ask and dealer capacity"
+      ],
+      "durationSeconds": 24,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A dealer acting as principal trades for its own account. A dealer acting as agent arranges a trade for a customer. The bid is what a dealer is prepared to pay. The ask is what the dealer wants to receive. If the bid is twenty-four dollars and ninety cents and the ask is twenty-five dollars and ten cents, the displayed spread is twenty cents per share, before any transaction costs.",
+          "timestampSeconds": 0,
+          "file": "t104.mp3"
+        }
+      ]
+    },
+    {
       "id": "csc1-audio-d2",
       "domainId": "csc-d2",
       "title": "The economy",
@@ -1095,6 +1171,139 @@
           "text": "Keep fiscal and monetary policy separate. Government spending and taxation are fiscal tools. The central bank's policy rate is a monetary tool. Higher borrowing costs can restrain interest-sensitive spending.",
           "timestampSeconds": 30,
           "file": "d2-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t201",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_01_trade_exchange_rates_and_balance_of_",
+      "title": "Trade, exchange rates and balance of payments",
+      "subtitle": "Exchange rates and cross-border flows",
+      "concepts": [
+        "Exchange rates and cross-border flows"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Suppose one U.S. dollar costs one Canadian dollar and thirty-five cents. To price an eight hundred U.S. dollar invoice in Canadian dollars, multiply eight hundred by one point three five. The result is one thousand and eighty Canadian dollars before fees. If the Canadian dollar weakens, the same invoice costs more. A Canadian company's fee for services sold abroad is a services export in the current account.",
+          "timestampSeconds": 0,
+          "file": "t201.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t202",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_02_fiscal_policy_and_the_government_bud",
+      "title": "Fiscal policy and the government budget",
+      "subtitle": "The budget balance and fiscal stabilizers",
+      "concepts": [
+        "The budget balance and fiscal stabilizers"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "The budget balance compares government revenue with spending over a period. If revenue is five hundred and twenty-five billion and spending is five hundred and forty-eight billion, the deficit is twenty-three billion. Outstanding public debt is measured at a point in time. A smaller deficit can still add to debt. Income-tax receipts can fall as incomes decline even without new legislation. That response is an example of an automatic fiscal stabilizer.",
+          "timestampSeconds": 0,
+          "file": "t202.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t203",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_03_interest_rates_bank_of_canada_and_mo",
+      "title": "Interest rates, Bank of Canada and monetary policy",
+      "subtitle": "The Bank of Canada and rate changes",
+      "concepts": [
+        "The Bank of Canada and rate changes"
+      ],
+      "durationSeconds": 30,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "The Bank of Canada's target for the overnight rate influences borrowing conditions. Higher interest rates can make variable-rate borrowing more expensive and slow interest-sensitive spending. Convert rate changes carefully. An increase of seventy-five basis points is three quarters of a percentage point. If a rate starts at four percent, that increase brings it to four point seven five percent. Policy effects usually work through the economy with a lag.",
+          "timestampSeconds": 0,
+          "file": "t203.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t204",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_04_gdp_and_productivity",
+      "title": "GDP and productivity",
+      "subtitle": "Real output and labour productivity",
+      "concepts": [
+        "Real output and labour productivity"
+      ],
+      "durationSeconds": 32,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Gross domestic product measures the value of final domestic production. By expenditure, add consumption, investment, and government purchases, then add exports minus imports. Real output adjusts for prices. If nominal output is one hundred and twenty dollars and the deflator is one hundred and twenty on a base of one hundred, real output is one hundred base-year dollars. Labour productivity measures output per hour, so output can rise without a matching rise in hours.",
+          "timestampSeconds": 0,
+          "file": "t204.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t205",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_05_business_cycle_and_economic_indicato",
+      "title": "Business cycle and economic indicators",
+      "subtitle": "Spotting the business cycle",
+      "concepts": [
+        "Spotting the business cycle"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Expansion is the phase of rising activity after a trough. Contraction follows a peak. A leading indicator can turn ahead of overall activity. Building permits can signal work before construction starts. A coincident indicator tracks current activity, while a lagging indicator responds after a change is underway. Because each series can be noisy, use several indicators before concluding that the economy has passed a turning point.",
+          "timestampSeconds": 0,
+          "file": "t205.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t206",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_06_labour_market_and_unemployment",
+      "title": "Labour market and unemployment",
+      "subtitle": "The labour force and unemployment",
+      "concepts": [
+        "The labour force and unemployment"
+      ],
+      "durationSeconds": 30,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "The unemployment rate divides unemployed people by the labour force, not the whole population. If eight hundred people are employed and two hundred are unemployed, the labour force is a thousand and the unemployment rate is twenty percent. Participation instead compares the labour force with the relevant population. Structural unemployment reflects a mismatch of skills or jobs. Frictional unemployment can occur while workers move between suitable jobs.",
+          "timestampSeconds": 0,
+          "file": "t206.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t207",
+      "domainId": "csc-d2",
+      "topicId": "t_csc_d2_07_inflation_cpi_and_real_returns",
+      "title": "Inflation, CPI and real returns",
+      "subtitle": "Inflation and purchasing power",
+      "concepts": [
+        "Inflation and purchasing power"
+      ],
+      "durationSeconds": 30,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "When the consumer price index moves from one hundred and twenty-five to one hundred and thirty, prices rise four percent. Divide the index change by the old index. If inflation drops but remains positive, prices are still increasing. For exact real return, divide one plus nominal return by one plus inflation and subtract one. A ten percent return with five percent inflation gives about four point eight percent in purchasing-power terms.",
+          "timestampSeconds": 0,
+          "file": "t207.mp3"
         }
       ]
     },
@@ -1131,6 +1340,101 @@
       ]
     },
     {
+      "id": "csc1-audio-t301",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_01_bond_ratings_and_quotes",
+      "title": "Bond ratings and quotes",
+      "subtitle": "Credit ratings and yield spreads",
+      "concepts": [
+        "Credit ratings and yield spreads"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A bond rating is an opinion about credit risk. It does not guarantee a price or repayment. A yield spread compares two yields at the same point in time. If a corporate bond yields five point four percent and a comparable benchmark yields four point one percent, the difference is one hundred and thirty basis points. If investors demand a higher spread with benchmark yields unchanged, the corporate bond's price generally falls.",
+          "timestampSeconds": 0,
+          "file": "t301.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t302",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_02_government_of_canada_provincial_and_",
+      "title": "Government of Canada, provincial and municipal securities",
+      "subtitle": "Who backs government and municipal debt",
+      "concepts": [
+        "Who backs government and municipal debt"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Government of Canada debt, provincial debt, and municipal debt have different issuers. Compare the issuer and the actual source of repayment before comparing yields. A municipal revenue bond tied to a toll road uses the revenue pledged in its terms. A comparable provincial bond can yield more than federal debt because investors price differences in credit risk and liquidity. Keep maturity and other contract terms in mind when comparing the spread.",
+          "timestampSeconds": 0,
+          "file": "t302.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t303",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_03_money_market_gics_and_other_fixed_in",
+      "title": "Money market, GICs and other fixed-income securities",
+      "subtitle": "Short-term funding and guaranteed investments",
+      "concepts": [
+        "Short-term funding and guaranteed investments"
+      ],
+      "durationSeconds": 31,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Treasury bills typically earn the difference between the discounted purchase price and the amount repaid at maturity. Commercial paper is often used for short-term corporate funding and, if unsecured, relies on the issuer's credit. A guaranteed investment certificate pays according to its own terms. At four percent simple interest, five thousand dollars for one year earns two hundred dollars. Check redeemability, term, and eligibility for any deposit insurance separately.",
+          "timestampSeconds": 0,
+          "file": "t303.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t304",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_04_corporate_bonds_and_bond_features",
+      "title": "Corporate bonds and bond features",
+      "subtitle": "Call, conversion and ranking features",
+      "concepts": [
+        "Call, conversion and ranking features"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A call feature gives the issuer an early-redemption right on the stated terms. Falling rates can make refinancing attractive and leave the investor reinvesting at lower rates. A conversion feature may let the holder exchange the bond for shares. Conversion value depends on the share price and conversion ratio. Subordination concerns payment priority. A subordinated bond can rank behind senior debt even when the coupon and maturity look similar.",
+          "timestampSeconds": 0,
+          "file": "t304.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t305",
+      "domainId": "csc-d3",
+      "topicId": "t_csc_d3_05_bond_terminology_and_basic_features",
+      "title": "Bond terminology and basic features",
+      "subtitle": "Par, coupons and maturity",
+      "concepts": [
+        "Par, coupons and maturity"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Face value is the principal amount promised under the bond's terms. The coupon rate applies to face value, not the current market quote. A conventional bond with one thousand dollars face value and a six percent annual coupon pays sixty dollars of coupon interest per year. Two equal payments mean thirty dollars each. Market price and yield can change while the contractual coupon stays fixed. At maturity a bullet bond also repays principal.",
+          "timestampSeconds": 0,
+          "file": "t305.mp3"
+        }
+      ]
+    },
+    {
       "id": "csc1-audio-d4",
       "domainId": "csc-d4",
       "title": "Fixed-income pricing and trading",
@@ -1159,6 +1463,120 @@
           "text": "Remember the direction before calculating. When required yield rises, the same scheduled cash flows are discounted more heavily and the price typically falls. Modified duration helps estimate the percentage change for a small yield move.",
           "timestampSeconds": 27,
           "file": "d4-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t401",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_01_accrued_interest_and_settlement",
+      "title": "Accrued interest and settlement",
+      "subtitle": "What the buyer pays at settlement",
+      "concepts": [
+        "What the buyer pays at settlement"
+      ],
+      "durationSeconds": 27,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "The clean bond price excludes interest earned since the last coupon. To find the invoice amount, add accrued interest to the clean dollar price. If each coupon is one hundred and twenty dollars and thirty of one hundred and eighty coupon-period days have elapsed, the stated convention gives twenty dollars of accrued interest. The buyer usually gets the next full coupon, and pays the seller for the portion already earned.",
+          "timestampSeconds": 0,
+          "file": "t401.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t402",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_02_yield_curve_and_bond_indexes",
+      "title": "Yield curve and bond indexes",
+      "subtitle": "Curve slope and bond index returns",
+      "concepts": [
+        "Curve slope and bond index returns"
+      ],
+      "durationSeconds": 27,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A yield curve compares yields across maturities for comparable bonds. If the ten-year yield is four percent and the two-year yield is three point six percent, the ten-minus-two slope is positive forty basis points. If the shorter yield exceeds the longer one, that segment is inverted. A bond total-return index accounts for income as well as price moves under its methodology. A price-only comparison misses that income.",
+          "timestampSeconds": 0,
+          "file": "t402.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t403",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_03_treasury_bill_pricing",
+      "title": "Treasury bill pricing",
+      "subtitle": "From a bill's price to its yield",
+      "concepts": [
+        "From a bill's price to its yield"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A Treasury bill usually has no periodic coupon. If you pay nine thousand eight hundred and fifty dollars and receive ten thousand at maturity, your gross gain is one hundred and fifty dollars. For simple annualized yield on an actual over three hundred and sixty-five basis, divide that gain by the price paid and multiply by three hundred and sixty-five divided by the days remaining. Use the day-count basis the question gives you.",
+          "timestampSeconds": 0,
+          "file": "t403.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t404",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_04_bond_quotes_and_price_calculations",
+      "title": "Bond quotes and price calculations",
+      "subtitle": "Reading percentage-of-par bond quotes",
+      "concepts": [
+        "Reading percentage-of-par bond quotes"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A clean quote of one hundred and two point four means one hundred and two dollars and forty cents per one hundred dollars of face amount. Multiply twenty-five thousand dollars of face value by one point zero two four. The clean position price is twenty-five thousand six hundred dollars. A quote below one hundred indicates a discount to par. Accrued interest, when applicable, is added after calculating the clean amount.",
+          "timestampSeconds": 0,
+          "file": "t404.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t405",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_05_interest_rate_sensitivity_and_price_",
+      "title": "Interest-rate sensitivity and price changes",
+      "subtitle": "How duration estimates price moves",
+      "concepts": [
+        "How duration estimates price moves"
+      ],
+      "durationSeconds": 32,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Bond prices generally fall when their required yields rise. For a small yield move, multiply modified duration by the yield change in decimal form, and reverse the sign. If modified duration is five and yield increases twenty basis points, the price falls approximately one percent. The estimate becomes less precise for larger changes. Compared with a similar higher-coupon bond at the same maturity and yield, a lower-coupon bond is normally more rate-sensitive.",
+          "timestampSeconds": 0,
+          "file": "t405.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t406",
+      "domainId": "csc-d4",
+      "topicId": "t_csc_d4_06_yield_calculations_current_yield_ytm",
+      "title": "Yield calculations (current yield, YTM, yield changes)",
+      "subtitle": "Current yield and yield to maturity",
+      "concepts": [
+        "Current yield and yield to maturity"
+      ],
+      "durationSeconds": 26,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Current yield divides annual coupon dollars by the clean market price. An annual coupon of forty-five dollars and a clean price of nine hundred gives five percent. Yield to maturity also includes the scheduled principal payment, so it reflects the premium or discount paid. A conventional fixed-rate bond bought at par on a coupon date has yield to maturity equal to its coupon rate on the same convention.",
+          "timestampSeconds": 0,
+          "file": "t406.mp3"
         }
       ]
     },
@@ -1195,6 +1613,101 @@
       ]
     },
     {
+      "id": "csc1-audio-t501",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_01_preferred_shares",
+      "title": "Preferred shares",
+      "subtitle": "Reading preferred-share terms",
+      "concepts": [
+        "Reading preferred-share terms"
+      ],
+      "durationSeconds": 30,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A cumulative preferred share can carry unpaid dividends forward under its terms. A retractable share gives the holder a contractual right to require repurchase under specified conditions. An issuer-redemption feature gives the issuer a right instead. A rate-reset clause normally specifies a benchmark, spread and reset schedule. Before comparing preferred shares with similar dividends, identify who can trigger redemption and how the next dividend rate is set.",
+          "timestampSeconds": 0,
+          "file": "t501.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t502",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_02_stock_splits_and_stock_dividends",
+      "title": "Stock splits and stock dividends",
+      "subtitle": "Share count versus percentage ownership",
+      "concepts": [
+        "Share count versus percentage ownership"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A split changes the share count in proportion to the split ratio. After a three-for-two split, one hundred and twenty shares become one hundred and eighty. In isolation, the theoretical price per share adjusts in the opposite direction so the holding's value and percentage ownership are unchanged. A stock dividend distributes additional shares under its terms. Look for changes to both your share count and the total number outstanding.",
+          "timestampSeconds": 0,
+          "file": "t502.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t503",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_03_dividends_and_ex_dividend_dates",
+      "title": "Dividends and ex-dividend dates",
+      "subtitle": "Dividend entitlement, yield and payout",
+      "concepts": [
+        "Dividend entitlement, yield and payout"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "The ex-dividend date is the first trading day without the announced dividend attached. A new buyer on that date ordinarily does not receive that dividend. Dividend yield compares annual cash dividend per share with market price. One dollar and forty-four cents divided by thirty-six dollars is four percent. A payout ratio answers a different question. It compares the amount paid to common shareholders with earnings available to them.",
+          "timestampSeconds": 0,
+          "file": "t503.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t504",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_04_stock_indexes_and_market_capitalizat",
+      "title": "Stock indexes and market capitalization",
+      "subtitle": "Capitalization and index weights",
+      "concepts": [
+        "Capitalization and index weights"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "For a single class of common shares, market capitalization is the current share price times shares outstanding. If a share trades at twenty dollars and there are ten million shares, the market capitalization is two hundred million dollars. A capitalization-weighted index gives larger eligible companies more influence. Some indexes adjust for the shares available to trade. A total-return index reflects dividends as well as price changes under its rules.",
+          "timestampSeconds": 0,
+          "file": "t504.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t505",
+      "domainId": "csc-d5",
+      "topicId": "t_csc_d5_05_common_shares_features_rights_and_va",
+      "title": "Common shares: features, rights and valuation ratios",
+      "subtitle": "Common-share claims and valuation ratios",
+      "concepts": [
+        "Common-share claims and valuation ratios"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Common shares give a residual claim after creditors and any claims senior to common equity. Voting rights depend on the share class. To calculate price to earnings, divide the market price per common share by earnings per common share. A forty-eight-dollar price divided by three dollars of earnings gives sixteen times. Comparing that multiple with peers is meaningful only when earnings are measured consistently and you consider differences in growth and risk.",
+          "timestampSeconds": 0,
+          "file": "t505.mp3"
+        }
+      ]
+    },
+    {
       "id": "csc1-audio-d6",
       "domainId": "csc-d6",
       "title": "Equity transactions",
@@ -1223,6 +1736,82 @@
           "text": "A short seller sells borrowed shares and eventually has to buy shares back. The position benefits if the purchase price is lower than the sale price. Dividends owed to the lender and borrowing charges can reduce the net profit.",
           "timestampSeconds": 34,
           "file": "d6-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t601",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_01_short_selling",
+      "title": "Short selling",
+      "subtitle": "The cash flows of a short sale",
+      "concepts": [
+        "The cash flows of a short sale"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A short seller sells borrowed stock and later buys stock to return to the lender. If two hundred shares are sold at thirty dollars and covered at twenty-seven, gross profit is six hundred dollars. Borrowing costs and dividend-equivalent payments can reduce that amount. A rising price works against the short seller. Because the buyback price has no fixed ceiling, a short position can lose more than the proceeds originally received.",
+          "timestampSeconds": 0,
+          "file": "t601.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t602",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_02_margin_accounts",
+      "title": "Margin accounts",
+      "subtitle": "Margin equity and price changes",
+      "concepts": [
+        "Margin equity and price changes"
+      ],
+      "durationSeconds": 29,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "When a long position is worth twenty thousand dollars and has a twelve-thousand-dollar debit, account equity is eight thousand. Divide by market value for an equity ratio of forty percent. A price decline reduces both market value and equity, while the debit stays the same unless it is paid down. If equity falls below the applicable requirement, additional funds or securities may be required under the margin agreement.",
+          "timestampSeconds": 0,
+          "file": "t602.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t603",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_03_order_types",
+      "title": "Order types",
+      "subtitle": "Choosing between market, limit and stop orders",
+      "concepts": [
+        "Choosing between market, limit and stop orders"
+      ],
+      "durationSeconds": 27,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A market order seeks execution at the available prices and may fill away from the last quote. A buy limit sets the most you will pay, but it may never fill. A sell stop-market order becomes a market order once triggered. During a downward price gap it can execute below the stop. Choose the order type by asking whether your priority is execution, control of the price, or activation only after a trigger.",
+          "timestampSeconds": 0,
+          "file": "t603.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t604",
+      "domainId": "csc-d6",
+      "topicId": "t_csc_d6_04_cash_accounts_settlement_and_trade_c",
+      "title": "Cash accounts, settlement and trade costs",
+      "subtitle": "Trade date, settlement date and costs",
+      "concepts": [
+        "Trade date, settlement date and costs"
+      ],
+      "durationSeconds": 26,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "The trade date is when an order executes. Settlement is when the securities and payment change hands under the applicable settlement cycle. To calculate what a cash buyer owes, multiply the shares by the execution price, then add commission and other applicable fees. For one hundred and fifty shares at twenty-four dollars and a nine-dollar commission, the cash due is three thousand six hundred and nine dollars.",
+          "timestampSeconds": 0,
+          "file": "t604.mp3"
         }
       ]
     },
@@ -1259,6 +1848,63 @@
       ]
     },
     {
+      "id": "csc1-audio-t701",
+      "domainId": "csc-d7",
+      "topicId": "t_csc_d7_01_futures_and_forwards",
+      "title": "Futures and forwards",
+      "subtitle": "Using forwards and futures to hedge",
+      "concepts": [
+        "Using forwards and futures to hedge"
+      ],
+      "durationSeconds": 27,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A forward can be customized for an amount and a future date. An exporter expecting U.S. dollars can sell those dollars forward to lock in a Canadian-dollar amount. Futures are standardized contracts traded on an exchange and typically marked to market daily. If a long futures contract rises five points with a fifty-dollar multiplier, its daily gain is two hundred and fifty dollars before costs.",
+          "timestampSeconds": 0,
+          "file": "t701.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t702",
+      "domainId": "csc-d7",
+      "topicId": "t_csc_d7_02_options_positions_values_and_strateg",
+      "title": "Options: positions, values and strategies",
+      "subtitle": "Option payoff, premium and break-even",
+      "concepts": [
+        "Option payoff, premium and break-even"
+      ],
+      "durationSeconds": 24,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A long call gives the right to buy at the strike price. A long put gives the right to sell at the strike. At expiry, a put struck at fifty dollars has four dollars of intrinsic value if the share is forty-six. Subtract a one-dollar premium and the put's profit is three dollars per share before fees. For a long call, the expiry break-even is the strike plus the premium.",
+          "timestampSeconds": 0,
+          "file": "t702.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t703",
+      "domainId": "csc-d7",
+      "topicId": "t_csc_d7_03_rights_warrants_and_other_derivative",
+      "title": "Rights, warrants and other derivatives",
+      "subtitle": "What rights and warrants let you buy",
+      "concepts": [
+        "What rights and warrants let you buy"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A subscription right can allow existing shareholders to buy new shares on stated terms for a limited period. Check the trade deadline and exercise deadline separately. If a transferable right expires unused, the opportunity to sell or exercise it is gone. A company-issued warrant can also create new shares when exercised. If the total share count increases while your holdings stay fixed, your percentage ownership falls.",
+          "timestampSeconds": 0,
+          "file": "t703.mp3"
+        }
+      ]
+    },
+    {
       "id": "csc1-audio-d8",
       "domainId": "csc-d8",
       "title": "Corporations and financial statements",
@@ -1291,6 +1937,101 @@
       ]
     },
     {
+      "id": "csc1-audio-t801",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_01_corporate_structure_and_shareholder_",
+      "title": "Corporate structure and shareholder rights",
+      "subtitle": "The corporation, its board and its shareholders",
+      "concepts": [
+        "The corporation, its board and its shareholders"
+      ],
+      "durationSeconds": 27,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A corporation has its own legal obligations. A fully paid shareholder who gave no personal guarantee can generally lose the investment without owing corporate debts personally. Shareholders entitled to vote elect directors under the applicable share terms. Voting power can differ from share ownership. If each share carries five votes, a thousand shares give five thousand votes on a matter where that class is entitled to vote.",
+          "timestampSeconds": 0,
+          "file": "t801.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t802",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_02_annual_report_disclosure_takeovers_a",
+      "title": "Annual report, disclosure, takeovers and insiders",
+      "subtitle": "Disclosure, insider reports and takeover bids",
+      "concepts": [
+        "Disclosure, insider reports and takeover bids"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Use the financial statements for reported results and management's discussion for explanations and risks. Timely disclosure of material developments helps investors assess changes in the business. Insider transaction reports show reportable activity without telling you why a trade was made. When reviewing a takeover bid, compare the offer price, consideration, conditions and timing. An announced bid does not guarantee it will close.",
+          "timestampSeconds": 0,
+          "file": "t802.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t803",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_03_cash_flow_statement",
+      "title": "Cash flow statement",
+      "subtitle": "Operating, investing and financing cash flows",
+      "concepts": [
+        "Operating, investing and financing cash flows"
+      ],
+      "durationSeconds": 31,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Cash paid for equipment normally belongs to investing activities. Depreciation is an accounting expense and is added back in an indirect operating cash-flow reconciliation. When trade receivables rise, recognized revenue can exceed the cash actually collected. Deduct that increase in the indirect calculation, all else equal. New borrowing generally provides financing cash flow. Start each classification by identifying the event that caused cash to move.",
+          "timestampSeconds": 0,
+          "file": "t803.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t804",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_04_income_statement_and_depreciation",
+      "title": "Income statement and depreciation",
+      "subtitle": "From revenue to profit",
+      "concepts": [
+        "From revenue to profit"
+      ],
+      "durationSeconds": 31,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Gross profit is sales revenue less cost of goods sold. Operating expenses, finance costs and taxes help explain the difference between gross profit and net income. Straight-line depreciation spreads the depreciable amount over the asset's useful life. A machine that costs fifty-two thousand dollars, with an expected residual value of four thousand and eight years of use, has six thousand dollars of annual straight-line depreciation under those assumptions.",
+          "timestampSeconds": 0,
+          "file": "t804.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t805",
+      "domainId": "csc-d8",
+      "topicId": "t_csc_d8_05_balance_sheet_and_financial_ratios",
+      "title": "Balance sheet and financial ratios",
+      "subtitle": "Assets, obligations and liquidity ratios",
+      "concepts": [
+        "Assets, obligations and liquidity ratios"
+      ],
+      "durationSeconds": 32,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "The balance sheet is a snapshot of assets, liabilities and equity. Current ratio divides current assets by current liabilities. A quick ratio excludes less liquid items such as inventory and, under many definitions, prepayments. If current assets are two hundred and forty thousand, inventory is ninety thousand, and the other current assets are quick, divide one hundred and fifty thousand by one hundred thousand of current liabilities. The quick ratio is one point five.",
+          "timestampSeconds": 0,
+          "file": "t805.mp3"
+        }
+      ]
+    },
+    {
       "id": "csc1-audio-d9",
       "domainId": "csc-d9",
       "title": "Financing and listing securities",
@@ -1319,6 +2060,82 @@
           "text": "A rights offering lets existing holders subscribe in proportion to their holdings under the stated terms. A holder who exercises the full allocation can preserve their ownership percentage when the issue is fully subscribed and nothing else changes.",
           "timestampSeconds": 25,
           "file": "d9-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t901",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_01_underwriting_issue_costs_and_proceed",
+      "title": "Underwriting, issue costs and proceeds",
+      "subtitle": "From the offer price to net proceeds",
+      "concepts": [
+        "From the offer price to net proceeds"
+      ],
+      "durationSeconds": 31,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "In firm-commitment underwriting, the dealer agrees to buy and resell the securities under the agreement. Under a best-efforts mandate, the dealer seeks purchasers under the stated terms. If a primary offering sells a hundred thousand new shares at twelve dollars, gross proceeds are one million two hundred thousand. A five percent underwriting fee costs sixty thousand. After another twenty thousand of expenses, net proceeds are one million one hundred and twenty thousand.",
+          "timestampSeconds": 0,
+          "file": "t901.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t902",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_02_rights_offerings_and_dilution",
+      "title": "Rights offerings and dilution",
+      "subtitle": "Ownership and value after a rights offering",
+      "concepts": [
+        "Ownership and value after a rights offering"
+      ],
+      "durationSeconds": 27,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A shareholder with fifty thousand of one million shares owns five percent. If the company issues a quarter million new shares and the shareholder buys none, ownership falls to four percent. Exercising a full pro rata allocation can maintain the percentage under the stated assumptions. For a theoretical ex-rights price, combine the old shares' value with the subscription cash, then divide by the total shares after the subscription.",
+          "timestampSeconds": 0,
+          "file": "t902.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t903",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_03_prospectus_system_and_distribution_m",
+      "title": "Prospectus system and distribution methods",
+      "subtitle": "Prospectus disclosure and exemptions",
+      "concepts": [
+        "Prospectus disclosure and exemptions"
+      ],
+      "durationSeconds": 33,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "The prospectus gives investors disclosure about the issuer, securities being offered and material risks. A preliminary prospectus supports review and permitted marketing. A final prospectus provides completed disclosure for the offering. A prospectus exemption allows distribution only within the applicable conditions. It does not remove every securities-law requirement. In a question, identify the distribution method, who is eligible, and whether reporting or resale restrictions apply.",
+          "timestampSeconds": 0,
+          "file": "t903.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-t904",
+      "domainId": "csc-d9",
+      "topicId": "t_csc_d9_04_listing_and_trading_halts",
+      "title": "Listing and trading halts",
+      "subtitle": "Delayed opens, trading halts and delisting",
+      "concepts": [
+        "Delayed opens, trading halts and delisting"
+      ],
+      "durationSeconds": 28,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A delayed opening moves the start of trading later. A trading halt pauses trading, often to let the market receive and absorb material information. Delisting removes the security from that exchange's list. The shareholder still holds the shares unless another event changes ownership or cancels them. When classifying an exchange action, ask whether trading is scheduled to resume, or whether the listing itself has been removed.",
+          "timestampSeconds": 0,
+          "file": "t904.mp3"
         }
       ]
     }

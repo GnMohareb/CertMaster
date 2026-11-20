@@ -866,7 +866,7 @@ fun NotebookSourcesScreen(
                             )
                             Text(
                                 text = if (isOfflineCsc) {
-                                    "Recorded study briefings with transcripts"
+                                    "Domain overviews and individual topic lessons with transcripts"
                                 } else {
                                     "2-Host podcast briefings powered by Text-to-Speech"
                                 },
@@ -895,7 +895,16 @@ fun NotebookSourcesScreen(
                             }
                         }
 
-                        items(audioOverviews) { audio ->
+                        items(audioOverviews, key = { it.id }) { audio ->
+                            if (isOfflineCsc && audio.topicId == null) {
+                                Text(
+                                    text = audio.title,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                                )
+                            }
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -936,13 +945,20 @@ fun NotebookSourcesScreen(
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Column {
                                                 Text(
-                                                    text = audio.title,
+                                                    text = if (isOfflineCsc && audio.topicId == null) "Domain overview" else audio.title,
                                                     fontSize = 15.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
-                                                    text = "${audio.host1} & ${audio.host2}",
+                                                    text = if (isOfflineCsc) {
+                                                        val duration = audio.durationSeconds
+                                                        val minutes = duration / 60
+                                                        val seconds = (duration % 60).toString().padStart(2, '0')
+                                                        "$minutes:$seconds"
+                                                    } else {
+                                                        "${audio.host1} & ${audio.host2}"
+                                                    },
                                                     fontSize = 12.sp,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )

@@ -172,17 +172,19 @@ fun AudioOverviewScreen(
                     ) {
                         Text("AL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("&", fontWeight = FontWeight.Bold, color = if (isOfflineCsc) CscTextSecondary else Slate400)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(host2Color),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("MY", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    if (audio.host2.isNotBlank()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("&", fontWeight = FontWeight.Bold, color = if (isOfflineCsc) CscTextSecondary else Slate400)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(host2Color),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("MY", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
                     }
                 }
 
@@ -197,7 +199,7 @@ fun AudioOverviewScreen(
                 )
 
                 Text(
-                    text = "${audio.host1} & ${audio.host2}",
+                    text = if (audio.host2.isBlank()) audio.host1 else "${audio.host1} & ${audio.host2}",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

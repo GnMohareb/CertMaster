@@ -52,7 +52,8 @@ data class AudioOverview(
     val host1: String = "Alex (Host)",
     val host2: String = "Dr. Maya (Exam Expert)",
     val turns: List<DialogueTurn>,
-    val keyConceptsCovered: List<String>
+    val keyConceptsCovered: List<String>,
+    val topicId: String? = null
 )
 
 data class AITutorMessage(

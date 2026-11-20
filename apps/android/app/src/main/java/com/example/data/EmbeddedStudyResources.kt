@@ -49,9 +49,10 @@ internal data class EmbeddedStudyResources(
                     subtitle = lesson.getString("subtitle"),
                     durationSeconds = lesson.getInt("durationSeconds"),
                     host1 = "Alex",
-                    host2 = "Maya",
+                    host2 = turns.getOrNull(1)?.speaker.orEmpty(),
                     turns = turns,
-                    keyConceptsCovered = List(concepts.length(), concepts::getString)
+                    keyConceptsCovered = List(concepts.length(), concepts::getString),
+                    topicId = lesson.optString("topicId").takeIf { it.isNotBlank() }
                 )
             }
             return EmbeddedStudyResources(flashcards, audio)

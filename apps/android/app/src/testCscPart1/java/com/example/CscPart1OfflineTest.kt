@@ -233,9 +233,17 @@ class CscPart1OfflineTest {
             assertTrue(rows.groupingBy { it.getString("topicId") }.eachCount().values.all { it == 3 })
             assertTrue("Expected no CISSP study guides in CSC Part 1", repository.sources.value.isEmpty())
             val briefings = repository.audioOverviews.value
-            assertEquals(9, briefings.size)
-            assertEquals(9, briefings.map { it.domainId }.distinct().size)
-            assertTrue(briefings.all { it.examId == "csc-part-1" && it.turns.size == 3 })
+            assertEquals(52, briefings.size)
+            assertEquals(52, briefings.map { it.id }.distinct().size)
+            assertTrue(briefings.all { it.examId == "csc-part-1" && it.durationSeconds > 0 })
+            val domainBriefings = briefings.filter { it.topicId == null }
+            assertEquals(9, domainBriefings.size)
+            assertEquals(9, domainBriefings.map { it.domainId }.distinct().size)
+            assertTrue(domainBriefings.all { it.turns.size == 3 })
+            val topicBriefings = briefings.filter { it.topicId != null }
+            assertEquals(43, topicBriefings.size)
+            assertEquals(expectedDomainsByTopic.keys, topicBriefings.mapNotNull { it.topicId }.toSet())
+            assertTrue(topicBriefings.all { it.topicId?.let(expectedDomainsByTopic::get) == it.domainId && it.turns.size == 1 })
             briefings.flatMap { it.turns }.forEach { turn ->
                 context.assets.open(requireNotNull(turn.audioAssetPath)).use { stream ->
                     assertTrue(stream.read() >= 0)
