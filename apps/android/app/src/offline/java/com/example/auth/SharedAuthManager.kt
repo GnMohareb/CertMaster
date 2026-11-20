@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Offline-only SharedAuthManager for standalone CSC Part 1 builds.
+ * Offline-only SharedAuthManager for standalone offline builds.
  * Contains zero Firebase, Google Identity, or Credential Manager dependencies.
  */
 class SharedAuthManager(private val context: Context? = null) {
@@ -30,13 +30,13 @@ class SharedAuthManager(private val context: Context? = null) {
     fun isFirebaseInitialized(): Boolean = false
 
     fun installTokenProvider() {
-        // No-op in standalone offline CSC Part 1 build.
+        // No-op in standalone offline build.
     }
 
     fun getActiveUserId(): String = ""
 
     suspend fun signInWithGoogle(activityContext: Context): Result<SsoSessionInfo> {
-        return Result.failure(IllegalStateException("Cloud sign-in is disabled in the standalone offline CSC Part 1 edition."))
+        return Result.failure(IllegalStateException("Cloud sign-in is disabled in the standalone offline edition."))
     }
 
     suspend fun attemptSilentSignIn(activityContext: Context): SsoSessionInfo {
@@ -48,11 +48,11 @@ class SharedAuthManager(private val context: Context? = null) {
     }
 
     fun refreshSsoSession(email: String = _ssoSession.value.email, displayName: String = _ssoSession.value.displayName) {
-        // No cloud SSO session in offline CSC Part 1 build.
+        // No cloud SSO session in offline build.
     }
 
     fun markSyncStatus(status: String) {
-        // No cloud sync in offline CSC Part 1 build.
+        // No cloud sync in offline build.
     }
 
     fun isAuthorizedForExam(examId: String, profile: UserCentralProfile): Boolean {

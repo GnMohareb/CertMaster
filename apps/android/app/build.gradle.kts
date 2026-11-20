@@ -8,6 +8,9 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+val offlineFlavors = listOf("cscPart1")
+val cloudFlavors = listOf("full", "cissp", "pmp", "awsSaa")
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -64,7 +67,13 @@ android {
   }
 
   sourceSets {
-    listOf("full", "cissp", "pmp", "awsSaa").forEach { flavor ->
+    offlineFlavors.forEach { flavor ->
+      getByName(flavor).apply {
+        java.directories.add("src/offline/java")
+        manifest.srcFile("src/offline/AndroidManifest.xml")
+      }
+    }
+    cloudFlavors.forEach { flavor ->
       val capitalizedFlavor = flavor.replaceFirstChar { it.uppercaseChar() }
       getByName(flavor).java.directories.add("src/cloud/java")
       getByName(flavor).res.directories.add("src/cloud/res")
@@ -140,7 +149,8 @@ secrets {
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
 
 tasks.configureEach {
-  if (name.contains("GoogleServices", ignoreCase = true) && name.contains("CscPart1", ignoreCase = true)) {
+  if (name.contains("GoogleServices", ignoreCase = true) &&
+    offlineFlavors.any { name.contains(it, ignoreCase = true) }) {
     enabled = false
   }
 }
@@ -148,7 +158,6 @@ tasks.configureEach {
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
-  val cloudFlavors = listOf("full", "cissp", "pmp", "awsSaa")
   fun DependencyHandlerScope.cloudImplementation(dependencyNotation: Any) {
     cloudFlavors.forEach { flavor ->
       add("${flavor}Implementation", dependencyNotation)
