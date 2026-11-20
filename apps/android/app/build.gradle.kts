@@ -69,7 +69,7 @@ android {
   sourceSets {
     offlineFlavors.forEach { flavor ->
       getByName(flavor).apply {
-        java.directories.add("src/offline/java")
+        kotlin.directories += "src/offline/java"
         manifest.srcFile("src/offline/AndroidManifest.xml")
       }
     }
