@@ -82,6 +82,7 @@ fun AudioOverviewScreen(
     val isPlaying by viewModel.speechManager.isPlaying.collectAsState()
     val activeTurnIndex by viewModel.speechManager.currentTurnIndex.collectAsState()
     val currentSpeed by viewModel.speechManager.playbackSpeed.collectAsState()
+    val playbackError by viewModel.speechManager.playbackError.collectAsState()
     val listState = rememberLazyListState()
 
     BackHandler {
@@ -121,7 +122,7 @@ fun AudioOverviewScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = if (isOfflineCsc) "Offline Text-to-Speech" else "2-Host AI Conversation",
+                        text = if (isOfflineCsc) "Recorded briefing" else "2-Host AI Conversation",
                         fontSize = if (isOfflineCsc) 12.sp else 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -210,6 +211,11 @@ fun AudioOverviewScreen(
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
+
+                playbackError?.let { message ->
+                    Text(text = message, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
                 // Media Controls (Rewind, Play/Pause, Forward, Speed)
                 Row(

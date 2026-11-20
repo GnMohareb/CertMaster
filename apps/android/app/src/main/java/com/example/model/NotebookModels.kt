@@ -38,7 +38,8 @@ data class SourceDoc(
 data class DialogueTurn(
     val speaker: String, // e.g. "Alex (Host)" or "Dr. Maya (CISSP Architect)"
     val text: String,
-    val timestampSeconds: Int
+    val timestampSeconds: Int,
+    val audioAssetPath: String? = null
 )
 
 data class AudioOverview(

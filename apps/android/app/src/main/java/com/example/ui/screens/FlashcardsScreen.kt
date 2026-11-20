@@ -119,11 +119,13 @@ fun FlashcardsScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { showAddFlashcardDialog = true },
-                        modifier = Modifier.testTag("btn_add_flashcard_empty")
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Create Flashcard")
+                    if (!isCsc) {
+                        IconButton(
+                            onClick = { showAddFlashcardDialog = true },
+                            modifier = Modifier.testTag("btn_add_flashcard_empty")
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Create Flashcard")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -157,23 +159,25 @@ fun FlashcardsScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Create custom flashcards to build an offline Leitner spaced-repetition deck stored locally in Room.",
+                            text = if (isCsc) "Study flashcards are unavailable." else "Create custom flashcards to build an offline Leitner spaced-repetition deck stored locally in Room.",
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { showAddFlashcardDialog = true },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .heightIn(min = 48.dp)
-                                .testTag("btn_create_first_flashcard")
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Create Flashcard", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        if (!isCsc) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { showAddFlashcardDialog = true },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .heightIn(min = 48.dp)
+                                    .testTag("btn_create_first_flashcard")
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Create Flashcard", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
@@ -212,11 +216,13 @@ fun FlashcardsScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { showAddFlashcardDialog = true },
-                        modifier = Modifier.testTag("btn_add_flashcard")
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Create Flashcard")
+                    if (!isCsc) {
+                        IconButton(
+                            onClick = { showAddFlashcardDialog = true },
+                            modifier = Modifier.testTag("btn_add_flashcard")
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Create Flashcard")
+                        }
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -586,7 +592,7 @@ fun FlashcardsScreen(
     }
     }
 
-    if (showAddFlashcardDialog) {
+    if (!isCsc && showAddFlashcardDialog) {
         var frontPrompt by remember { mutableStateOf("") }
         var backAnswer by remember { mutableStateOf("") }
         var domainLabel by remember { mutableStateOf("") }

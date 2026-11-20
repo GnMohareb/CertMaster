@@ -129,7 +129,7 @@ fun NotebookSourcesScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            if (selectedTab == 0 || selectedTab == 1) {
+            if (selectedTab == 0 || (selectedTab == 1 && !isOfflineCsc)) {
                 FloatingActionButton(
                     onClick = {
                         if (selectedTab == 0) {
@@ -443,21 +443,23 @@ fun NotebookSourcesScreen(
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        text = "Create custom flashcards to practice with offline Leitner spaced repetition.",
+                                        text = if (isOfflineCsc) "Study flashcards are unavailable." else "Create custom flashcards to practice with offline Leitner spaced repetition.",
                                         fontSize = 13.sp,
                                         lineHeight = 19.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Button(
-                                        onClick = { showAddFlashcardDialog = true },
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.heightIn(min = 48.dp)
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Add Flashcard", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    if (!isOfflineCsc) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Button(
+                                            onClick = { showAddFlashcardDialog = true },
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.heightIn(min = 48.dp)
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Add Flashcard", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                        }
                                     }
                                 }
                             }
@@ -542,7 +544,7 @@ fun NotebookSourcesScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Room SQLite Spaced Repetition • Offline Ready",
+                                        text = if (isOfflineCsc) "Spaced repetition" else "Room SQLite Spaced Repetition • Offline Ready",
                                         fontSize = if (isOfflineCsc) 12.sp else 10.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = if (isOfflineCsc) CscSuccessDark else SuccessGreen
@@ -864,7 +866,7 @@ fun NotebookSourcesScreen(
                             )
                             Text(
                                 text = if (isOfflineCsc) {
-                                    "Audio study briefings powered by on-device Text-to-Speech"
+                                    "Recorded study briefings with transcripts"
                                 } else {
                                     "2-Host podcast briefings powered by Text-to-Speech"
                                 },
@@ -1160,7 +1162,7 @@ fun NotebookSourcesScreen(
         )
     }
 
-    if (showAddFlashcardDialog) {
+    if (!isOfflineCsc && showAddFlashcardDialog) {
         var frontPrompt by remember { mutableStateOf("") }
         var backAnswer by remember { mutableStateOf("") }
         var topicLabel by remember { mutableStateOf("") }

@@ -57,7 +57,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = ExamRepository(context = application)
     private val practiceHistory = application.getSharedPreferences("csc_seen_practice", android.content.Context.MODE_PRIVATE)
-    val speechManager = SpeechManager(application)
+    val speechManager = SpeechManager(application, enableTextToSpeech = !isStandaloneCsc())
 
     internal fun repositoryForTesting(): ExamRepository = repository
 
@@ -962,6 +962,11 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun playAudioTurn(turnIndex: Int) {
         val audio = _selectedAudio.value ?: return
         if (turnIndex in audio.turns.indices) {
+            val assets = audio.turns.mapNotNull { it.audioAssetPath }
+            if (assets.size == audio.turns.size) {
+                speechManager.playRecording(assets, turnIndex)
+                return
+            }
             val turn = audio.turns[turnIndex]
             val isFemale = turn.speaker.contains("Maya")
             speechManager.speakTurn(turn.text, turnIndex, isFemale)

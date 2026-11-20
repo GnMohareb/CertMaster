@@ -115,8 +115,8 @@ jobs:
           "$AAPT" dump badging "$APK_PATH" > release-apk-badging.txt
           "$AAPT" dump permissions "$APK_PATH" > release-apk-permissions.txt
           grep -q "package: name='com.certmaster.cscpart1'" release-apk-badging.txt
-          grep -q "versionCode='5'" release-apk-badging.txt
-          grep -q "versionName='1.0.4'" release-apk-badging.txt
+          grep -q "versionCode='6'" release-apk-badging.txt
+          grep -q "versionName='1.0.5'" release-apk-badging.txt
           if grep -Eq "android.permission.(INTERNET|ACCESS_NETWORK_STATE)" release-apk-permissions.txt; then
             cat release-apk-permissions.txt
             exit 1

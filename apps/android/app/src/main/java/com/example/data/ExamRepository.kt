@@ -189,15 +189,26 @@ class ExamRepository(
         recomputeReadinessAndStudyPlan()
     }
 
-    // 2. AI-Generated Learning Content (NotebookLM Sources & Audio Briefings)
+    private val embeddedStudy = if (standaloneCsc) {
+        val domainNames = initialBank.questions.associate { it.domainId to it.domainName }
+        EmbeddedStudyResources.load(context, initialExam.id, domainNames)
+    } else {
+        EmbeddedStudyResources()
+    }
+
+    // 2. Study sources and audio briefings
     private val _sources = MutableStateFlow<List<SourceDoc>>(if (standaloneCsc) emptyList() else DefaultNotebookSources.CISSP_SOURCES)
     val sources: StateFlow<List<SourceDoc>> = _sources.asStateFlow()
 
-    private val _audioOverviews = MutableStateFlow<List<AudioOverview>>(if (standaloneCsc) emptyList() else DefaultNotebookSources.AUDIO_OVERVIEWS)
+    private val _audioOverviews = MutableStateFlow<List<AudioOverview>>(if (standaloneCsc) embeddedStudy.audio else DefaultNotebookSources.AUDIO_OVERVIEWS)
     val audioOverviews: StateFlow<List<AudioOverview>> = _audioOverviews.asStateFlow()
 
     // 3. Spaced-Repetition Flashcards
-    private val _flashcards = MutableStateFlow<List<Flashcard>>(if (standaloneCsc) emptyList() else DefaultNotebookSources.CISSP_FLASHCARDS)
+    private val _flashcards = MutableStateFlow<List<Flashcard>>(when {
+        !standaloneCsc -> DefaultNotebookSources.CISSP_FLASHCARDS
+        database == null -> embeddedStudy.flashcards
+        else -> emptyList()
+    })
     val flashcards: StateFlow<List<Flashcard>> = _flashcards.asStateFlow()
 
     // 4. Exam Attempts & Scores
@@ -316,7 +327,11 @@ class ExamRepository(
                 db.studySourceDao().insertSources(entities)
             }
 
-            // Seed default flashcards if local database is empty for this exam
+            if (standaloneCsc) {
+                db.flashcardDao().insertMissingFlashcards(embeddedStudy.flashcards.map { FlashcardEntity.fromFlashcard(it) })
+            }
+
+            // Seed default cloud flashcards if local database is empty for this exam
             val cardCount = db.flashcardDao().getFlashcardCount(canonicalExamId)
             if (cardCount == 0 && canonicalExamId == "cissp") {
                 val entities = DefaultNotebookSources.CISSP_FLASHCARDS.map { FlashcardEntity.fromFlashcard(it) }
@@ -680,7 +695,7 @@ class ExamRepository(
     }
 
     fun switchExam(examId: String) {
-        if (standaloneCsc && examId != initialExam.id) return
+        if (standaloneCsc) return
         val exam = ExamCatalog.getExamById(examId)
         _currentExam.value = exam
         val bank = loadBankResult(exam.id)
@@ -1236,6 +1251,7 @@ class ExamRepository(
         domainId: String = "",
         sourceCitation: String = "Personal Study Card"
     ) {
+        if (standaloneCsc) return
         val current = _currentExam.value
         val availableDomains = if (current.domains.isNotEmpty()) {
             current.domains

@@ -1,0 +1,546 @@
+{
+  "flashcards": [
+    {
+      "id": "csc1-fc-d1-01",
+      "domainId": "csc-d1",
+      "frontPrompt": "Who receives the proceeds when new shares are issued?",
+      "backAnswer": "The issuer receives the proceeds, net of offering costs.",
+      "keyFormulaOrRule": "Primary market finances the issuer. Secondary market trades between investors."
+    },
+    {
+      "id": "csc1-fc-d1-02",
+      "domainId": "csc-d1",
+      "frontPrompt": "What does it mean when a dealer acts as principal?",
+      "backAnswer": "The dealer trades for its own account and may fill the order from inventory.",
+      "keyFormulaOrRule": "As agent, the dealer arranges a trade for a customer."
+    },
+    {
+      "id": "csc1-fc-d1-03",
+      "domainId": "csc-d1",
+      "frontPrompt": "Which side of a dealer quote applies when you sell?",
+      "backAnswer": "The bid is the price the dealer is willing to pay. The ask is the price the dealer is willing to accept.",
+      "keyFormulaOrRule": "Quoted spread = ask − bid."
+    },
+    {
+      "id": "csc1-fc-d1-04",
+      "domainId": "csc-d1",
+      "frontPrompt": "What does a large change in a client’s income or liquidity needs trigger?",
+      "backAnswer": "Update the client information and reassess whether the recommendation is suitable.",
+      "keyFormulaOrRule": "KYC considers the client’s current circumstances, objectives and risk profile."
+    },
+    {
+      "id": "csc1-fc-d2-01",
+      "domainId": "csc-d2",
+      "frontPrompt": "Can the CPI keep rising when inflation falls?",
+      "backAnswer": "Yes. When inflation falls but stays positive, the overall price level is still increasing.",
+      "keyFormulaOrRule": "Disinflation slows the rate of increase. Deflation is a decline in the price level."
+    },
+    {
+      "id": "csc1-fc-d2-02",
+      "domainId": "csc-d2",
+      "frontPrompt": "How do you calculate the unemployment rate?",
+      "backAnswer": "Divide the number of unemployed people by the labour force and multiply by 100.",
+      "keyFormulaOrRule": "The labour force includes employed and unemployed people."
+    },
+    {
+      "id": "csc1-fc-d2-03",
+      "domainId": "csc-d2",
+      "frontPrompt": "How do you convert a nominal return to an exact real return?",
+      "backAnswer": "Divide one plus the nominal return by one plus the inflation rate, then subtract one.",
+      "keyFormulaOrRule": "Use decimal rates and keep full precision until the end."
+    },
+    {
+      "id": "csc1-fc-d2-04",
+      "domainId": "csc-d2",
+      "frontPrompt": "What is the difference between public debt and a budget deficit?",
+      "backAnswer": "Debt is a stock measured at a point in time. A deficit is a shortfall measured over a period.",
+      "keyFormulaOrRule": "A smaller deficit can still increase the debt."
+    },
+    {
+      "id": "csc1-fc-d3-01",
+      "domainId": "csc-d3",
+      "frontPrompt": "How much coupon cash does a $1,000 bond with a 6% annual coupon pay each half year?",
+      "backAnswer": "$30 per payment if it pays semiannually.",
+      "keyFormulaOrRule": "Annual coupon = par × rate. Divide by two for semiannual payments."
+    },
+    {
+      "id": "csc1-fc-d3-02",
+      "domainId": "csc-d3",
+      "frontPrompt": "Why can a callable bond create reinvestment risk?",
+      "backAnswer": "The issuer can redeem it under the call terms, potentially when replacement bonds offer lower yields.",
+      "keyFormulaOrRule": "The issuer holds the call right."
+    },
+    {
+      "id": "csc1-fc-d3-03",
+      "domainId": "csc-d3",
+      "frontPrompt": "What does a credit rating evaluate?",
+      "backAnswer": "It is an opinion about credit risk, including the issuer’s capacity to meet its obligations.",
+      "keyFormulaOrRule": "It does not guarantee repayment, market liquidity, or the bond price."
+    },
+    {
+      "id": "csc1-fc-d3-04",
+      "domainId": "csc-d3",
+      "frontPrompt": "How do Treasury bills ordinarily provide a return?",
+      "backAnswer": "They are generally purchased at a discount and redeemed at face value.",
+      "keyFormulaOrRule": "For a bill held to maturity, the gross gain is face value − purchase price."
+    },
+    {
+      "id": "csc1-fc-d4-01",
+      "domainId": "csc-d4",
+      "frontPrompt": "Which yield measure includes the gain or loss from redemption at par?",
+      "backAnswer": "Yield to maturity incorporates the scheduled coupons and principal, based on the price paid.",
+      "keyFormulaOrRule": "Current yield = annual coupon cash ÷ current clean price."
+    },
+    {
+      "id": "csc1-fc-d4-02",
+      "domainId": "csc-d4",
+      "frontPrompt": "What does the clean bond price leave out?",
+      "backAnswer": "Accrued interest since the previous coupon date.",
+      "keyFormulaOrRule": "Invoice price before fees = clean price + accrued interest."
+    },
+    {
+      "id": "csc1-fc-d4-03",
+      "domainId": "csc-d4",
+      "frontPrompt": "Why does a fixed-rate bond generally fall when its required yield rises?",
+      "backAnswer": "Its scheduled cash flows are discounted at a higher rate.",
+      "keyFormulaOrRule": "For small yield moves, approximate percentage price change = −modified duration × yield change."
+    },
+    {
+      "id": "csc1-fc-d4-04",
+      "domainId": "csc-d4",
+      "frontPrompt": "What does an inverted segment of the yield curve show?",
+      "backAnswer": "Shorter-dated yields are higher than longer-dated yields over that segment.",
+      "keyFormulaOrRule": "Compare yields for otherwise comparable instruments at the same point in time."
+    },
+    {
+      "id": "csc1-fc-d5-01",
+      "domainId": "csc-d5",
+      "frontPrompt": "What happens to ownership percentage in a proportional stock split?",
+      "backAnswer": "It stays the same if every share is split in the same ratio.",
+      "keyFormulaOrRule": "Share count rises while the theoretical price per share falls proportionally."
+    },
+    {
+      "id": "csc1-fc-d5-02",
+      "domainId": "csc-d5",
+      "frontPrompt": "How does a cumulative preferred share treat skipped dividends?",
+      "backAnswer": "Unpaid amounts accumulate under the issue terms and generally must be addressed before common dividends resume.",
+      "keyFormulaOrRule": "Read the terms of the preferred share."
+    },
+    {
+      "id": "csc1-fc-d5-03",
+      "domainId": "csc-d5",
+      "frontPrompt": "Who ordinarily gets an announced dividend if a share is purchased on its ex-dividend date?",
+      "backAnswer": "The seller retains the entitlement to that dividend.",
+      "keyFormulaOrRule": "The ex-dividend date is the first trading day without that dividend attached."
+    },
+    {
+      "id": "csc1-fc-d5-04",
+      "domainId": "csc-d5",
+      "frontPrompt": "How do you calculate a company’s equity market capitalization?",
+      "backAnswer": "Multiply the current share price by the number of shares outstanding for a single-class company.",
+      "keyFormulaOrRule": "Market capitalization is the market value of equity, not book equity."
+    },
+    {
+      "id": "csc1-fc-d6-01",
+      "domainId": "csc-d6",
+      "frontPrompt": "What does a buy limit order control?",
+      "backAnswer": "The maximum price the buyer will pay.",
+      "keyFormulaOrRule": "The order may execute at the limit or better, but a fill is not guaranteed."
+    },
+    {
+      "id": "csc1-fc-d6-02",
+      "domainId": "csc-d6",
+      "frontPrompt": "How is equity in a long margin account calculated?",
+      "backAnswer": "Subtract the debit balance from the market value of the position, assuming no other assets or balances.",
+      "keyFormulaOrRule": "Leverage magnifies percentage gains and losses on account equity."
+    },
+    {
+      "id": "csc1-fc-d6-03",
+      "domainId": "csc-d6",
+      "frontPrompt": "Why can a short sale generate a loss larger than the initial proceeds?",
+      "backAnswer": "The price to buy back the borrowed shares can rise far above the sale price.",
+      "keyFormulaOrRule": "Gross short profit = shares × (sell price − cover price)."
+    },
+    {
+      "id": "csc1-fc-d6-04",
+      "domainId": "csc-d6",
+      "frontPrompt": "Can a sell stop fill below its trigger price?",
+      "backAnswer": "Yes. Once a stop-market order triggers, it may fill at the available market price.",
+      "keyFormulaOrRule": "A trigger price is not a guaranteed execution price."
+    },
+    {
+      "id": "csc1-fc-d7-01",
+      "domainId": "csc-d7",
+      "frontPrompt": "What right does a long call give its holder?",
+      "backAnswer": "The right to buy the underlying at the strike price under the contract terms.",
+      "keyFormulaOrRule": "A long put gives the right to sell."
+    },
+    {
+      "id": "csc1-fc-d7-02",
+      "domainId": "csc-d7",
+      "frontPrompt": "What is a long put’s net payoff per share at expiration?",
+      "backAnswer": "The greater of strike minus spot and zero, less the premium paid.",
+      "keyFormulaOrRule": "Multiply the per-share amount by the contract size and number of contracts."
+    },
+    {
+      "id": "csc1-fc-d7-03",
+      "domainId": "csc-d7",
+      "frontPrompt": "How does a futures contract differ from a typical forward?",
+      "backAnswer": "Futures are standardized and traded on an exchange; forwards are typically customized bilateral contracts.",
+      "keyFormulaOrRule": "Futures positions generally settle gains and losses through daily marking to market."
+    },
+    {
+      "id": "csc1-fc-d7-04",
+      "domainId": "csc-d7",
+      "frontPrompt": "How can company-issued warrants dilute an existing shareholder?",
+      "backAnswer": "Exercise may create additional shares, reducing the holder’s ownership percentage if their own holdings are unchanged.",
+      "keyFormulaOrRule": "Ownership percentage = shares held ÷ total shares outstanding."
+    },
+    {
+      "id": "csc1-fc-d8-01",
+      "domainId": "csc-d8",
+      "frontPrompt": "How do you calculate the current ratio?",
+      "backAnswer": "Divide current assets by current liabilities.",
+      "keyFormulaOrRule": "The ratio measures short-term balance-sheet liquidity."
+    },
+    {
+      "id": "csc1-fc-d8-02",
+      "domainId": "csc-d8",
+      "frontPrompt": "Why is depreciation added back when using the indirect cash-flow method?",
+      "backAnswer": "Depreciation lowered accounting profit without being a cash outflow in that period.",
+      "keyFormulaOrRule": "The purchase of equipment is generally an investing cash flow."
+    },
+    {
+      "id": "csc1-fc-d8-03",
+      "domainId": "csc-d8",
+      "frontPrompt": "How is common EPS calculated in a simple capital structure?",
+      "backAnswer": "Subtract preferred dividends from net income, then divide by weighted-average common shares.",
+      "keyFormulaOrRule": "Keep earnings and the share count for the same reporting period."
+    },
+    {
+      "id": "csc1-fc-d8-04",
+      "domainId": "csc-d8",
+      "frontPrompt": "Which report explains management’s view of changes in operating results and risks?",
+      "backAnswer": "Management’s discussion and analysis.",
+      "keyFormulaOrRule": "Use it alongside the financial statements and their notes."
+    },
+    {
+      "id": "csc1-fc-d9-01",
+      "domainId": "csc-d9",
+      "frontPrompt": "Who carries the risk of reselling a firm-commitment issue?",
+      "backAnswer": "The underwriter, who commits to buy and resell the securities under the agreement.",
+      "keyFormulaOrRule": "A best-efforts dealer seeks purchasers without usually committing to buy the unsold balance."
+    },
+    {
+      "id": "csc1-fc-d9-02",
+      "domainId": "csc-d9",
+      "frontPrompt": "How do you calculate net offering proceeds to the issuer?",
+      "backAnswer": "Subtract underwriting compensation and other issuance costs from gross proceeds.",
+      "keyFormulaOrRule": "Gross proceeds = offer price × shares issued in a primary offering."
+    },
+    {
+      "id": "csc1-fc-d9-03",
+      "domainId": "csc-d9",
+      "frontPrompt": "How can a shareholder keep the same proportional ownership in a pro rata rights issue?",
+      "backAnswer": "Exercise the full allotment, assuming the whole issue is subscribed and there are no other changes.",
+      "keyFormulaOrRule": "Subscription rights may have value that disappears at expiry."
+    },
+    {
+      "id": "csc1-fc-d9-04",
+      "domainId": "csc-d9",
+      "frontPrompt": "What is the purpose of a temporary trading halt pending material news?",
+      "backAnswer": "It gives the market a chance to receive and absorb the information before trading resumes.",
+      "keyFormulaOrRule": "A halt is distinct from delisting, which removes the listing."
+    }
+  ],
+  "audio": [
+    {
+      "id": "csc1-audio-d1",
+      "domainId": "csc-d1",
+      "title": "The Canadian investment marketplace",
+      "subtitle": "Follow the cash in a securities trade.",
+      "concepts": [
+        "Primary and secondary markets",
+        "Dealer capacity",
+        "Know your client"
+      ],
+      "durationSeconds": 47,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Start with the question, who receives the investor's money? When a company issues new shares, it receives the proceeds, less the costs of the offering. When one investor buys those shares from another investor on an exchange, the selling investor receives the sale proceeds.",
+          "timestampSeconds": 0,
+          "file": "d1-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "Next, look at the dealer's role. As principal, the dealer trades for its own account. As agent, it arranges the trade for the client. If the dealer quotes a bid and an ask, a client selling to the dealer generally receives the bid.",
+          "timestampSeconds": 18,
+          "file": "d1-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "Finally, consider suitability. If a client now needs money for rent or loses a source of income, the representative needs to revisit the client's financial circumstances and liquidity needs before relying on the old recommendation.",
+          "timestampSeconds": 31,
+          "file": "d1-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-d2",
+      "domainId": "csc-d2",
+      "title": "The economy",
+      "subtitle": "Read the direction of inflation, output and interest rates.",
+      "concepts": [
+        "Inflation",
+        "Real returns",
+        "Monetary policy"
+      ],
+      "durationSeconds": 44,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Inflation measures how fast prices are changing. If inflation falls from five percent to two percent, prices are still rising. The increase is slower. A fall in the overall price level would instead be deflation.",
+          "timestampSeconds": 0,
+          "file": "d2-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "To estimate the exact real return, divide one plus the nominal return by one plus inflation, and subtract one. For an eight percent return and three percent inflation, divide one point zero eight by one point zero three. The real return is roughly four point nine percent.",
+          "timestampSeconds": 14,
+          "file": "d2-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "Keep fiscal and monetary policy separate. Government spending and taxation are fiscal tools. The central bank's policy rate is a monetary tool. Higher borrowing costs can restrain interest-sensitive spending.",
+          "timestampSeconds": 30,
+          "file": "d2-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-d3",
+      "domainId": "csc-d3",
+      "title": "Fixed-income features and types",
+      "subtitle": "Identify the promises made by an issuer.",
+      "concepts": [
+        "Coupon cash flows",
+        "Call features",
+        "Credit risk"
+      ],
+      "durationSeconds": 41,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A bond's face value determines the principal due under the terms. On one thousand dollars face, a six percent coupon pays sixty dollars per year. When coupons are semiannual, that is thirty dollars each payment.",
+          "timestampSeconds": 0,
+          "file": "d3-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "Next, identify who controls any early repayment. A callable issue gives the issuer the option to redeem the bond under the stated terms. Falling rates can make that option attractive because replacement financing may cost less.",
+          "timestampSeconds": 14,
+          "file": "d3-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "Credit risk belongs to the issuer and the issue's terms. Credit ratings help compare the ability to meet financial obligations. They do not tell you what every dealer will bid, or how quickly you can sell.",
+          "timestampSeconds": 28,
+          "file": "d3-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-d4",
+      "domainId": "csc-d4",
+      "title": "Fixed-income pricing and trading",
+      "subtitle": "Distinguish clean price, invoice price and yields.",
+      "concepts": [
+        "Accrued interest",
+        "Current yield",
+        "Yield to maturity"
+      ],
+      "durationSeconds": 43,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A clean quote of ninety eight on ten thousand dollars face translates to nine thousand eight hundred dollars before accrued interest. The invoice price adds the portion of the next coupon already earned by the seller.",
+          "timestampSeconds": 0,
+          "file": "d4-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "Current yield divides the annual coupon cash by the clean price. It is a coupon-income measure. Yield to maturity includes the scheduled principal repayment as well as the coupons, so it captures a discount or premium to face value.",
+          "timestampSeconds": 13,
+          "file": "d4-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "Remember the direction before calculating. When required yield rises, the same scheduled cash flows are discounted more heavily and the price typically falls. Modified duration helps estimate the percentage change for a small yield move.",
+          "timestampSeconds": 27,
+          "file": "d4-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-d5",
+      "domainId": "csc-d5",
+      "title": "Common and preferred shares",
+      "subtitle": "Understand ownership, dividends and split mechanics.",
+      "concepts": [
+        "Common-share rights",
+        "Preferred dividends",
+        "Market capitalization"
+      ],
+      "durationSeconds": 48,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Common shares are a residual claim. Creditor claims come first in a liquidation, and preferred claims may rank ahead of common shares. Preferred shares have issue-specific terms that shape their income and redemption features.",
+          "timestampSeconds": 0,
+          "file": "d5-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "For a two-for-one split, replace each old share with two new shares. If a stock was theoretically worth forty dollars before the split, each new share is theoretically worth twenty. The stock split itself does not increase the holder's ownership percentage.",
+          "timestampSeconds": 14,
+          "file": "d5-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "For dividend entitlement, identify whether the trade is before or on the ex-dividend date. On the ex-dividend date, a new buyer ordinarily does not receive the announced dividend. Finally, market capitalization is price per share times shares outstanding in a single-class company.",
+          "timestampSeconds": 29,
+          "file": "d5-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-d6",
+      "domainId": "csc-d6",
+      "title": "Equity transactions",
+      "subtitle": "Choose an order type and reason through leverage.",
+      "concepts": [
+        "Limit orders",
+        "Margin equity",
+        "Short selling"
+      ],
+      "durationSeconds": 48,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "If the client wants an immediate trade, a market order prioritizes execution. If the client wants a price ceiling on a buy, a limit order controls the price but may not execute. A stop-market order can execute away from its trigger after a price gap.",
+          "timestampSeconds": 0,
+          "file": "d6-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "For a long margin position, market value minus the debit balance gives account equity under the simplified assumptions. If a twenty-thousand-dollar position backed by ten thousand dollars of equity loses two thousand dollars, the position is down ten percent but equity is down twenty percent.",
+          "timestampSeconds": 17,
+          "file": "d6-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "A short seller sells borrowed shares and eventually has to buy shares back. The position benefits if the purchase price is lower than the sale price. Dividends owed to the lender and borrowing charges can reduce the net profit.",
+          "timestampSeconds": 34,
+          "file": "d6-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-d7",
+      "domainId": "csc-d7",
+      "title": "Derivatives",
+      "subtitle": "Translate contract rights into expiration payoff.",
+      "concepts": [
+        "Calls and puts",
+        "Option premiums",
+        "Forwards and futures"
+      ],
+      "durationSeconds": 43,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "A call gives its holder the right to buy at the strike. A put gives its holder the right to sell at the strike. Begin by asking whether exercising the right has value at expiration.",
+          "timestampSeconds": 0,
+          "file": "d7-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "Suppose a put has a fifty-dollar strike and the share ends at forty-six dollars. Its intrinsic value is four dollars. If the holder paid a one-dollar premium, profit at expiration is three dollars per share before fees. Apply the contract multiplier last.",
+          "timestampSeconds": 12,
+          "file": "d7-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "Futures are standardized exchange-traded contracts that generally mark gains and losses to market daily. A forward can be tailored to a particular amount and date, such as the date an exporter expects to receive U.S. dollars.",
+          "timestampSeconds": 27,
+          "file": "d7-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-d8",
+      "domainId": "csc-d8",
+      "title": "Corporations and financial statements",
+      "subtitle": "Connect reported profit, cash and balance-sheet measures.",
+      "concepts": [
+        "Liquidity ratios",
+        "Cash-flow adjustments",
+        "EPS"
+      ],
+      "durationSeconds": 44,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "Use the income statement to find the period's profit and the balance sheet to find assets and obligations at a point in time. To assess short-term liquidity, divide current assets by current liabilities.",
+          "timestampSeconds": 0,
+          "file": "d8-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "Profit and cash can move differently. In an indirect operating cash-flow reconciliation, add back depreciation as a noncash charge. If receivables grew because customers have not paid, deduct that increase, all else equal.",
+          "timestampSeconds": 14,
+          "file": "d8-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "When calculating common earnings per share, first determine earnings available to common shareholders after preferred dividends. Then divide by weighted-average common shares for the reporting period. Read management's discussion for context on material changes.",
+          "timestampSeconds": 27,
+          "file": "d8-3.mp3"
+        }
+      ]
+    },
+    {
+      "id": "csc1-audio-d9",
+      "domainId": "csc-d9",
+      "title": "Financing and listing securities",
+      "subtitle": "Follow an issue from underwriting through distribution.",
+      "concepts": [
+        "Underwriting",
+        "Net proceeds",
+        "Rights issues"
+      ],
+      "durationSeconds": 41,
+      "turns": [
+        {
+          "speaker": "Alex",
+          "text": "In firm-commitment underwriting, the dealer commits to buy an issue under the agreement and bears the risk of reselling it. A best-efforts mandate instead calls for the dealer to seek buyers under the terms of the mandate.",
+          "timestampSeconds": 0,
+          "file": "d9-1.mp3"
+        },
+        {
+          "speaker": "Maya",
+          "text": "Determine who is selling the shares. For newly issued shares, multiply the issue price by shares issued for gross proceeds. Deduct underwriting compensation and issue costs to estimate the issuer's net proceeds.",
+          "timestampSeconds": 13,
+          "file": "d9-2.mp3"
+        },
+        {
+          "speaker": "Alex",
+          "text": "A rights offering lets existing holders subscribe in proportion to their holdings under the stated terms. A holder who exercises the full allocation can preserve their ownership percentage when the issue is fully subscribed and nothing else changes.",
+          "timestampSeconds": 25,
+          "file": "d9-3.mp3"
+        }
+      ]
+    }
+  ]
+}

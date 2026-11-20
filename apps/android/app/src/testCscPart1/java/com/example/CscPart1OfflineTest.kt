@@ -218,9 +218,19 @@ class CscPart1OfflineTest {
                 ),
                 repository.bankMetadata.value.syllabusWeights
             )
-            assertTrue("Expected no CISSP flashcards in CSC Part 1", repository.flashcards.value.isEmpty())
+            awaitCondition { repository.flashcards.value.size == 36 }
+            assertTrue(repository.flashcards.value.all { it.examId == "csc-part-1" })
+            assertEquals(9, repository.flashcards.value.map { it.domainId }.distinct().size)
             assertTrue("Expected no CISSP study guides in CSC Part 1", repository.sources.value.isEmpty())
-            assertTrue("Expected no CISSP audio briefings in CSC Part 1", repository.audioOverviews.value.isEmpty())
+            val briefings = repository.audioOverviews.value
+            assertEquals(9, briefings.size)
+            assertEquals(9, briefings.map { it.domainId }.distinct().size)
+            assertTrue(briefings.all { it.examId == "csc-part-1" && it.turns.size == 3 })
+            briefings.flatMap { it.turns }.forEach { turn ->
+                context.assets.open(requireNotNull(turn.audioAssetPath)).use { stream ->
+                    assertTrue(stream.read() >= 0)
+                }
+            }
             assertFalse(repository.backendConfig.value.isOnline)
             assertFalse(repository.backendConfig.value.isConnected)
             assertEquals(0, repository.readinessReport.value.readinessPercent)
@@ -521,8 +531,9 @@ class CscPart1OfflineTest {
     @Test
     fun inProgressAttemptCompletedSessionFlashcardsAndNotes_surviveAppRestart() = runBlocking(Dispatchers.IO) {
         val testQuestions = buildSyntheticCscQuestions()
+        lateinit var ratedCardId: String
 
-        // Launch 1: Create study note, create & rate flashcard, start simulation, pause & exit to dashboard
+        // Launch 1: Create a study note, rate a bundled flashcard, then pause a simulation.
         val vm1 = ExamViewModel(application)
         try {
             vm1.repositoryForTesting().setQuestionsForTesting(testQuestions)
@@ -538,7 +549,9 @@ class CscPart1OfflineTest {
                 backAnswer = "60%",
                 keyRule = "CSC threshold = 60%"
             )
-            awaitCondition { vm1.flashcards.value.size == 1 && vm1.sources.value.size == 1 }
+            awaitCondition { vm1.flashcards.value.size == 36 && vm1.sources.value.size == 1 }
+            assertTrue(vm1.flashcards.value.none { it.frontPrompt == "What is the CSC Part 1 passing grade?" })
+            ratedCardId = vm1.flashcards.value.first().id
             vm1.rateFlashcard(boxLevel = 5)
 
             vm1.startSimulation(ExamMode.FULL_SIMULATION)
@@ -558,7 +571,7 @@ class CscPart1OfflineTest {
                 val attempt = CertDatabase.getInstance(context).activeExamAttemptDao().getAttemptForExam("csc-part-1")
                 val cards = CertDatabase.getInstance(context).flashcardDao().getFlashcardsByExam("csc-part-1").first()
                 val srcs = CertDatabase.getInstance(context).studySourceDao().getSourcesByExam("csc-part-1").first()
-                attempt != null && attempt.isPaused && cards.firstOrNull()?.boxLevel == 5 && srcs.size == 1
+                attempt != null && attempt.isPaused && cards.any { it.id == ratedCardId && it.boxLevel == 5 } && srcs.size == 1
             }
 
             // Finish a second simulation on another session or inspect active attempt first
@@ -573,11 +586,11 @@ class CscPart1OfflineTest {
             vm2.repositoryForTesting().setQuestionsForTesting(testQuestions)
             awaitCondition {
                 vm2.savedActiveAttempt.value != null &&
-                    vm2.flashcards.value.size == 1 &&
+                    vm2.flashcards.value.size == 36 &&
                     vm2.sources.value.size == 1
             }
 
-            assertEquals(5, vm2.flashcards.value.first().boxLevel)
+            assertEquals(5, vm2.flashcards.value.first { it.id == ratedCardId }.boxLevel)
             assertEquals("Chapter 1 Summary", vm2.sources.value.first().title)
 
             val resumed = vm2.resumeSavedSimulation()

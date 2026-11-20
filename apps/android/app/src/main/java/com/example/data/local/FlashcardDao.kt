@@ -18,6 +18,9 @@ interface FlashcardDao {
     @Query("SELECT * FROM cached_flashcards WHERE id = :id LIMIT 1")
     suspend fun getFlashcardById(id: String): FlashcardEntity?
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertMissingFlashcards(cards: List<FlashcardEntity>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFlashcards(cards: List<FlashcardEntity>)
 
