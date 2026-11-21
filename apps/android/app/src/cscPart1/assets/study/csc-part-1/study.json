@@ -1044,7 +1044,7 @@
         "Dealer capacity",
         "Know your client"
       ],
-      "durationSeconds": 47,
+      "durationSeconds": 50,
       "turns": [
         {
           "speaker": "Alex",
@@ -1055,13 +1055,13 @@
         {
           "speaker": "Maya",
           "text": "Next, look at the dealer's role. As principal, the dealer trades for its own account. As agent, it arranges the trade for the client. If the dealer quotes a bid and an ask, a client selling to the dealer generally receives the bid.",
-          "timestampSeconds": 18,
+          "timestampSeconds": 19,
           "file": "d1-2.mp3"
         },
         {
           "speaker": "Alex",
           "text": "Finally, consider suitability. If a client now needs money for rent or loses a source of income, the representative needs to revisit the client's financial circumstances and liquidity needs before relying on the old recommendation.",
-          "timestampSeconds": 31,
+          "timestampSeconds": 33,
           "file": "d1-3.mp3"
         }
       ]
@@ -1075,7 +1075,7 @@
       "concepts": [
         "Suitability and investor remedies"
       ],
-      "durationSeconds": 32,
+      "durationSeconds": 33,
       "turns": [
         {
           "speaker": "Alex",
@@ -1094,7 +1094,7 @@
       "concepts": [
         "Deposits and missing brokerage property"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1113,7 +1113,7 @@
       "concepts": [
         "How instruments connect issuers and investors"
       ],
-      "durationSeconds": 30,
+      "durationSeconds": 31,
       "turns": [
         {
           "speaker": "Alex",
@@ -1132,7 +1132,7 @@
       "concepts": [
         "Bid, ask and dealer capacity"
       ],
-      "durationSeconds": 24,
+      "durationSeconds": 27,
       "turns": [
         {
           "speaker": "Alex",
@@ -1152,7 +1152,7 @@
         "Real returns",
         "Monetary policy"
       ],
-      "durationSeconds": 44,
+      "durationSeconds": 49,
       "turns": [
         {
           "speaker": "Alex",
@@ -1163,13 +1163,13 @@
         {
           "speaker": "Maya",
           "text": "To estimate the exact real return, divide one plus the nominal return by one plus inflation, and subtract one. For an eight percent return and three percent inflation, divide one point zero eight by one point zero three. The real return is roughly four point nine percent.",
-          "timestampSeconds": 14,
+          "timestampSeconds": 16,
           "file": "d2-2.mp3"
         },
         {
           "speaker": "Alex",
           "text": "Keep fiscal and monetary policy separate. Government spending and taxation are fiscal tools. The central bank's policy rate is a monetary tool. Higher borrowing costs can restrain interest-sensitive spending.",
-          "timestampSeconds": 30,
+          "timestampSeconds": 34,
           "file": "d2-3.mp3"
         }
       ]
@@ -1183,7 +1183,7 @@
       "concepts": [
         "Exchange rates and cross-border flows"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 31,
       "turns": [
         {
           "speaker": "Alex",
@@ -1202,7 +1202,7 @@
       "concepts": [
         "The budget balance and fiscal stabilizers"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 33,
       "turns": [
         {
           "speaker": "Alex",
@@ -1221,7 +1221,7 @@
       "concepts": [
         "The Bank of Canada and rate changes"
       ],
-      "durationSeconds": 30,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1240,7 +1240,7 @@
       "concepts": [
         "Real output and labour productivity"
       ],
-      "durationSeconds": 32,
+      "durationSeconds": 35,
       "turns": [
         {
           "speaker": "Alex",
@@ -1259,7 +1259,7 @@
       "concepts": [
         "Spotting the business cycle"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1278,7 +1278,7 @@
       "concepts": [
         "The labour force and unemployment"
       ],
-      "durationSeconds": 30,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1297,7 +1297,7 @@
       "concepts": [
         "Inflation and purchasing power"
       ],
-      "durationSeconds": 30,
+      "durationSeconds": 33,
       "turns": [
         {
           "speaker": "Alex",
@@ -1317,7 +1317,7 @@
         "Call features",
         "Credit risk"
       ],
-      "durationSeconds": 41,
+      "durationSeconds": 44,
       "turns": [
         {
           "speaker": "Alex",
@@ -1328,13 +1328,13 @@
         {
           "speaker": "Maya",
           "text": "Next, identify who controls any early repayment. A callable issue gives the issuer the option to redeem the bond under the stated terms. Falling rates can make that option attractive because replacement financing may cost less.",
-          "timestampSeconds": 14,
+          "timestampSeconds": 15,
           "file": "d3-2.mp3"
         },
         {
           "speaker": "Alex",
           "text": "Credit risk belongs to the issuer and the issue's terms. Credit ratings help compare the ability to meet financial obligations. They do not tell you what every dealer will bid, or how quickly you can sell.",
-          "timestampSeconds": 28,
+          "timestampSeconds": 30,
           "file": "d3-3.mp3"
         }
       ]
@@ -1348,7 +1348,7 @@
       "concepts": [
         "Credit ratings and yield spreads"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1367,7 +1367,7 @@
       "concepts": [
         "Who backs government and municipal debt"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1386,7 +1386,7 @@
       "concepts": [
         "Short-term funding and guaranteed investments"
       ],
-      "durationSeconds": 31,
+      "durationSeconds": 33,
       "turns": [
         {
           "speaker": "Alex",
@@ -1405,7 +1405,7 @@
       "concepts": [
         "Call, conversion and ranking features"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1424,7 +1424,7 @@
       "concepts": [
         "Par, coupons and maturity"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1444,7 +1444,7 @@
         "Current yield",
         "Yield to maturity"
       ],
-      "durationSeconds": 43,
+      "durationSeconds": 47,
       "turns": [
         {
           "speaker": "Alex",
@@ -1455,13 +1455,13 @@
         {
           "speaker": "Maya",
           "text": "Current yield divides the annual coupon cash by the clean price. It is a coupon-income measure. Yield to maturity includes the scheduled principal repayment as well as the coupons, so it captures a discount or premium to face value.",
-          "timestampSeconds": 13,
+          "timestampSeconds": 15,
           "file": "d4-2.mp3"
         },
         {
           "speaker": "Alex",
           "text": "Remember the direction before calculating. When required yield rises, the same scheduled cash flows are discounted more heavily and the price typically falls. Modified duration helps estimate the percentage change for a small yield move.",
-          "timestampSeconds": 27,
+          "timestampSeconds": 30,
           "file": "d4-3.mp3"
         }
       ]
@@ -1475,7 +1475,7 @@
       "concepts": [
         "What the buyer pays at settlement"
       ],
-      "durationSeconds": 27,
+      "durationSeconds": 29,
       "turns": [
         {
           "speaker": "Alex",
@@ -1494,7 +1494,7 @@
       "concepts": [
         "Curve slope and bond index returns"
       ],
-      "durationSeconds": 27,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1513,7 +1513,7 @@
       "concepts": [
         "From a bill's price to its yield"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1532,7 +1532,7 @@
       "concepts": [
         "Reading percentage-of-par bond quotes"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1551,7 +1551,7 @@
       "concepts": [
         "How duration estimates price moves"
       ],
-      "durationSeconds": 32,
+      "durationSeconds": 34,
       "turns": [
         {
           "speaker": "Alex",
@@ -1570,7 +1570,7 @@
       "concepts": [
         "Current yield and yield to maturity"
       ],
-      "durationSeconds": 26,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1590,7 +1590,7 @@
         "Preferred dividends",
         "Market capitalization"
       ],
-      "durationSeconds": 48,
+      "durationSeconds": 51,
       "turns": [
         {
           "speaker": "Alex",
@@ -1601,13 +1601,13 @@
         {
           "speaker": "Maya",
           "text": "For a two-for-one split, replace each old share with two new shares. If a stock was theoretically worth forty dollars before the split, each new share is theoretically worth twenty. The stock split itself does not increase the holder's ownership percentage.",
-          "timestampSeconds": 14,
+          "timestampSeconds": 15,
           "file": "d5-2.mp3"
         },
         {
           "speaker": "Alex",
           "text": "For dividend entitlement, identify whether the trade is before or on the ex-dividend date. On the ex-dividend date, a new buyer ordinarily does not receive the announced dividend. Finally, market capitalization is price per share times shares outstanding in a single-class company.",
-          "timestampSeconds": 29,
+          "timestampSeconds": 30,
           "file": "d5-3.mp3"
         }
       ]
@@ -1621,7 +1621,7 @@
       "concepts": [
         "Reading preferred-share terms"
       ],
-      "durationSeconds": 30,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1640,7 +1640,7 @@
       "concepts": [
         "Share count versus percentage ownership"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1659,7 +1659,7 @@
       "concepts": [
         "Dividend entitlement, yield and payout"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 31,
       "turns": [
         {
           "speaker": "Alex",
@@ -1678,7 +1678,7 @@
       "concepts": [
         "Capitalization and index weights"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 33,
       "turns": [
         {
           "speaker": "Alex",
@@ -1697,7 +1697,7 @@
       "concepts": [
         "Common-share claims and valuation ratios"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -1717,7 +1717,7 @@
         "Margin equity",
         "Short selling"
       ],
-      "durationSeconds": 48,
+      "durationSeconds": 53,
       "turns": [
         {
           "speaker": "Alex",
@@ -1728,13 +1728,13 @@
         {
           "speaker": "Maya",
           "text": "For a long margin position, market value minus the debit balance gives account equity under the simplified assumptions. If a twenty-thousand-dollar position backed by ten thousand dollars of equity loses two thousand dollars, the position is down ten percent but equity is down twenty percent.",
-          "timestampSeconds": 17,
+          "timestampSeconds": 18,
           "file": "d6-2.mp3"
         },
         {
           "speaker": "Alex",
           "text": "A short seller sells borrowed shares and eventually has to buy shares back. The position benefits if the purchase price is lower than the sale price. Dividends owed to the lender and borrowing charges can reduce the net profit.",
-          "timestampSeconds": 34,
+          "timestampSeconds": 37,
           "file": "d6-3.mp3"
         }
       ]
@@ -1748,7 +1748,7 @@
       "concepts": [
         "The cash flows of a short sale"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1767,7 +1767,7 @@
       "concepts": [
         "Margin equity and price changes"
       ],
-      "durationSeconds": 29,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1786,7 +1786,7 @@
       "concepts": [
         "Choosing between market, limit and stop orders"
       ],
-      "durationSeconds": 27,
+      "durationSeconds": 29,
       "turns": [
         {
           "speaker": "Alex",
@@ -1805,7 +1805,7 @@
       "concepts": [
         "Trade date, settlement date and costs"
       ],
-      "durationSeconds": 26,
+      "durationSeconds": 28,
       "turns": [
         {
           "speaker": "Alex",
@@ -1825,7 +1825,7 @@
         "Option premiums",
         "Forwards and futures"
       ],
-      "durationSeconds": 43,
+      "durationSeconds": 46,
       "turns": [
         {
           "speaker": "Alex",
@@ -1842,7 +1842,7 @@
         {
           "speaker": "Alex",
           "text": "Futures are standardized exchange-traded contracts that generally mark gains and losses to market daily. A forward can be tailored to a particular amount and date, such as the date an exporter expects to receive U.S. dollars.",
-          "timestampSeconds": 27,
+          "timestampSeconds": 29,
           "file": "d7-3.mp3"
         }
       ]
@@ -1856,7 +1856,7 @@
       "concepts": [
         "Using forwards and futures to hedge"
       ],
-      "durationSeconds": 27,
+      "durationSeconds": 29,
       "turns": [
         {
           "speaker": "Alex",
@@ -1875,7 +1875,7 @@
       "concepts": [
         "Option payoff, premium and break-even"
       ],
-      "durationSeconds": 24,
+      "durationSeconds": 26,
       "turns": [
         {
           "speaker": "Alex",
@@ -1894,7 +1894,7 @@
       "concepts": [
         "What rights and warrants let you buy"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1914,7 +1914,7 @@
         "Cash-flow adjustments",
         "EPS"
       ],
-      "durationSeconds": 44,
+      "durationSeconds": 47,
       "turns": [
         {
           "speaker": "Alex",
@@ -1931,7 +1931,7 @@
         {
           "speaker": "Alex",
           "text": "When calculating common earnings per share, first determine earnings available to common shareholders after preferred dividends. Then divide by weighted-average common shares for the reporting period. Read management's discussion for context on material changes.",
-          "timestampSeconds": 27,
+          "timestampSeconds": 29,
           "file": "d8-3.mp3"
         }
       ]
@@ -1945,7 +1945,7 @@
       "concepts": [
         "The corporation, its board and its shareholders"
       ],
-      "durationSeconds": 27,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -1964,7 +1964,7 @@
       "concepts": [
         "Disclosure, insider reports and takeover bids"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 31,
       "turns": [
         {
           "speaker": "Alex",
@@ -1983,7 +1983,7 @@
       "concepts": [
         "Operating, investing and financing cash flows"
       ],
-      "durationSeconds": 31,
+      "durationSeconds": 33,
       "turns": [
         {
           "speaker": "Alex",
@@ -2002,7 +2002,7 @@
       "concepts": [
         "From revenue to profit"
       ],
-      "durationSeconds": 31,
+      "durationSeconds": 33,
       "turns": [
         {
           "speaker": "Alex",
@@ -2021,7 +2021,7 @@
       "concepts": [
         "Assets, obligations and liquidity ratios"
       ],
-      "durationSeconds": 32,
+      "durationSeconds": 34,
       "turns": [
         {
           "speaker": "Alex",
@@ -2041,7 +2041,7 @@
         "Net proceeds",
         "Rights issues"
       ],
-      "durationSeconds": 41,
+      "durationSeconds": 46,
       "turns": [
         {
           "speaker": "Alex",
@@ -2052,13 +2052,13 @@
         {
           "speaker": "Maya",
           "text": "Determine who is selling the shares. For newly issued shares, multiply the issue price by shares issued for gross proceeds. Deduct underwriting compensation and issue costs to estimate the issuer's net proceeds.",
-          "timestampSeconds": 13,
+          "timestampSeconds": 14,
           "file": "d9-2.mp3"
         },
         {
           "speaker": "Alex",
           "text": "A rights offering lets existing holders subscribe in proportion to their holdings under the stated terms. A holder who exercises the full allocation can preserve their ownership percentage when the issue is fully subscribed and nothing else changes.",
-          "timestampSeconds": 25,
+          "timestampSeconds": 28,
           "file": "d9-3.mp3"
         }
       ]
@@ -2072,7 +2072,7 @@
       "concepts": [
         "From the offer price to net proceeds"
       ],
-      "durationSeconds": 31,
+      "durationSeconds": 32,
       "turns": [
         {
           "speaker": "Alex",
@@ -2091,7 +2091,7 @@
       "concepts": [
         "Ownership and value after a rights offering"
       ],
-      "durationSeconds": 27,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
@@ -2110,7 +2110,7 @@
       "concepts": [
         "Prospectus disclosure and exemptions"
       ],
-      "durationSeconds": 33,
+      "durationSeconds": 35,
       "turns": [
         {
           "speaker": "Alex",
@@ -2129,7 +2129,7 @@
       "concepts": [
         "Delayed opens, trading halts and delisting"
       ],
-      "durationSeconds": 28,
+      "durationSeconds": 30,
       "turns": [
         {
           "speaker": "Alex",
